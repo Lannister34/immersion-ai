@@ -1,0 +1,18 @@
+{
+  "name": "immersion-ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0",
+  "engines": {
+    "node": ">= 18"
+  },
+  "scripts": {
+    "dev": "pm2 start ecosystem.config.cjs",
+    "stop": "pm2 stop ecosystem.config.cjs",
+    "restart": "pm2 restart ecosystem.config.cjs",
+    "logs": "pm2 logs",
+    "build": "cd client && npm run build",
+    "install:all": "cd server && npm install && cd ../client && npm install"
+  }
+}
