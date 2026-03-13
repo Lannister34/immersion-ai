@@ -44,68 +44,20 @@
 - Имя пользователя для RP-контекста
 - Переключение потокового режима
 
-## Технологии
-
-| Слой | Стек |
-|------|------|
-| **Frontend** | React 19, TypeScript, Vite 7, Tailwind CSS 4, Zustand 5, React Query 5 |
-| **Backend** | TypeScript, Express, Sharp (обработка изображений) |
-| **LLM** | llama-server / KoboldCpp (локальные GGUF-модели) |
-| **Процессы** | PM2 (управление dev-серверами) |
-
 ## Требования
 
-- **Node.js** >= 18
-- **npm**
-- **PM2** (глобально): `npm install -g pm2`
-- **llama-server** или **KoboldCpp** для запуска моделей
+- [Node.js](https://nodejs.org/) версии 18 или выше
 
-## Установка и запуск
+## Запуск
 
-```bash
-# 1. Клонируйте репозиторий
-git clone <repo-url>
+```
+git clone https://github.com/Lannister34/immersion-ai.git
 cd immersion-ai
-
-# 2. Установите зависимости
-npm run install:all
-
-# 3. Запустите через PM2 (рекомендуется)
-npm run dev
 ```
 
-Откройте http://localhost:4778
+**Windows:** запустите `start.bat`
 
-### Ручной запуск (без PM2)
-
-```bash
-# Терминал 1 — бэкенд (порт 4777)
-cd server && npm run dev
-
-# Терминал 2 — фронтенд (порт 4778)
-cd client && npm run dev
-```
-
-### Команды
-
-| Команда | Описание |
-|---------|----------|
-| `npm run dev` | Запуск бэкенда и фронтенда через PM2 |
-| `npm run stop` | Остановка всех PM2-процессов |
-| `npm run restart` | Перезапуск |
-| `npm run logs` | Логи PM2 |
-| `npm run build` | Сборка клиента (production) |
-| `npm run install:all` | Установка зависимостей сервера и клиента |
-
-### Хранение данных
-
-Все пользовательские данные хранятся в `data/` (gitignored):
-- `data/characters/` — PNG-карточки персонажей
-- `data/chats/` — чаты в формате JSONL
-- `data/worlds/` — лорбуки (JSON)
-- `data/scenarios/` — сценарии (JSON)
-- `data/settings.json` — настройки подключения
-- `data/user-settings.json` — пользовательские настройки
+Приложение автоматически установит зависимости, соберёт клиент и откроет браузер на http://localhost:4777
 
 ## TODO
 
