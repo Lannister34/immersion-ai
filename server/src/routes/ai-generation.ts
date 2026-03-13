@@ -557,14 +557,12 @@ router.post('/scenario', async (req, res) => {
           : 'You are a data extraction assistant. Extract key structured facts from roleplay character and world data. Return ONLY valid JSON, no other text.';
         const summaryUser = buildSummaryPrompt(character, lorebookEntries, isRu);
         console.log('[scenario] Step 1: summarizing character/world data...');
-        console.log('[scenario] Step 1 system prompt:\n%s', summarySystem);
-        console.log('[scenario] Step 1 user prompt:\n%s', summaryUser);
         const briefRaw = await callLlm(apiServer, summarySystem, summaryUser, {
           maxTokens: 400,
           temperature: 0.3,
         });
         brief = extractJson(briefRaw) as Record<string, unknown>;
-        console.log('[scenario] Step 1 done, brief:\n%s', JSON.stringify(brief, null, 2));
+        console.log('[scenario] Step 1 done');
       } catch (err) {
         console.warn('[scenario] Step 1 (summary) failed, falling back to raw data:', err);
         brief = null;
@@ -668,8 +666,6 @@ RULES:
 5. Write in English. Be creative and specific.${character?.name ? ' The scenario should fit this character.' : ''}`;
 
     console.log('[scenario] Step 2: generating scenario (brief=%s)...', !!brief);
-    console.log('[scenario] Step 2 system prompt:\n%s', systemPrompt);
-    console.log('[scenario] Step 2 user prompt:\n%s', userPrompt);
     const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 2048 });
     const scenario = extractJson(raw) as Record<string, unknown>;
 

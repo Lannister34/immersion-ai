@@ -1757,6 +1757,74 @@ export function ActiveChatView() {
     }
   };
 
+  /**
+   * Core generation logic shared by handleSend, handleGenerate, and handleRegenerate.
+   * Takes the messages to use as context, generates an assistant reply, saves, and updates state.
+   */
+  const runGeneration = async (
+    msgsForGeneration: ChatMessage[],
+    opts?: { generateTitle?: boolean; preSave?: boolean },
+  ) => {
+    await waitAfterAbort();
+
+    if (opts?.preSave) {
+      await api.saveChat(activeChat!.characterAvatar, activeChat!.chatFile, buildChatForSave(msgsForGeneration));
+    }
+
+    const { messages: chatCompletionMessages } = buildChatData(msgsForGeneration);
+    const { thinkingEnabled, backendMode, llmServerConfig } = useAppStore.getState();
+    const settings = await api.getSettings();
+    const textGen = settings?.textgenerationwebui as Record<string, unknown> | undefined;
+    const urls = textGen?.server_urls as Record<string, string> | undefined;
+    const rawUrl = urls?.koboldcpp ?? 'http://127.0.0.1:5001';
+    const apiServer = backendMode === 'builtin'
+      ? rawUrl
+      : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
+
+    abortRef.current = new AbortController();
+    const samplers = getEffectiveSamplerSettings(useAppStore.getState(), chatFile ?? undefined);
+
+    const generatedText = await api.generateTextStream(
+      {
+        api_server: apiServer,
+        messages: chatCompletionMessages,
+        chat_template_kwargs: { enable_thinking: thinkingEnabled },
+        max_length: samplers.max_length,
+        max_context_length: llmServerConfig.contextSize,
+        temperature: samplers.temperature,
+        top_p: samplers.top_p,
+        top_k: samplers.top_k,
+        min_p: samplers.min_p,
+        rep_pen: samplers.rep_pen,
+        rep_pen_range: samplers.rep_pen_range,
+        presence_penalty: samplers.presence_penalty,
+      },
+      streamingEnabled ? (text) => setStreamText(text) : () => {},
+      abortRef.current.signal,
+      streamingEnabled,
+    );
+
+    const assistantMessage: ChatMessage = {
+      name: character!.name,
+      is_user: false,
+      mes: stripThinkBlocks(generatedText),
+      send_date: new Date().toISOString(),
+      extra: {},
+    };
+
+    const finalMessages = [...msgsForGeneration, assistantMessage];
+    setMessages(finalMessages);
+    setError('');
+
+    try {
+      await api.saveChat(activeChat!.characterAvatar, activeChat!.chatFile, buildChatForSave(finalMessages));
+      updateSessionMeta(finalMessages);
+      if (opts?.generateTitle) maybeGenerateTitle(finalMessages);
+    } catch (saveErr) {
+      console.error('Failed to save chat:', saveErr);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || !activeChat || !character || isGenerating || !connection.connected) return;
     setError('');
@@ -1779,67 +1847,7 @@ export function ActiveChatView() {
     if (inputRef.current) inputRef.current.style.height = 'auto';
 
     try {
-      await waitAfterAbort();
-      await api.saveChat(activeChat.characterAvatar, activeChat.chatFile, buildChatForSave(updatedMessages));
-
-      const { messages: chatCompletionMessages } = buildChatData(updatedMessages);
-      const { thinkingEnabled } = useAppStore.getState();
-      const settings = await api.getSettings();
-      const textGen = settings?.textgenerationwebui as Record<string, unknown> | undefined;
-      const urls = textGen?.server_urls as Record<string, string> | undefined;
-      const rawUrl = urls?.koboldcpp ?? 'http://127.0.0.1:5001';
-      // KoboldCpp uses /api/v1/... prefix, llama-server uses /v1/... directly
-      const { backendMode, llmServerConfig: lsc } = useAppStore.getState();
-      const apiServer = backendMode === 'builtin'
-        ? rawUrl
-        : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
-
-      abortRef.current = new AbortController();
-      const samplers = getEffectiveSamplerSettings(useAppStore.getState(), chatFile ?? undefined);
-      const contextSize = lsc.contextSize;
-
-      // Use chat completions API with structured messages
-      // Pass chat_template_kwargs to control thinking mode at the template level
-      const generatedText = await api.generateTextStream(
-        {
-          api_server: apiServer,
-          messages: chatCompletionMessages,
-          chat_template_kwargs: { enable_thinking: thinkingEnabled },
-          max_length: samplers.max_length,
-          max_context_length: contextSize,
-          temperature: samplers.temperature,
-          top_p: samplers.top_p,
-          top_k: samplers.top_k,
-          min_p: samplers.min_p,
-          rep_pen: samplers.rep_pen,
-          rep_pen_range: samplers.rep_pen_range,
-          presence_penalty: samplers.presence_penalty,
-        },
-        streamingEnabled ? (text) => setStreamText(text) : () => {},
-        abortRef.current.signal,
-        streamingEnabled,
-      );
-
-      const assistantMessage: ChatMessage = {
-        name: character.name,
-        is_user: false,
-        mes: stripThinkBlocks(generatedText),
-        send_date: new Date().toISOString(),
-        extra: {},
-      };
-
-      const finalMessages = [...updatedMessages, assistantMessage];
-      setMessages(finalMessages);
-      setError(''); // clear any stale errors — generation succeeded
-
-      // Save and update meta (non-critical — don't show error if save fails)
-      try {
-        await api.saveChat(activeChat.characterAvatar, activeChat.chatFile, buildChatForSave(finalMessages));
-        updateSessionMeta(finalMessages);
-        maybeGenerateTitle(finalMessages);
-      } catch (saveErr) {
-        console.error('Failed to save chat:', saveErr);
-      }
+      await runGeneration(updatedMessages, { preSave: true, generateTitle: true });
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         console.error(err); setError('Произошла ошибка. Попробуйте ещё раз.');
@@ -1854,9 +1862,8 @@ export function ActiveChatView() {
   /** Generate an assistant response without sending a user message */
   const handleGenerate = async () => {
     if (messages.length === 0 || isGenerating || !activeChat || !character || !connection.connected) return;
-    // Only generate if the last message is from the user (or chat has no assistant reply yet)
     const lastMsg = messages[messages.length - 1];
-    if (lastMsg && !lastMsg.is_user && !lastMsg.is_system) return; // last msg is already from assistant
+    if (lastMsg && !lastMsg.is_user && !lastMsg.is_system) return;
 
     setError('');
     shouldAutoScroll.current = true;
@@ -1864,62 +1871,7 @@ export function ActiveChatView() {
     setStreamText('');
 
     try {
-      await waitAfterAbort();
-      const { messages: chatCompletionMessages } = buildChatData(messages);
-      const { thinkingEnabled } = useAppStore.getState();
-      const settings = await api.getSettings();
-      const textGen = settings?.textgenerationwebui as Record<string, unknown> | undefined;
-      const urls = textGen?.server_urls as Record<string, string> | undefined;
-      const rawUrl = urls?.koboldcpp ?? 'http://127.0.0.1:5001';
-      // KoboldCpp uses /api/v1/... prefix, llama-server uses /v1/... directly
-      const { backendMode: bm, llmServerConfig: lsc2 } = useAppStore.getState();
-      const apiServer = bm === 'builtin'
-        ? rawUrl
-        : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
-
-      abortRef.current = new AbortController();
-      const samplers = getEffectiveSamplerSettings(useAppStore.getState(), chatFile ?? undefined);
-      const contextSize = lsc2.contextSize;
-
-      const generatedText = await api.generateTextStream(
-        {
-          api_server: apiServer,
-          messages: chatCompletionMessages,
-          chat_template_kwargs: { enable_thinking: thinkingEnabled },
-          max_length: samplers.max_length,
-          max_context_length: contextSize,
-          temperature: samplers.temperature,
-          top_p: samplers.top_p,
-          top_k: samplers.top_k,
-          min_p: samplers.min_p,
-          rep_pen: samplers.rep_pen,
-          rep_pen_range: samplers.rep_pen_range,
-          presence_penalty: samplers.presence_penalty,
-        },
-        streamingEnabled ? (text) => setStreamText(text) : () => {},
-        abortRef.current.signal,
-        streamingEnabled,
-      );
-
-      const assistantMessage: ChatMessage = {
-        name: character.name,
-        is_user: false,
-        mes: stripThinkBlocks(generatedText),
-        send_date: new Date().toISOString(),
-        extra: {},
-      };
-
-      const finalMessages = [...messages, assistantMessage];
-      setMessages(finalMessages);
-      setError(''); // clear any stale errors — generation succeeded
-
-      try {
-        await api.saveChat(activeChat.characterAvatar, activeChat.chatFile, buildChatForSave(finalMessages));
-        updateSessionMeta(finalMessages);
-        maybeGenerateTitle(finalMessages);
-      } catch (saveErr) {
-        console.error('Failed to save chat:', saveErr);
-      }
+      await runGeneration(messages, { generateTitle: true });
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         console.error(err); setError('Произошла ошибка. Попробуйте ещё раз.');
@@ -1936,7 +1888,6 @@ export function ActiveChatView() {
     const lastMsg = messages[messages.length - 1];
     if (!lastMsg || lastMsg.is_user) return;
 
-    // Remove last assistant message and regenerate
     const withoutLast = messages.slice(0, -1);
     setMessages(withoutLast);
     setError('');
@@ -1945,63 +1896,7 @@ export function ActiveChatView() {
     setStreamText('');
 
     try {
-      await waitAfterAbort();
-      await api.saveChat(activeChat.characterAvatar, activeChat.chatFile, buildChatForSave(withoutLast));
-
-      const { messages: chatCompletionMessages } = buildChatData(withoutLast);
-      const { thinkingEnabled } = useAppStore.getState();
-      const settings = await api.getSettings();
-      const textGen = settings?.textgenerationwebui as Record<string, unknown> | undefined;
-      const urls = textGen?.server_urls as Record<string, string> | undefined;
-      const rawUrl = urls?.koboldcpp ?? 'http://127.0.0.1:5001';
-      // KoboldCpp uses /api/v1/... prefix, llama-server uses /v1/... directly
-      const { backendMode: bm, llmServerConfig: lsc3 } = useAppStore.getState();
-      const apiServer = bm === 'builtin'
-        ? rawUrl
-        : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
-
-      abortRef.current = new AbortController();
-      const samplers = getEffectiveSamplerSettings(useAppStore.getState(), chatFile ?? undefined);
-      const contextSize = lsc3.contextSize;
-
-      const generatedText = await api.generateTextStream(
-        {
-          api_server: apiServer,
-          messages: chatCompletionMessages,
-          chat_template_kwargs: { enable_thinking: thinkingEnabled },
-          max_length: samplers.max_length,
-          max_context_length: contextSize,
-          temperature: samplers.temperature,
-          top_p: samplers.top_p,
-          top_k: samplers.top_k,
-          min_p: samplers.min_p,
-          rep_pen: samplers.rep_pen,
-          rep_pen_range: samplers.rep_pen_range,
-          presence_penalty: samplers.presence_penalty,
-        },
-        streamingEnabled ? (text) => setStreamText(text) : () => {},
-        abortRef.current.signal,
-        streamingEnabled,
-      );
-
-      const newMsg: ChatMessage = {
-        name: character.name,
-        is_user: false,
-        mes: stripThinkBlocks(generatedText),
-        send_date: new Date().toISOString(),
-        extra: {},
-      };
-
-      const finalMessages = [...withoutLast, newMsg];
-      setMessages(finalMessages);
-      setError('');
-
-      try {
-        await api.saveChat(activeChat.characterAvatar, activeChat.chatFile, buildChatForSave(finalMessages));
-        updateSessionMeta(finalMessages);
-      } catch (saveErr) {
-        console.error('Failed to save chat:', saveErr);
-      }
+      await runGeneration(withoutLast, { preSave: true });
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         console.error(err); setError('Произошла ошибка. Попробуйте ещё раз.');
