@@ -172,6 +172,7 @@ export interface ChatCompletionMessage {
 
 export interface GenerateTextParams {
   api_server: string;
+  api_key?: string;
   prompt?: string;
   messages?: ChatCompletionMessage[];
   chat_template_kwargs?: Record<string, unknown>;
@@ -191,6 +192,21 @@ export interface GeneratedScenario {
   name: string;
   content: string;
   tags: string[];
+}
+
+// ── Connection Preset Types ─────────────────────────────────────────────────
+
+export enum ProviderType {
+  KoboldCpp = 'koboldcpp',
+  // future: OpenAI = 'openai', OpenRouter = 'openrouter', Ollama = 'ollama'
+}
+
+export interface ConnectionPreset {
+  id: string;
+  name: string;
+  provider: ProviderType;
+  url: string;
+  apiKey?: string;
 }
 
 // ── App Settings Types ──────────────────────────────────────────────────────

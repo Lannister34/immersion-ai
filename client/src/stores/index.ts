@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { getUserSettings, saveUserSettings } from '@/api';
 import type { UiLanguage } from '@/i18n';
-import type { ChatSessionMeta, ConnectionStatus, SamplerPreset, SamplerSettings } from '@/types';
+import type { ChatSessionMeta, ConnectionPreset, ConnectionStatus, SamplerPreset, SamplerSettings } from '@/types';
+import { ProviderType } from '@/types';
 
 interface AppState {
   connection: ConnectionStatus;
@@ -49,6 +50,14 @@ interface AppState {
   removeChatSession: (characterAvatar: string, chatFile: string) => void;
   getChatSession: (characterAvatar: string, chatFile: string) => ChatSessionMeta | undefined;
 
+  // Connection presets (external providers)
+  connectionPresets: ConnectionPreset[];
+  activeConnectionPresetId: string;
+  addConnectionPreset: (preset: ConnectionPreset) => void;
+  updateConnectionPreset: (id: string, partial: Partial<Omit<ConnectionPreset, 'id'>>) => void;
+  deleteConnectionPreset: (id: string) => void;
+  setActiveConnectionPreset: (id: string) => void;
+
   // LLM Server management
   backendMode: 'builtin' | 'external';
   setBackendMode: (mode: 'builtin' | 'external') => void;
@@ -80,6 +89,13 @@ const DEFAULT_LLM_SERVER_CONFIG: LlmServerConfig = {
   contextSize: 8192,
   flashAttention: true,
   threads: 0,
+};
+
+const DEFAULT_CONNECTION_PRESET: ConnectionPreset = {
+  id: 'default-koboldcpp',
+  name: 'KoboldCpp (локальный)',
+  provider: ProviderType.KoboldCpp,
+  url: 'http://127.0.0.1:5001',
 };
 
 const DEFAULT_SAMPLER_SETTINGS: SamplerSettings = {
@@ -193,6 +209,8 @@ const PERSISTED_KEYS = [
   'chatSessions',
   'backendMode',
   'llmServerConfig',
+  'connectionPresets',
+  'activeConnectionPresetId',
 ] as const;
 
 type PersistedKey = (typeof PERSISTED_KEYS)[number];
@@ -267,6 +285,20 @@ export function getEffectiveSamplerSettings(state: AppState, chatFile?: string):
   }
 
   return base;
+}
+
+/**
+ * Resolve the active connection preset.
+ */
+export function getActiveConnectionPreset(state: AppState): ConnectionPreset {
+  return state.connectionPresets.find((p) => p.id === state.activeConnectionPresetId) ?? DEFAULT_CONNECTION_PRESET;
+}
+
+/**
+ * Resolve the active connection URL (shortcut).
+ */
+export function getActiveConnectionUrl(state: AppState): string {
+  return getActiveConnectionPreset(state).url;
 }
 
 // ── Store ──────────────────────────────────────────────────────────────────
@@ -382,6 +414,31 @@ export const useAppStore = create<AppState>()((set, get) => ({
   getChatSession: (characterAvatar, chatFile) =>
     get().chatSessions.find((c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile),
 
+  // Connection presets
+  connectionPresets: [DEFAULT_CONNECTION_PRESET],
+  activeConnectionPresetId: DEFAULT_CONNECTION_PRESET.id,
+
+  addConnectionPreset: (preset) =>
+    set((s) => ({
+      connectionPresets: [...s.connectionPresets, preset],
+      activeConnectionPresetId: preset.id,
+    })),
+
+  updateConnectionPreset: (id, partial) =>
+    set((s) => ({
+      connectionPresets: s.connectionPresets.map((p) => (p.id === id ? { ...p, ...partial } : p)),
+    })),
+
+  deleteConnectionPreset: (id) =>
+    set((s) => {
+      if (s.connectionPresets.length <= 1) return s;
+      const filtered = s.connectionPresets.filter((p) => p.id !== id);
+      const newActiveId = s.activeConnectionPresetId === id ? filtered[0].id : s.activeConnectionPresetId;
+      return { connectionPresets: filtered, activeConnectionPresetId: newActiveId };
+    }),
+
+  setActiveConnectionPreset: (id) => set({ activeConnectionPresetId: id }),
+
   // LLM Server
   backendMode: 'builtin',
   setBackendMode: (mode) => set({ backendMode: mode }),
@@ -455,6 +512,7 @@ export async function initSettingsFromServer(): Promise<void> {
 
 export type { SamplerSettings };
 export {
+  DEFAULT_CONNECTION_PRESET,
   DEFAULT_PROMPTS,
   DEFAULT_SAMPLER_SETTINGS,
   DEFAULT_SYSTEM_PROMPT_EN,
