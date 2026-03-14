@@ -274,7 +274,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   sidebarCollapsed: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-  userName: 'Алексей',
+  userName: 'User',
   setUserName: (name) => set({ userName: name }),
 
   userPersona: '',
