@@ -3,6 +3,15 @@ import { Router } from 'express';
 
 export const router = Router();
 
+/** Build request headers, adding Authorization if api_key is provided */
+function buildHeaders(apiKey?: string): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  return headers;
+}
+
 // Track the last KoboldCpp API server URL for abort
 let lastApiServer = '';
 
@@ -16,18 +25,20 @@ router.post('/status', async (req, res) => {
     if (!apiServer) return res.sendStatus(400);
 
     apiServer = apiServer.replace('localhost', '127.0.0.1');
+    const apiKey: string | undefined = req.body.api_key;
+    const authHeaders = apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined;
 
     // Try KoboldCpp-specific endpoints first
     const [koboldUnitedResponse, koboldExtraResponse, koboldModelResponse] = await Promise.all([
-      fetch(`${apiServer}/v1/info/version`)
+      fetch(`${apiServer}/v1/info/version`, { headers: authHeaders })
         .then((r) => (r.ok ? r.json() : { result: '0.0.0' }))
         .catch(() => ({ result: '0.0.0' })),
 
-      fetch(`${apiServer}/extra/version`)
+      fetch(`${apiServer}/extra/version`, { headers: authHeaders })
         .then((r) => (r.ok ? r.json() : { version: '0.0' }))
         .catch(() => ({ version: '0.0' })),
 
-      fetch(`${apiServer}/v1/model`)
+      fetch(`${apiServer}/v1/model`, { headers: authHeaders })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
     ]);
@@ -40,7 +51,7 @@ router.post('/status', async (req, res) => {
     // Fallback: try OpenAI-compatible /v1/models (llama-server, vLLM, etc.)
     if (!modelName) {
       try {
-        const modelsRes = await fetch(`${apiServer}/v1/models`);
+        const modelsRes = await fetch(`${apiServer}/v1/models`, { headers: authHeaders });
         if (modelsRes.ok) {
           const data = (await modelsRes.json()) as { models?: Array<{ model?: string }> };
           modelName = data.models?.[0]?.model ?? '';
@@ -98,6 +109,7 @@ router.post('/generate-chat', async (req, res) => {
   let apiServer: string = req.body.api_server ?? '';
   apiServer = apiServer.replace('localhost', '127.0.0.1');
   lastApiServer = apiServer;
+  const apiKey: string | undefined = req.body.api_key;
 
   const controller = new AbortController();
   activeGenerationController = controller;
@@ -151,7 +163,7 @@ router.post('/generate-chat', async (req, res) => {
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildHeaders(apiKey),
       body: bodyJson,
       signal: controller.signal,
     });
@@ -217,6 +229,7 @@ router.post('/generate', async (req, res) => {
   let apiServer: string = req.body.api_server ?? '';
   apiServer = apiServer.replace('localhost', '127.0.0.1');
   lastApiServer = apiServer;
+  const apiKey: string | undefined = req.body.api_key;
 
   const controller = new AbortController();
   activeGenerationController = controller;
@@ -275,7 +288,7 @@ router.post('/generate', async (req, res) => {
     );
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildHeaders(apiKey),
       body: JSON.stringify(settings),
       signal: controller.signal,
     });
