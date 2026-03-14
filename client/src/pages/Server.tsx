@@ -5,22 +5,22 @@ import { getConnectionStatus } from '@/api';
 import { ConnectionConfig } from '@/components/ConnectionConfig';
 import { ModelManager } from '@/components/ModelManager';
 import { Button } from '@/components/ui/Button';
-import { useAppStore } from '@/stores';
+import { getActiveProviderConfig, useAppStore } from '@/stores';
 
 export function ServerPage() {
   const { t } = useTranslation();
-  const { connection, setConnection, backendMode, setBackendMode, activeProvider, providerConfigs } = useAppStore();
+  const { connection, setConnection, backendMode, setBackendMode } = useAppStore();
+  const { url: connectionUrl, apiKey: connectionApiKey } = useAppStore(getActiveProviderConfig);
 
   const [testing, setTesting] = useState(false);
 
-  // Auto-check connection on mount and when provider/config changes (only for external mode)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-run when activeProvider or providerConfigs change
+  // Auto-check connection when provider URL changes (only for external mode)
   useEffect(() => {
     if (backendMode !== 'external') return;
     let cancelled = false;
     const check = async () => {
       try {
-        const status = await getConnectionStatus();
+        const status = await getConnectionStatus({ url: connectionUrl, apiKey: connectionApiKey });
         if (!cancelled) setConnection(status);
       } catch {
         if (!cancelled) setConnection({ connected: false });
@@ -30,7 +30,7 @@ export function ServerPage() {
     return () => {
       cancelled = true;
     };
-  }, [backendMode, activeProvider, providerConfigs, setConnection]);
+  }, [backendMode, connectionUrl, connectionApiKey, setConnection]);
 
   const handleTestConnection = useCallback(async () => {
     setTesting(true);

@@ -108,7 +108,6 @@ export function ConnectionConfig() {
   const [formValues, setFormValues] = useState<Record<string, string>>({});
 
   // Re-init local form state when provider switches or store config changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-run when activeProvider changes
   useEffect(() => {
     if (!activeDef) return;
     const values: Record<string, string> = {};
@@ -116,7 +115,7 @@ export function ConnectionConfig() {
       values[field.key] = (config as Record<string, string | undefined>)[field.key] ?? field.defaultValue ?? '';
     }
     setFormValues(values);
-  }, [activeProvider, activeDef, config]);
+  }, [activeDef, config]);
 
   const handleProviderChange = useCallback(
     (value: string) => {
