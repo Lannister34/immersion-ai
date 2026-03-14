@@ -35,6 +35,13 @@ if not exist "client\node_modules" (
     echo  [2/3] Client dependencies OK
 )
 
+:: Check llama-server
+if not exist "bin\llama-server.exe" (
+    echo  [!] llama-server not found.
+    echo      Run setup-llama.bat to install it automatically.
+    echo.
+)
+
 :: Build client
 echo  [3/3] Building client...
 cd client && call npm run build --silent && cd ..
