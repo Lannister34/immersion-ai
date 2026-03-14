@@ -13,8 +13,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: '/chat', labelKey: 'nav.chats', icon: <MessageCircle size={18} /> },
   { path: '/characters', labelKey: 'nav.characters', icon: <Users size={18} /> },
-  { path: '/lorebooks', labelKey: 'nav.lorebooks', icon: <BookOpen size={18} /> },
   { path: '/scenarios', labelKey: 'nav.scenarios', icon: <FileText size={18} /> },
+  { path: '/lorebooks', labelKey: 'nav.lorebooks', icon: <BookOpen size={18} /> },
   { path: '/server', labelKey: 'nav.api', icon: <Server size={18} /> },
   { path: '/settings', labelKey: 'nav.settings', icon: <Settings size={18} /> },
 ];

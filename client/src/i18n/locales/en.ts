@@ -309,6 +309,16 @@ export const en = {
     connected: 'Connected: {{model}}',
     disconnected: 'Not connected',
     checkConnection: 'Check',
+    connectionTitle: 'Connection',
+    addConnection: 'Add connection',
+    editConnection: 'Edit connection',
+    newConnection: 'New connection',
+    presetName: 'Name',
+    presetUrl: 'API URL',
+    presetApiKey: 'API Key',
+    presetApiKeyPlaceholder: 'Optional',
+    deletePresetConfirm: 'Delete connection "{{name}}"?',
+    cannotDeleteLast: 'Cannot delete the only connection',
   },
 
   // ── Model manager ──────────────────────────────────────────────────────────

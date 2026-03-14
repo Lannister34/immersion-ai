@@ -310,6 +310,16 @@ export const ru = {
     connected: 'Подключено: {{model}}',
     disconnected: 'Не подключено',
     checkConnection: 'Проверить',
+    connectionTitle: 'Подключение',
+    addConnection: 'Добавить подключение',
+    editConnection: 'Редактировать подключение',
+    newConnection: 'Новое подключение',
+    presetName: 'Название',
+    presetUrl: 'API URL',
+    presetApiKey: 'API Key',
+    presetApiKeyPlaceholder: 'Необязательно',
+    deletePresetConfirm: 'Удалить подключение «{{name}}»?',
+    cannotDeleteLast: 'Нельзя удалить единственное подключение',
   },
 
   // ── Model manager ──────────────────────────────────────────────────────────
