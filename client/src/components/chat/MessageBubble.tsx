@@ -191,7 +191,6 @@ export const MessageBubble = memo(function MessageBubble({
             )}
           </div>
         </div>
-        {/* Timestamp + action buttons — shares width with bubble row */}
         {!isEditing && (
           <div className={clsx('flex items-center px-1', isUser ? 'gap-2' : 'ml-10 sm:ml-12 justify-between')}>
             {time && (

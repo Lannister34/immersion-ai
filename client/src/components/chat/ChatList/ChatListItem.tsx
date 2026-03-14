@@ -81,7 +81,6 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
       onClick={handleClick}
       className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-[var(--color-surface)] transition-colors cursor-pointer text-left w-full group/chat"
     >
-      {/* Avatar with character name below */}
       <div className="flex flex-col items-center flex-shrink-0 w-11">
         <div className="w-11 h-11 rounded-full overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface-2)]">
           {session.characterAvatar && session.characterAvatar !== '_no_character_' ? (
@@ -102,9 +101,7 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
         </span>
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
-        {/* Top row: chat title + time */}
         <div className="flex items-baseline justify-between gap-2">
           {editing ? (
             <div className="flex items-center gap-1 flex-1 min-w-0" onClick={stopPropagation}>
@@ -150,7 +147,6 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
           </div>
         </div>
 
-        {/* Bottom row: last message preview + message count */}
         <div className="flex items-center gap-1 mt-0.5">
           <span className="text-[12px] text-[var(--color-text-muted)] truncate">
             {session.lastMessagePreview || 'Нет сообщений'}

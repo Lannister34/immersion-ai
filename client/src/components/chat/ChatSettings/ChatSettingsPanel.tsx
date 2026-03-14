@@ -80,7 +80,6 @@ export function ChatSettingsPanel({
 
   return (
     <div className="w-full sm:w-72 fixed inset-0 sm:relative sm:inset-auto z-30 sm:z-auto flex-shrink-0 border-l border-[var(--color-border)] bg-[var(--color-surface)] overflow-y-auto flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--color-border)]">
         <div className="flex items-center gap-1.5">
           <Sliders size={13} className="text-[var(--color-primary)]" />
@@ -95,7 +94,6 @@ export function ChatSettingsPanel({
       </div>
 
       <div className="flex flex-col gap-4 p-3">
-        {/* Active preset info + Custom badge + Reset */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex flex-col">
@@ -126,7 +124,6 @@ export function ChatSettingsPanel({
           )}
         </div>
 
-        {/* Per-chat overrides */}
         <div className="flex flex-col gap-1.5">
           {!hasOverrides && (
             <div className="text-[9px] text-[var(--color-text-muted)] opacity-60 mb-1">
@@ -215,7 +212,6 @@ export function ChatSettingsPanel({
               max={32768}
               step={64}
             />
-            {/* Context trim strategy */}
             <ContextTrimToggle
               value={customOverrides.context_trim_strategy ?? effective.context_trim_strategy}
               onChange={(v) => handleOverride('context_trim_strategy', v)}
@@ -224,13 +220,10 @@ export function ChatSettingsPanel({
           </div>
         </div>
 
-        {/* ── Model settings (context size) ── */}
         <ModelSettingsSection />
 
-        {/* ── Scenario (read-only display) ── */}
         <ScenarioDisplay session={session} />
 
-        {/* ── System prompt preview/editor ── */}
         <SystemPromptSection
           session={session}
           character={character}

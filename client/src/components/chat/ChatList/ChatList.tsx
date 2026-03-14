@@ -25,7 +25,6 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
 
   return (
     <div className="flex flex-col gap-3 h-full">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex-1 relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
@@ -43,7 +42,6 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
         </Button>
       </div>
 
-      {/* Content */}
       {loadingChats ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-[var(--color-text-muted)]">
@@ -71,7 +69,6 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
         </div>
       )}
 
-      {/* Delete confirmation modal */}
       <Modal open={!!deleteTarget} onClose={handleDeleteCancel} title="Удаление чата" size="sm">
         <div className="flex flex-col gap-4 p-5">
           <div className="flex items-start gap-3">
