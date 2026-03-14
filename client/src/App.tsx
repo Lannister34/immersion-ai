@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function App() {
+export function App() {
   // Load settings from server on startup (server = source of truth)
   useEffect(() => {
     initSettingsFromServer();

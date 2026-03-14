@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import PNGtext from 'png-chunk-text';
 import extract from 'png-chunks-extract';
-import encode from './png-encode.js';
+import { encode } from './png-encode.js';
 
 /**
  * Writes character metadata to a PNG image buffer.

@@ -9,7 +9,7 @@ interface PngChunk {
  * Encodes PNG chunks into a PNG file format buffer.
  * Port of src/png/encode.js
  */
-export default function encode(chunks: PngChunk[]): Uint8Array {
+export function encode(chunks: PngChunk[]): Uint8Array {
   const uint8 = new Uint8Array(4);
   const int32 = new Int32Array(uint8.buffer);
   const uint32 = new Uint32Array(uint8.buffer);
