@@ -1,5 +1,6 @@
 import { AlertTriangle, MessageCircle, Plus, Search, Trash2 } from 'lucide-react';
 import type { JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { ChatListItem } from './ChatListItem';
@@ -11,6 +12,7 @@ interface ChatListProps {
 }
 
 export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element {
+  const { t } = useTranslation();
   const {
     search,
     loadingChats,
@@ -30,7 +32,7 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
             type="text"
-            placeholder="Поиск чатов..."
+            placeholder={t('chatList.searchPlaceholder')}
             value={search}
             onChange={handleSearchChange}
             className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg pl-9 pr-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
@@ -38,7 +40,7 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
         </div>
         <Button onClick={onNewChat}>
           <Plus size={15} />
-          <span className="hidden sm:inline">Новый чат</span>
+          <span className="hidden sm:inline">{t('chatList.newChat')}</span>
         </Button>
       </div>
 
@@ -46,7 +48,7 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-[var(--color-text-muted)]">
             <div className="w-8 h-8 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm">Загрузка чатов...</span>
+            <span className="text-sm">{t('chatList.loading')}</span>
           </div>
         </div>
       )}
@@ -55,7 +57,7 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-[var(--color-text-muted)]">
             <MessageCircle size={48} className="mx-auto mb-3 opacity-30" />
-            <div className="text-sm">{search ? 'Чаты не найдены' : 'Нет чатов. Начните новый!'}</div>
+            <div className="text-sm">{search ? t('chatList.searchEmpty') : t('chatList.empty')}</div>
           </div>
         </div>
       )}
@@ -73,21 +75,22 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
         </div>
       )}
 
-      <Modal open={!!deleteTarget} onClose={handleDeleteCancel} title="Удаление чата" size="sm">
+      <Modal open={!!deleteTarget} onClose={handleDeleteCancel} title={t('chatList.deleteTitle')} size="sm">
         <div className="flex flex-col gap-4 p-5">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-full bg-[var(--color-danger)]/15 flex-shrink-0">
               <AlertTriangle size={20} className="text-[var(--color-danger)]" />
             </div>
             <div className="text-sm text-[var(--color-text-muted)]">
-              Удалить чат <strong className="text-[var(--color-text)]">{deleteTarget?.title || 'Новый чат'}</strong> с
-              персонажем <strong className="text-[var(--color-text)]">{deleteTarget?.characterName}</strong>? Это
-              действие необратимо.
+              {t('chatList.deleteConfirm', {
+                title: deleteTarget?.title || t('chatList.newChat'),
+                characterName: deleteTarget?.characterName,
+              })}
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
             <Button variant="secondary" onClick={handleDeleteCancel} disabled={isDeleting}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button variant="danger" onClick={handleDeleteConfirm} disabled={isDeleting}>
               {isDeleting ? (
@@ -95,7 +98,7 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
               ) : (
                 <Trash2 size={14} />
               )}
-              Удалить
+              {t('common.delete')}
             </Button>
           </div>
         </div>

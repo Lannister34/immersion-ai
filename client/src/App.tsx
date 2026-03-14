@@ -2,13 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { initI18n } from '@/i18n';
 import { CharactersPage } from '@/pages/Characters';
 import { ActiveChatView, ChatPage } from '@/pages/Chat';
 import { LorebooksPage } from '@/pages/Lorebooks';
 import { ScenariosPage } from '@/pages/Scenarios';
 import { ServerPage } from '@/pages/Server';
 import { SettingsPage } from '@/pages/Settings';
-import { initSettingsFromServer } from '@/stores';
+import { initSettingsFromServer, useAppStore } from '@/stores';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,12 @@ export function App() {
   useEffect(() => {
     initSettingsFromServer();
   }, []);
+
+  // Sync i18n language with store
+  const uiLanguage = useAppStore((s) => s.uiLanguage);
+  useEffect(() => {
+    initI18n(uiLanguage);
+  }, [uiLanguage]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -1,10 +1,11 @@
 import { clsx } from 'clsx';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ContextTrimStrategy } from '@/types';
 
-const OPTIONS: { key: ContextTrimStrategy; label: string }[] = [
-  { key: 'trim_start', label: 'Начало' },
-  { key: 'trim_middle', label: 'Середина' },
+const OPTION_KEYS: { key: ContextTrimStrategy; labelKey: 'samplers.trimStart' | 'samplers.trimMiddle' }[] = [
+  { key: 'trim_start', labelKey: 'samplers.trimStart' },
+  { key: 'trim_middle', labelKey: 'samplers.trimMiddle' },
 ];
 
 interface ContextTrimToggleProps {
@@ -14,6 +15,7 @@ interface ContextTrimToggleProps {
 }
 
 export function ContextTrimToggle({ value, onChange, modified }: ContextTrimToggleProps) {
+  const { t } = useTranslation();
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleShowTooltip = useCallback(() => {
@@ -35,17 +37,16 @@ export function ContextTrimToggle({ value, onChange, modified }: ContextTrimTogg
           onMouseEnter={handleShowTooltip}
           onMouseLeave={handleHideTooltip}
         >
-          Обрезка контекста
+          {t('samplers.contextTrimLabel')}
         </label>
         {showTooltip && (
           <div className="absolute left-0 bottom-full mb-1 z-50 w-[min(13rem,calc(100vw-2rem))] px-2.5 py-2 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] shadow-lg text-[10px] leading-snug text-[var(--color-text-muted)] pointer-events-none">
-            Что удалять при заполнении контекста. «Начало» — самые старые сообщения удаляются первыми. «Середина» —
-            сохраняет начало чата (завязка, приветствие) и последние сообщения, удаляя середину.
+            {t('samplers.contextTrimTooltip')}
           </div>
         )}
       </div>
       <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)]">
-        {OPTIONS.map((opt) => (
+        {OPTION_KEYS.map((opt) => (
           <button
             key={opt.key}
             onClick={() => onChange(opt.key)}
@@ -56,7 +57,7 @@ export function ContextTrimToggle({ value, onChange, modified }: ContextTrimTogg
                 : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]',
             )}
           >
-            {opt.label}
+            {t(opt.labelKey)}
           </button>
         ))}
       </div>

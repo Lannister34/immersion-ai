@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { formatTime, wordCount } from '@/lib/dateFormatting';
 import { formatMarkdown, formatMessageContent } from '@/lib/messageFormatting';
 import type { ChatMessage } from '@/types';
@@ -25,6 +26,7 @@ export const MessageBubble = memo(function MessageBubble({
   onRegenerate,
   isGenerating,
 }: MessageBubbleProps) {
+  const { t } = useTranslation();
   const isUser = message.is_user;
   const isAssistant = !message.is_user && !message.is_system;
   const time = formatTime(message.send_date);
@@ -168,7 +170,7 @@ export const MessageBubble = memo(function MessageBubble({
             {time && (
               <span className="text-[10px] text-[var(--color-text-muted)]/50 flex-shrink-0">
                 {time}
-                {!isUser && words > 0 && ` · ${words} сл.`}
+                {!isUser && words > 0 && ` · ${words} ${t('chat.wordsShort')}`}
               </span>
             )}
             {!isGenerating && (
@@ -177,7 +179,7 @@ export const MessageBubble = memo(function MessageBubble({
                   <button
                     onClick={onRegenerate}
                     className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"
-                    title="Перегенерировать (Ctrl+R)"
+                    title={t('chat.regenerateTooltip')}
                   >
                     <RotateCcw size={12} />
                   </button>
@@ -185,14 +187,14 @@ export const MessageBubble = memo(function MessageBubble({
                 <button
                   onClick={startEditing}
                   className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"
-                  title="Редактировать"
+                  title={t('chat.editTooltip')}
                 >
                   <Pencil size={12} />
                 </button>
                 <button
                   onClick={onDelete}
                   className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] cursor-pointer transition-colors"
-                  title="Удалить"
+                  title={t('chat.deleteTooltip')}
                 >
                   <Trash2 size={12} />
                 </button>

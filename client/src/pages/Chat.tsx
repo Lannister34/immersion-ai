@@ -2,6 +2,7 @@ import { clsx } from 'clsx';
 import { AlertTriangle, ArrowLeft, Loader2, Menu, RotateCcw, Send, Sliders, Square } from 'lucide-react';
 import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ChatList, ChatSettingsPanel, ContextIndicator, GenerationTimer, MessageBubble } from '@/components/chat';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +13,7 @@ import { useAppStore } from '@/stores';
 // ── Active Chat View ────────────────────────────────────────────────────────
 
 export function ActiveChatView(): JSX.Element | null {
+  const { t } = useTranslation();
   const { chatId } = useParams<{ chatId: string }>();
   const navigate = useNavigate();
   const { connection, chatSessions, sidebarCollapsed, toggleSidebar } = useAppStore();
@@ -92,9 +94,7 @@ export function ActiveChatView(): JSX.Element | null {
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-[var(--color-text)] truncate">{character?.name ?? 'Chat'}</div>
           <div className="text-xs text-[var(--color-text-muted)] flex items-center gap-2 min-w-0 overflow-hidden">
-            <span className="flex-shrink-0">
-              {messages.length} {messages.length === 1 ? 'сообщение' : messages.length < 5 ? 'сообщения' : 'сообщений'}
-            </span>
+            <span className="flex-shrink-0">{t('chat.messageCount', { count: messages.length })}</span>
             <ContextIndicator
               promptLength={lastPromptLength}
               maxContext={useAppStore.getState().llmServerConfig.contextSize}
@@ -110,7 +110,7 @@ export function ActiveChatView(): JSX.Element | null {
               ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]'
               : 'hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)]',
           )}
-          title="Настройки чата"
+          title={t('chat.settingsTooltip')}
         >
           <Sliders size={16} />
         </button>
@@ -185,11 +185,11 @@ export function ActiveChatView(): JSX.Element | null {
                   <button
                     onClick={handleGenerate}
                     disabled={!connection.connected}
-                    title={!connection.connected ? 'Нет подключения к API' : undefined}
+                    title={!connection.connected ? t('common.noApiConnection') : undefined}
                     className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-[var(--color-border)]"
                   >
                     <RotateCcw size={13} className="text-[var(--color-primary)]" />
-                    <span>Сгенерировать ответ ИИ</span>
+                    <span>{t('chat.generateAiResponse')}</span>
                     <span className="opacity-40 ml-1">(Ctrl+R)</span>
                   </button>
                 </div>
@@ -207,7 +207,7 @@ export function ActiveChatView(): JSX.Element | null {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={connection.connected ? 'Напишите сообщение...' : 'Нет подключения к API...'}
+                placeholder={connection.connected ? t('chat.inputPlaceholder') : t('chat.inputDisabledPlaceholder')}
                 rows={1}
                 disabled={isGenerating || !connection.connected}
                 className="flex-1 min-w-0 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-none min-h-[42px] max-h-32"
@@ -228,7 +228,7 @@ export function ActiveChatView(): JSX.Element | null {
                     size="sm"
                     onClick={handleSend}
                     disabled={!input.trim() || !connection.connected}
-                    title={!connection.connected ? 'Нет подключения к API' : undefined}
+                    title={!connection.connected ? t('common.noApiConnection') : undefined}
                   >
                     <Send size={14} />
                   </Button>

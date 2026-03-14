@@ -15,6 +15,7 @@ import {
   User,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   createScenario,
   deleteScenario,
@@ -42,6 +43,7 @@ function ScenarioDetail({
   onDeleted: () => void;
   onRenamed: (newName: string) => void;
 }) {
+  const { t, i18n } = useTranslation();
   const connection = useAppStore((s) => s.connection);
   const userName = useAppStore((s) => s.userName);
   const userPersona = useAppStore((s) => s.userPersona);
@@ -120,7 +122,7 @@ function ScenarioDetail({
   const handleGenerate = async (field: 'content' | 'tags') => {
     if (generatingField || !scenario) return;
     if (!connection.connected) {
-      setRegenError('Нет подключения к API');
+      setRegenError(t('common.noApiConnection'));
       return;
     }
     const concept = scenario.concept || scenario.name;
@@ -144,11 +146,11 @@ function ScenarioDetail({
   };
 
   if (isLoading) {
-    return <div className="text-sm text-[var(--color-text-muted)] p-4">Загрузка...</div>;
+    return <div className="text-sm text-[var(--color-text-muted)] p-4">{t('common.loading')}</div>;
   }
 
   if (!scenario) {
-    return <div className="text-sm text-[var(--color-text-muted)] p-4">Сценарий не найден</div>;
+    return <div className="text-sm text-[var(--color-text-muted)] p-4">{t('scenarios.notFound')}</div>;
   }
 
   return (
@@ -165,17 +167,17 @@ function ScenarioDetail({
                 setDirty(true);
               }}
               className="text-base font-semibold text-[var(--color-text)] bg-transparent border-b border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] outline-none transition-colors w-full min-w-0"
-              placeholder="Название сценария"
+              placeholder={t('scenarios.namePlaceholder')}
             />
           </div>
           <div className="flex items-center gap-2">
             <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
               <Trash2 size={13} />
-              Удалить
+              {t('common.delete')}
             </Button>
             <Button size="sm" onClick={handleSave} disabled={saving} loading={saving}>
               <Save size={13} />
-              Сохранить
+              {t('common.save')}
             </Button>
           </div>
         </div>
@@ -184,16 +186,16 @@ function ScenarioDetail({
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-              Контент сценария
+              {t('scenarios.contentLabel')}
             </label>
             <button
               onClick={() => handleGenerate('content')}
               disabled={generatingField !== null}
               className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 disabled:opacity-50 transition-colors cursor-pointer"
-              title="Сгенерировать контент на основе описания"
+              title={t('scenarios.generateContentTooltip')}
             >
               {generatingField === 'content' ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-              {generatingField === 'content' ? 'Генерация...' : 'Сгенерировать'}
+              {generatingField === 'content' ? t('common.generating') : t('common.generate')}
             </button>
           </div>
           <textarea
@@ -203,7 +205,7 @@ function ScenarioDetail({
               setDirty(true);
               setRegenError('');
             }}
-            placeholder="Полный текст сценария, который будет подставлен в промпт через {{scenario}}..."
+            placeholder={t('scenarios.contentPlaceholder')}
             rows={14}
             className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-y leading-relaxed"
           />
@@ -215,16 +217,16 @@ function ScenarioDetail({
           <div className="flex items-center justify-between">
             <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide flex items-center gap-1">
               <Tag size={10} />
-              Теги
+              {t('scenarios.tagsLabel')}
             </label>
             <button
               onClick={() => handleGenerate('tags')}
               disabled={generatingField !== null}
               className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 disabled:opacity-50 transition-colors cursor-pointer"
-              title="Сгенерировать теги на основе описания"
+              title={t('scenarios.generateTagsTooltip')}
             >
               {generatingField === 'tags' ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-              {generatingField === 'tags' ? 'Генерация...' : 'Сгенерировать'}
+              {generatingField === 'tags' ? t('common.generating') : t('common.generate')}
             </button>
           </div>
           <input
@@ -233,34 +235,43 @@ function ScenarioDetail({
               setEditTags(e.target.value);
               setDirty(true);
             }}
-            placeholder="романтика, повседневность, фэнтези..."
+            placeholder={t('scenarios.tagsPlaceholder')}
             className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
           />
-          <div className="text-[9px] text-[var(--color-text-muted)]">Через запятую</div>
+          <div className="text-[9px] text-[var(--color-text-muted)]">{t('common.commaSeparated')}</div>
         </div>
 
         {/* Meta info */}
         <div className="text-[9px] text-[var(--color-text-muted)] opacity-60 flex gap-4">
-          {scenario.createdAt && <span>Создан: {new Date(scenario.createdAt).toLocaleDateString('ru')}</span>}
-          {scenario.updatedAt && <span>Обновлён: {new Date(scenario.updatedAt).toLocaleDateString('ru')}</span>}
+          {scenario.createdAt && (
+            <span>
+              {t('scenarios.createdAt')}{' '}
+              {new Date(scenario.createdAt).toLocaleDateString(i18n.language === 'ru' ? 'ru-RU' : 'en-US')}
+            </span>
+          )}
+          {scenario.updatedAt && (
+            <span>
+              {t('scenarios.updatedAt')}{' '}
+              {new Date(scenario.updatedAt).toLocaleDateString(i18n.language === 'ru' ? 'ru-RU' : 'en-US')}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Delete confirmation */}
-      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Удаление сценария" size="sm">
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title={t('scenarios.deleteTitle')} size="sm">
         <div className="flex flex-col gap-4 p-5">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-full bg-[var(--color-danger)]/15 flex-shrink-0">
               <AlertTriangle size={20} className="text-[var(--color-danger)]" />
             </div>
             <div className="text-sm text-[var(--color-text-muted)]">
-              Вы уверены, что хотите удалить сценарий{' '}
-              <strong className="text-[var(--color-text)]">{scenario.name}</strong>? Это действие необратимо.
+              {t('scenarios.deleteConfirm', { name: scenario.name })}
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
             <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? (
@@ -268,7 +279,7 @@ function ScenarioDetail({
               ) : (
                 <Trash2 size={14} />
               )}
-              Удалить
+              {t('common.delete')}
             </Button>
           </div>
         </div>
@@ -288,6 +299,7 @@ function CreateScenarioModal({
   onClose: () => void;
   onCreated: (name: string) => void;
 }) {
+  const { t } = useTranslation();
   const connection = useAppStore((s) => s.connection);
   const userName = useAppStore((s) => s.userName);
   const userPersona = useAppStore((s) => s.userPersona);
@@ -416,7 +428,7 @@ function CreateScenarioModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title={preview ? 'Сгенерированный сценарий' : 'Новый сценарий'}
+      title={preview ? t('scenarios.generatedTitle') : t('scenarios.newTitle')}
       size={preview ? 'md' : 'sm'}
     >
       <div className="flex flex-col gap-4 p-5">
@@ -431,7 +443,7 @@ function CreateScenarioModal({
                 : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]',
             )}
           >
-            Вручную
+            {t('common.manual')}
           </button>
           <button
             onClick={() => connection.connected && setMode('generate')}
@@ -444,22 +456,22 @@ function CreateScenarioModal({
                   ? 'bg-[var(--color-primary)] text-white cursor-pointer'
                   : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer',
             )}
-            title={!connection.connected ? 'Нет подключения к API' : undefined}
+            title={!connection.connected ? t('common.noApiConnection') : undefined}
           >
             <Sparkles size={12} />
-            Генерация
+            {t('scenarios.generationTab')}
           </button>
         </div>
 
         {mode === 'manual' ? (
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-              Название
+              {t('scenarios.nameLabel')}
             </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Встреча в библиотеке..."
+              placeholder={t('scenarios.manualNamePlaceholder')}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               autoFocus
               className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
@@ -470,7 +482,7 @@ function CreateScenarioModal({
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-                Название
+                {t('scenarios.nameLabel')}
               </label>
               <input
                 value={preview.name}
@@ -480,7 +492,7 @@ function CreateScenarioModal({
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-                Контент
+                {t('scenarios.contentPreviewLabel')}
               </label>
               <textarea
                 value={preview.content}
@@ -492,27 +504,27 @@ function CreateScenarioModal({
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide flex items-center gap-1">
                 <Tag size={10} />
-                Теги
+                {t('scenarios.tagsLabel')}
               </label>
               <input
                 value={preview.tags}
                 onChange={(e) => setPreview({ ...preview, tags: e.target.value })}
-                placeholder="романтика, фэнтези..."
+                placeholder={t('scenarios.tagsPreviewPlaceholder')}
                 className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
               />
-              <div className="text-[9px] text-[var(--color-text-muted)]">Через запятую</div>
+              <div className="text-[9px] text-[var(--color-text-muted)]">{t('common.commaSeparated')}</div>
             </div>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-                Концепция
+                {t('scenarios.conceptLabel')}
               </label>
               <textarea
                 value={concept}
                 onChange={(e) => setConcept(e.target.value)}
-                placeholder="Опишите идею сценария: место, ситуация, обстоятельства. Например: «Таинственная библиотека в подвале старого замка, где книги оживают по ночам»..."
+                placeholder={t('scenarios.conceptPlaceholder')}
                 rows={4}
                 autoFocus
                 className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-y leading-relaxed"
@@ -524,14 +536,14 @@ function CreateScenarioModal({
               <div className="flex-1 flex flex-col gap-1">
                 <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide flex items-center gap-1">
                   <User size={10} />
-                  Персонаж
+                  {t('scenarios.characterLabel')}
                 </label>
                 <select
                   value={selectedCharAvatar}
                   onChange={(e) => setSelectedCharAvatar(e.target.value)}
                   className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] transition-colors cursor-pointer"
                 >
-                  <option value="">Не выбран</option>
+                  <option value="">{t('common.notSelected')}</option>
                   {characters.map((c) => (
                     <option key={c.avatar} value={c.avatar}>
                       {c.name}
@@ -542,14 +554,14 @@ function CreateScenarioModal({
               <div className="flex-1 flex flex-col gap-1">
                 <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide flex items-center gap-1">
                   <BookOpen size={10} />
-                  Лорбук
+                  {t('scenarios.lorebookLabel')}
                 </label>
                 <select
                   value={selectedWorld}
                   onChange={(e) => setSelectedWorld(e.target.value)}
                   className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] transition-colors cursor-pointer"
                 >
-                  <option value="">Не выбран</option>
+                  <option value="">{t('common.notSelected')}</option>
                   {worlds.map((w) => (
                     <option key={w} value={w}>
                       {w}
@@ -560,8 +572,8 @@ function CreateScenarioModal({
             </div>
 
             <div className="text-[9px] text-[var(--color-text-muted)]">
-              ИИ сгенерирует название, описание, контент и теги.
-              {(selectedCharAvatar || selectedWorld) && ' Контекст персонажа/лорбука будет учтён.'}
+              {t('scenarios.aiWillGenerate')}
+              {(selectedCharAvatar || selectedWorld) && ` ${t('scenarios.contextWillBeUsed')}`}
             </div>
           </div>
         )}
@@ -569,12 +581,12 @@ function CreateScenarioModal({
         {error && <div className="text-xs text-[var(--color-danger)]">{error}</div>}
         <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
           <Button variant="secondary" onClick={handleClose}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           {mode === 'manual' ? (
             <Button onClick={handleCreate} disabled={!name.trim() || creating} loading={creating}>
               <Plus size={14} />
-              Создать
+              {t('common.create')}
             </Button>
           ) : preview ? (
             <>
@@ -587,21 +599,21 @@ function CreateScenarioModal({
                 disabled={generating}
               >
                 {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                Перегенерировать
+                {t('common.regenerate')}
               </Button>
               <Button onClick={handleSaveGenerated} disabled={creating} loading={creating}>
                 <Save size={14} />
-                Сохранить
+                {t('common.save')}
               </Button>
             </>
           ) : (
             <Button
               onClick={handleGenerate}
               disabled={!concept.trim() || generating || !connection.connected}
-              title={!connection.connected ? 'Нет подключения к API' : undefined}
+              title={!connection.connected ? t('common.noApiConnection') : undefined}
             >
               {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              {generating ? 'Генерация...' : 'Сгенерировать'}
+              {generating ? t('common.generating') : t('common.generate')}
             </Button>
           )}
         </div>
@@ -613,6 +625,7 @@ function CreateScenarioModal({
 // ── Scenarios Page ──────────────────────────────────────────────────────────
 
 export function ScenariosPage() {
+  const { t } = useTranslation();
   const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -648,7 +661,7 @@ export function ScenariosPage() {
       >
         <Button onClick={() => setCreateOpen(true)} size="sm">
           <Plus size={14} />
-          Создать
+          {t('common.create')}
         </Button>
 
         {/* Search */}
@@ -656,7 +669,7 @@ export function ScenariosPage() {
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
             type="text"
-            placeholder="Поиск..."
+            placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg pl-8 pr-3 py-1.5 text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
@@ -664,10 +677,10 @@ export function ScenariosPage() {
         </div>
 
         {isLoading ? (
-          <div className="text-sm text-[var(--color-text-muted)]">Загрузка...</div>
+          <div className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>
         ) : filtered.length === 0 ? (
           <div className="text-sm text-[var(--color-text-muted)]">
-            {scenarios.length === 0 ? 'Нет сценариев' : 'Ничего не найдено'}
+            {scenarios.length === 0 ? t('scenarios.empty') : t('common.nothingFound')}
           </div>
         ) : (
           <div className="flex flex-col gap-1">
@@ -716,7 +729,8 @@ export function ScenariosPage() {
               onClick={() => setSelectedScenario(null)}
               className="sm:hidden flex items-center gap-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors cursor-pointer"
             >
-              <ArrowLeft size={14} />К списку сценариев
+              <ArrowLeft size={14} />
+              {t('scenarios.backToList')}
             </button>
             <ScenarioDetail
               name={selectedScenario}
@@ -728,7 +742,7 @@ export function ScenariosPage() {
           <div className="hidden sm:flex items-center justify-center h-full">
             <div className="text-center text-[var(--color-text-muted)]">
               <FileText size={48} className="mx-auto mb-3 opacity-30" />
-              <div className="text-sm">Выберите сценарий или создайте новый</div>
+              <div className="text-sm">{t('scenarios.emptyState')}</div>
             </div>
           </div>
         )}

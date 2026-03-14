@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { Globe, RefreshCw, Server } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getConnectionStatus, getSettings } from '@/api';
 import { ModelManager } from '@/components/ModelManager';
 import { Button } from '@/components/ui/Button';
 import { useAppStore } from '@/stores';
 
 export function ServerPage() {
+  const { t } = useTranslation();
   const { connection, setConnection, backendMode, setBackendMode } = useAppStore();
 
   const [testing, setTesting] = useState(false);
@@ -51,7 +53,7 @@ export function ServerPage() {
     <div className="max-w-4xl mx-auto w-full flex flex-col gap-4 sm:gap-6 pb-8 flex-1 overflow-y-auto p-3 sm:p-5">
       {/* Backend section */}
       <section className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-5 flex flex-col gap-4">
-        <h2 className="text-sm font-semibold text-[var(--color-text)]">Бэкенд</h2>
+        <h2 className="text-sm font-semibold text-[var(--color-text)]">{t('server.backendTitle')}</h2>
 
         {/* Mode toggle */}
         <div className="flex items-center gap-1 bg-[var(--color-surface-2)] rounded-lg p-0.5 w-fit">
@@ -64,7 +66,7 @@ export function ServerPage() {
             }`}
           >
             <Server size={12} />
-            Встроенный сервер
+            {t('server.builtinMode')}
           </button>
           <button
             onClick={() => setBackendMode('external')}
@@ -75,7 +77,7 @@ export function ServerPage() {
             }`}
           >
             <Globe size={12} />
-            Внешний API
+            {t('server.externalMode')}
           </button>
         </div>
 
@@ -94,11 +96,11 @@ export function ServerPage() {
                 }`}
               />
               <span className="text-sm text-[var(--color-text-muted)]">
-                {connection.connected ? `Подключено: ${connection.model}` : 'Не подключено'}
+                {connection.connected ? t('server.connected', { model: connection.model }) : t('server.disconnected')}
               </span>
               <Button variant="ghost" size="sm" onClick={handleTestConnection} loading={testing} className="ml-auto">
                 <RefreshCw size={13} />
-                Проверить
+                {t('server.checkConnection')}
               </Button>
             </div>
 

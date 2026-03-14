@@ -1,23 +1,26 @@
 import { Menu } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useAppStore } from '@/stores';
 
-const pageTitles: Record<string, string> = {
-  '/characters': 'Персонажи',
-  '/lorebooks': 'Лорбуки',
-  '/scenarios': 'Сценарии',
-  '/settings': 'Настройки',
-  '/chat': 'Чат',
+const pageTitleKeys: Record<string, string> = {
+  '/characters': 'nav.characters',
+  '/lorebooks': 'nav.lorebooks',
+  '/scenarios': 'nav.scenarios',
+  '/settings': 'nav.settings',
+  '/chat': 'nav.chat',
 };
 
 export function Header() {
+  const { t } = useTranslation();
   const { sidebarCollapsed, toggleSidebar } = useAppStore();
   const location = useLocation();
 
   // Hide header on active chat page (it has its own header with hamburger)
   if (location.pathname.startsWith('/chat/')) return null;
 
-  const title = pageTitles[location.pathname] ?? '';
+  const titleKey = pageTitleKeys[location.pathname];
+  const title = titleKey ? t(titleKey) : '';
 
   return (
     <header className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0">

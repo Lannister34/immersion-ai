@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import { Check, X } from 'lucide-react';
 import type { JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface MessageEditFormProps {
   editText: string;
@@ -21,6 +22,7 @@ export function MessageEditForm({
   onSave,
   onCancel,
 }: MessageEditFormProps): JSX.Element {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-2">
       <textarea
@@ -40,10 +42,10 @@ export function MessageEditForm({
         <button
           onClick={onSave}
           className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--color-accent)] text-white text-xs font-medium hover:brightness-110 transition-all cursor-pointer"
-          title="Сохранить (Ctrl+Enter)"
+          title={t('chat.saveEditTooltip')}
         >
           <Check size={13} />
-          <span>Сохранить</span>
+          <span>{t('common.save')}</span>
         </button>
         <button
           onClick={onCancel}
@@ -53,10 +55,10 @@ export function MessageEditForm({
               ? 'text-white/70 hover:text-white hover:bg-white/10'
               : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]',
           )}
-          title="Отмена (Esc)"
+          title={t('chat.cancelEditTooltip')}
         >
           <X size={13} />
-          <span>Отмена</span>
+          <span>{t('common.cancel')}</span>
         </button>
       </div>
     </div>

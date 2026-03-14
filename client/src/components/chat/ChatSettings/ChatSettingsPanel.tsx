@@ -2,6 +2,7 @@ import { clsx } from 'clsx';
 import { FileText, RotateCcw as Reset, Sliders, X } from 'lucide-react';
 import type { JSX } from 'react';
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getBasePreset, getEffectiveSamplerSettings, useAppStore } from '@/stores';
 import type { Character, ChatSessionMeta, SamplerSettings, Scenario } from '@/types';
 import { ChatSettingSlider } from './ChatSettingSlider';
@@ -12,6 +13,7 @@ import { SystemPromptSection } from './SystemPromptSection';
 // ── Scenario Display (stateless, <15 lines) ─────────────────────────────────
 
 function ScenarioDisplay({ session }: { session: ChatSessionMeta | null }): JSX.Element | null {
+  const { t } = useTranslation();
   const activeScenarioName = session?.activeScenarioName;
   if (!activeScenarioName) return null;
 
@@ -19,10 +21,12 @@ function ScenarioDisplay({ session }: { session: ChatSessionMeta | null }): JSX.
     <div className="flex flex-col gap-1 border-t border-[var(--color-border)] pt-3">
       <div className="flex items-center gap-1.5">
         <FileText size={10} className="text-[var(--color-primary)]" />
-        <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">Сценарий</span>
+        <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+          {t('chatSettings.scenarioLabel')}
+        </span>
       </div>
       <div className="text-xs text-[var(--color-text)]">{activeScenarioName}</div>
-      <div className="text-[9px] text-[var(--color-text-muted)] opacity-60">Выбирается при создании чата</div>
+      <div className="text-[9px] text-[var(--color-text-muted)] opacity-60">{t('chatSettings.scenarioHint')}</div>
     </div>
   );
 }
@@ -46,6 +50,7 @@ export function ChatSettingsPanel({
   onClose,
   onSettingsChanged,
 }: ChatSettingsPanelProps): JSX.Element {
+  const { t } = useTranslation();
   const upsertChatSession = useAppStore((s) => s.upsertChatSession);
   const state = useAppStore.getState();
 
@@ -83,7 +88,7 @@ export function ChatSettingsPanel({
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--color-border)]">
         <div className="flex items-center gap-1.5">
           <Sliders size={13} className="text-[var(--color-primary)]" />
-          <span className="text-xs font-semibold text-[var(--color-text)]">Настройки чата</span>
+          <span className="text-xs font-semibold text-[var(--color-text)]">{t('chatSettings.title')}</span>
         </div>
         <button
           onClick={onClose}
@@ -98,7 +103,7 @@ export function ChatSettingsPanel({
           <div className="flex items-center gap-2">
             <div className="flex flex-col">
               <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-                Пресет
+                {t('chatSettings.presetLabel')}
               </label>
               <span
                 className={clsx(
@@ -119,7 +124,7 @@ export function ChatSettingsPanel({
               className="text-[10px] px-2 py-1 rounded-md bg-[var(--color-surface-2)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 cursor-pointer flex items-center gap-1 transition-colors"
             >
               <Reset size={10} />
-              Сбросить
+              {t('common.reset')}
             </button>
           )}
         </div>
@@ -127,14 +132,14 @@ export function ChatSettingsPanel({
         <div className="flex flex-col gap-1.5">
           {!hasOverrides && (
             <div className="text-[9px] text-[var(--color-text-muted)] opacity-60 mb-1">
-              Измените значение, чтобы создать переопределение для этого чата
+              {t('chatSettings.overrideHint')}
             </div>
           )}
 
           <div className="flex flex-col gap-3">
             <ChatSettingSlider
               label="Temperature"
-              tooltip="Креативность ответов. Низкие значения (0.1–0.5) — предсказуемый текст, высокие (0.8–1.5) — разнообразный и неожиданный. Слишком высокие значения могут давать бессвязный текст."
+              tooltip={t('samplers.temperatureTooltip')}
               value={customOverrides.temperature ?? effective.temperature}
               onChange={(v) => handleOverride('temperature', v)}
               modified={'temperature' in customOverrides}
@@ -144,7 +149,7 @@ export function ChatSettingsPanel({
             />
             <ChatSettingSlider
               label="Min P"
-              tooltip="Отсекает токены, вероятность которых ниже заданной доли от самого вероятного. Например, 0.05 = убрать всё, что менее 5% от лучшего варианта. Хорошо убирает мусор, сохраняя разнообразие."
+              tooltip={t('samplers.minPTooltip')}
               value={customOverrides.min_p ?? effective.min_p}
               onChange={(v) => handleOverride('min_p', v)}
               modified={'min_p' in customOverrides}
@@ -154,7 +159,7 @@ export function ChatSettingsPanel({
             />
             <ChatSettingSlider
               label="Top P"
-              tooltip="Nucleus sampling — выбирает из наименьшего набора токенов, чья суммарная вероятность ≥ значения. 1.0 = все токены, 0.9 = верхние 90% вероятности. Чем ниже, тем консервативнее."
+              tooltip={t('samplers.topPTooltip')}
               value={customOverrides.top_p ?? effective.top_p}
               onChange={(v) => handleOverride('top_p', v)}
               modified={'top_p' in customOverrides}
@@ -164,7 +169,7 @@ export function ChatSettingsPanel({
             />
             <ChatSettingSlider
               label="Top K"
-              tooltip="Ограничивает выбор только K самыми вероятными токенами. 0 = без ограничения, 40 = только топ-40 вариантов. Грубый фильтр, лучше использовать Min P."
+              tooltip={t('samplers.topKTooltip')}
               value={customOverrides.top_k ?? effective.top_k}
               onChange={(v) => handleOverride('top_k', v)}
               modified={'top_k' in customOverrides}
@@ -174,7 +179,7 @@ export function ChatSettingsPanel({
             />
             <ChatSettingSlider
               label="Rep. Penalty"
-              tooltip="Штраф за повторение токенов. 1.0 = выключено, 1.05–1.10 = мягкий штраф, >1.15 = агрессивный (может ломать текст). Помогает избежать зацикливания на одних и тех же фразах."
+              tooltip={t('samplers.repPenTooltip')}
               value={customOverrides.rep_pen ?? effective.rep_pen}
               onChange={(v) => handleOverride('rep_pen', v)}
               modified={'rep_pen' in customOverrides}
@@ -184,7 +189,7 @@ export function ChatSettingsPanel({
             />
             <ChatSettingSlider
               label="Rep. Pen. Range"
-              tooltip="Сколько последних токенов учитывать для штрафа за повторение. 0 = отключено, 2048 = последние ~2048 токенов (включая предыдущие сообщения в контексте)."
+              tooltip={t('samplers.repPenRangeTooltip')}
               value={customOverrides.rep_pen_range ?? effective.rep_pen_range}
               onChange={(v) => handleOverride('rep_pen_range', v)}
               modified={'rep_pen_range' in customOverrides}
@@ -194,7 +199,7 @@ export function ChatSettingsPanel({
             />
             <ChatSettingSlider
               label="Presence Penalty"
-              tooltip="Штраф за присутствие токена в предыдущем тексте. В отличие от Rep. Penalty, штрафует одинаково вне зависимости от количества повторений. 0 = выключено."
+              tooltip={t('samplers.presencePenaltyTooltip')}
               value={customOverrides.presence_penalty ?? effective.presence_penalty}
               onChange={(v) => handleOverride('presence_penalty', v)}
               modified={'presence_penalty' in customOverrides}
@@ -204,7 +209,7 @@ export function ChatSettingsPanel({
             />
             <ChatSettingSlider
               label="Max Tokens"
-              tooltip="Максимальная длина ответа модели в токенах. 1 токен ≈ 3–4 символа. 256 = короткий ответ, 512–1024 = развёрнутый. Для моделей с thinking (Qwen3) рекомендуется 4096–32768, т.к. размышления тоже расходуют токены."
+              tooltip={t('samplers.maxTokensTooltip')}
               value={customOverrides.max_length ?? effective.max_length}
               onChange={(v) => handleOverride('max_length', v)}
               modified={'max_length' in customOverrides}

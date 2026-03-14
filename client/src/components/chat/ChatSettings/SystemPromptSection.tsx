@@ -2,6 +2,7 @@ import { clsx } from 'clsx';
 import { Check, ChevronRight, RotateCcw as Reset } from 'lucide-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { computeBaseSystemPrompt } from '@/lib/promptBuilder';
 import { useAppStore } from '@/stores';
 import type { Character, ChatSessionMeta, Scenario } from '@/types';
@@ -19,6 +20,7 @@ export function SystemPromptSection({
   activeScenario,
   onSettingsChanged,
 }: SystemPromptSectionProps): JSX.Element | null {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const upsertChatSession = useAppStore((s) => s.upsertChatSession);
 
@@ -69,7 +71,7 @@ export function SystemPromptSection({
           className={clsx('text-[var(--color-primary)] transition-transform duration-200', expanded && 'rotate-90')}
         />
         <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide group-hover:text-[var(--color-text)] transition-colors">
-          Системный промпт
+          {t('settings.systemPromptTitle')}
         </span>
         {hasOverride && (
           <span className="text-[8px] px-1.5 py-0.5 rounded bg-[var(--color-primary)]/15 text-[var(--color-primary)]">
@@ -87,7 +89,7 @@ export function SystemPromptSection({
             className="w-full text-[11px] leading-relaxed bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-2.5 py-2 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] transition-colors resize-y font-mono"
           />
           <div className="text-[9px] text-[var(--color-text-muted)] opacity-60">
-            World Info и язык добавляются автоматически
+            {t('chatSettings.worldInfoAutoHint')}
           </div>
           <div className="flex items-center gap-1.5">
             {isDirty && (
@@ -96,7 +98,7 @@ export function SystemPromptSection({
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90 transition-colors cursor-pointer"
               >
                 <Check size={10} />
-                Сохранить
+                {t('common.save')}
               </button>
             )}
             {hasOverride && (
@@ -105,7 +107,7 @@ export function SystemPromptSection({
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-[var(--color-surface-2)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 transition-colors cursor-pointer"
               >
                 <Reset size={10} />
-                Сбросить
+                {t('common.reset')}
               </button>
             )}
           </div>
