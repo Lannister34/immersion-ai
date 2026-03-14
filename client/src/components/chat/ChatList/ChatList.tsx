@@ -2,8 +2,8 @@ import { AlertTriangle, MessageCircle, Plus, Search, Trash2 } from 'lucide-react
 import type { JSX } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { useChatList } from '@/hooks/useChatList';
 import { ChatListItem } from './ChatListItem';
+import { useChatList } from './useChatList';
 
 interface ChatListProps {
   onOpenChat: (avatar: string, chatFile: string) => void;
