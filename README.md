@@ -1,6 +1,8 @@
 # Immersion AI
 
-Modern RP (roleplay) chat interface powered by local LLMs. Lightweight, fast, and fully autonomous — all data is stored locally.
+LLM frontend for roleplay and creative writing. Designed to make working with language models as simple and convenient as possible, while keeping full flexibility and control over generation.
+
+All data is stored locally. No cloud dependencies, no telemetry.
 
 ## Features
 
@@ -41,7 +43,9 @@ The app will install dependencies, build the client, and open http://localhost:4
 
 # Immersion AI (RU)
 
-Современный интерфейс для ролевых чатов (RP) с локальными LLM-моделями. Лёгкий, быстрый и полностью автономный — все данные хранятся локально.
+LLM-фронтенд для ролевых чатов и творческого письма. Цель проекта — максимальное удобство и простота работы с языковыми моделями при сохранении гибкости и полного контроля над генерацией.
+
+Все данные хранятся локально. Без облачных зависимостей, без телеметрии.
 
 ## Возможности
 
