@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import type { JSX } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ContextIndicatorProps {
   promptLength: number;
@@ -7,6 +8,7 @@ interface ContextIndicatorProps {
 }
 
 export function ContextIndicator({ promptLength, maxContext }: ContextIndicatorProps): JSX.Element | null {
+  const { t } = useTranslation();
   if (promptLength === 0) return null;
 
   // Rough estimate: ~3.5 chars per token for mixed Russian/English
@@ -27,7 +29,13 @@ export function ContextIndicator({ promptLength, maxContext }: ContextIndicatorP
   return (
     <span
       className="inline-flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)] tabular-nums"
-      title={`Контекст: ~${estimatedTokens} / ${maxContext} токенов (${percent}%)${isOverflow ? ' — старые сообщения обрезаны' : ''}`}
+      title={
+        t('context.tooltipNormal', {
+          estimatedTokens: formatTokens(estimatedTokens),
+          maxContext: formatTokens(maxContext),
+          percent,
+        }) + (isOverflow ? t('context.tooltipOverflow') : '')
+      }
     >
       <span className="w-14 h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden inline-block align-middle">
         <span
