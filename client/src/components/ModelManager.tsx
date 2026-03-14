@@ -11,6 +11,7 @@ import {
   Square,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { EngineInfo, LlmServerStatus, ModelFile } from '@/api';
 import { browseFolder, getEngineInfo, getLlmServerStatus, listModelFiles, startLlmServer, stopLlmServer } from '@/api';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +29,7 @@ function formatElapsed(seconds: number): string {
 }
 
 export function ModelManager() {
+  const { t } = useTranslation();
   const { llmServerConfig, setLlmServerConfig, setConnection } = useAppStore();
   const queryClient = useQueryClient();
   const [showSettings, setShowSettings] = useState(false);
@@ -137,16 +139,21 @@ export function ModelManager() {
           ? 'bg-[var(--color-danger)] shadow-[0_0_8px_var(--color-danger)]'
           : 'bg-[var(--color-text-muted)]';
 
-  const statusText =
-    status === 'running'
-      ? `Запущен${serverStatus?.pid ? ` (PID ${serverStatus.pid})` : ''}`
-      : status === 'starting'
-        ? `Загрузка модели... ${formatElapsed(elapsed)}`
-        : status === 'stopping'
-          ? 'Остановка...'
-          : status === 'error'
-            ? `Ошибка: ${serverStatus?.error ?? 'неизвестная'}`
-            : 'Остановлен';
+  const getStatusText = (): string => {
+    if (status === 'running') {
+      return serverStatus?.pid
+        ? t('modelManager.statusRunningPid', { pid: serverStatus.pid })
+        : t('modelManager.statusRunning');
+    }
+    if (status === 'starting') {
+      return t('modelManager.statusStarting', { elapsed: formatElapsed(elapsed) });
+    }
+    if (status === 'stopping') return t('modelManager.statusStopping');
+    if (status === 'error') {
+      return t('modelManager.statusError', { error: serverStatus?.error ?? t('modelManager.unknownError') });
+    }
+    return t('modelManager.statusIdle');
+  };
 
   const currentModelName = serverStatus?.model ?? null;
   const isActive = status === 'running' || status === 'starting' || status === 'stopping';
@@ -158,13 +165,9 @@ export function ModelManager() {
         <div className="flex items-start gap-2.5 text-sm text-[var(--color-text-muted)] bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
           <Download size={16} className="flex-shrink-0 mt-0.5 text-amber-400" />
           <div className="flex flex-col gap-1.5">
-            <span className="text-[var(--color-text)] font-medium text-xs">llama-server не найден</span>
-            <span className="text-xs leading-relaxed">
-              Скачайте <span className="font-mono text-[var(--color-primary)]">llama-server</span> с GitHub Releases и
-              поместите в папку <span className="font-mono bg-[var(--color-surface-2)] px-1 py-0.5 rounded">bin/</span>{' '}
-              проекта.
-            </span>
-            <span className="text-[10px] opacity-60">Выберите сборку: CUDA (NVIDIA), Vulkan (AMD/Intel) или CPU</span>
+            <span className="text-[var(--color-text)] font-medium text-xs">{t('modelManager.engineNotFound')}</span>
+            <span className="text-xs leading-relaxed">{t('modelManager.engineDownloadHint')}</span>
+            <span className="text-[10px] opacity-60">{t('modelManager.engineBuildHint')}</span>
           </div>
         </div>
         <a
@@ -185,19 +188,19 @@ export function ModelManager() {
       {/* Status bar */}
       <div className="flex items-center gap-3">
         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${statusDot}`} />
-        <span className="text-sm text-[var(--color-text-muted)] flex-1">{statusText}</span>
+        <span className="text-sm text-[var(--color-text-muted)] flex-1">{getStatusText()}</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowSettings(!showSettings)}
             className="p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] transition-colors"
-            title="Настройки"
+            title={t('modelManager.settingsTooltip')}
           >
             <Settings size={14} />
           </button>
           {isActive && (
             <Button variant="ghost" size="sm" onClick={handleStop} disabled={status === 'stopping'}>
               <Square size={13} />
-              Стоп
+              {t('modelManager.stop')}
             </Button>
           )}
         </div>
@@ -206,7 +209,7 @@ export function ModelManager() {
       {/* Current model */}
       {currentModelName && status === 'running' && (
         <div className="text-xs text-[var(--color-text-muted)]">
-          Модель:{' '}
+          {t('modelManager.modelLabel')}
           <span className="font-mono bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded text-[var(--color-text)]">
             {currentModelName}
           </span>
@@ -218,7 +221,7 @@ export function ModelManager() {
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2 text-xs text-amber-400">
             <Loader2 size={12} className="animate-spin" />
-            <span>Загрузка {currentModelName}...</span>
+            <span>{t('modelManager.loadingModel', { modelName: currentModelName })}</span>
           </div>
           <div className="h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden">
             <div className="h-full bg-amber-400 rounded-full animate-pulse" style={{ width: '60%' }} />
@@ -238,7 +241,9 @@ export function ModelManager() {
       {showSettings && (
         <div className="border border-[var(--color-border)] rounded-lg p-3 flex flex-col gap-3 bg-[var(--color-surface-2)]/50">
           <div>
-            <label className="text-xs text-[var(--color-text-muted)] mb-1 block">Папка с моделями</label>
+            <label className="text-xs text-[var(--color-text-muted)] mb-1 block">
+              {t('modelManager.modelsDirLabel')}
+            </label>
             <div className="flex gap-1.5">
               <input
                 type="text"
@@ -259,7 +264,7 @@ export function ModelManager() {
                 }}
                 disabled={browsing}
                 className="px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer disabled:opacity-50"
-                title="Выбрать папку"
+                title={t('modelManager.browseFolderTooltip')}
               >
                 {browsing ? <Loader2 size={13} className="animate-spin" /> : <FolderOpen size={13} />}
               </button>
@@ -277,7 +282,9 @@ export function ModelManager() {
                 max={999}
                 className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
               />
-              <span className="text-[10px] text-[var(--color-text-muted)] opacity-60">0 = CPU, 999 = все на GPU</span>
+              <span className="text-[10px] text-[var(--color-text-muted)] opacity-60">
+                {t('modelManager.gpuLayersHint')}
+              </span>
             </div>
             <div>
               <label className="text-xs text-[var(--color-text-muted)] mb-1 block">Context Size</label>
@@ -304,10 +311,12 @@ export function ModelManager() {
                 max={128}
                 className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
               />
-              <span className="text-[10px] text-[var(--color-text-muted)] opacity-60">0 = авто</span>
+              <span className="text-[10px] text-[var(--color-text-muted)] opacity-60">
+                {t('modelManager.threadsHint')}
+              </span>
             </div>
             <div>
-              <label className="text-xs text-[var(--color-text-muted)] mb-1 block">Порт</label>
+              <label className="text-xs text-[var(--color-text-muted)] mb-1 block">{t('modelManager.portLabel')}</label>
               <input
                 type="number"
                 value={llmServerConfig.port}
@@ -334,7 +343,9 @@ export function ModelManager() {
       {/* Models list */}
       {modelFiles && modelFiles.length > 0 && (
         <div className="flex flex-col gap-1">
-          <div className="text-xs text-[var(--color-text-muted)] font-medium mb-1">Доступные модели</div>
+          <div className="text-xs text-[var(--color-text-muted)] font-medium mb-1">
+            {t('modelManager.availableModels')}
+          </div>
           {modelFiles.map((model) => {
             const isCurrent = currentModelName && status === 'running' && model.name === currentModelName;
             const isLoading = status === 'starting' && currentModelName && model.name === currentModelName;
@@ -357,7 +368,7 @@ export function ModelManager() {
                 </div>
                 {isCurrent ? (
                   <span className="text-[10px] text-[var(--color-accent)] font-medium px-2 py-0.5 rounded-full bg-[var(--color-accent)]/10">
-                    Текущая
+                    {t('modelManager.currentBadge')}
                   </span>
                 ) : isLoading ? (
                   <Loader2 size={14} className="text-amber-400 animate-spin" />
@@ -370,7 +381,7 @@ export function ModelManager() {
                     className="text-[10px] !px-2 !py-1"
                   >
                     <Play size={11} />
-                    Запуск
+                    {t('modelManager.startButton')}
                   </Button>
                 )}
               </div>
@@ -382,7 +393,7 @@ export function ModelManager() {
       {/* No models found */}
       {modelFiles && modelFiles.length === 0 && effectiveModelsDir && (
         <div className="text-xs text-[var(--color-text-muted)] text-center py-3">
-          Модели (.gguf) не найдены в {effectiveModelsDir}
+          {t('modelManager.noModelsFound', { dir: effectiveModelsDir })}
         </div>
       )}
     </div>
