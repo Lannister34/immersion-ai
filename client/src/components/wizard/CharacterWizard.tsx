@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, Check, RefreshCw, Sparkles, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createCharacter, generateAvatarPrompt, generateCharacter, regenerateCharacterField } from '@/api';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -45,7 +46,13 @@ function StepIndicator({ current, steps }: { current: number; steps: string[] })
   );
 }
 
-const STEPS = ['Концепт', 'Генерация', 'Просмотр', 'Аватар', 'Готово'];
+const STEP_KEYS = [
+  'wizard.stepConcept',
+  'wizard.stepGeneration',
+  'wizard.stepPreview',
+  'wizard.stepAvatar',
+  'wizard.stepDone',
+] as const;
 const STEP_INDEX: Record<Step, number> = {
   concept: 0,
   generating: 1,
@@ -55,7 +62,9 @@ const STEP_INDEX: Record<Step, number> = {
 };
 
 export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardProps) {
+  const { t } = useTranslation();
   const connection = useAppStore((s) => s.connection);
+  const steps = STEP_KEYS.map((key) => t(key));
   const [step, setStep] = useState<Step>('concept');
   const [concept, setConcept] = useState('');
   const [generationError, setGenerationError] = useState('');
@@ -98,8 +107,8 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
     } catch (err) {
       const msg =
         err instanceof TypeError && err.message === 'Failed to fetch'
-          ? 'Не удалось подключиться к серверу. Проверьте, что бэкенд запущен.'
-          : `Ошибка генерации: ${err instanceof Error ? err.message : String(err)}`;
+          ? t('wizard.connectionError')
+          : t('wizard.generationError', { error: err instanceof Error ? err.message : String(err) });
       setGenerationError(msg);
       setStep('concept');
     }
@@ -233,19 +242,17 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
 
   return (
     <Modal open={open} onClose={handleClose} size="xl">
-      <StepIndicator current={STEP_INDEX[step]} steps={STEPS} />
+      <StepIndicator current={STEP_INDEX[step]} steps={steps} />
 
       {/* Step: Concept */}
       {step === 'concept' && (
         <div className="p-5 flex flex-col gap-4">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-text)] mb-1">Опишите персонажа</h3>
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Пару предложений достаточно. LLM создаст полную карточку персонажа.
-            </p>
+            <h3 className="text-sm font-semibold text-[var(--color-text)] mb-1">{t('wizard.describeCharacter')}</h3>
+            <p className="text-xs text-[var(--color-text-muted)]">{t('wizard.describeHint')}</p>
           </div>
           <Textarea
-            placeholder="Например: Молодая волшебница, саркастичная, живёт в библиотеке. Не любит людей, но помогает им против воли."
+            placeholder={t('wizard.conceptPlaceholder')}
             value={concept}
             onChange={(e) => setConcept(e.target.value)}
             rows={5}
@@ -282,10 +289,10 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
             <Button
               onClick={handleGenerate}
               disabled={!concept.trim() || !connection.connected}
-              title={!connection.connected ? 'Нет подключения к API' : undefined}
+              title={!connection.connected ? t('common.noApiConnection') : undefined}
             >
               <Sparkles size={15} />
-              Сгенерировать
+              {t('common.generate')}
             </Button>
           </div>
         </div>
@@ -295,9 +302,9 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
       {step === 'generating' && (
         <div className="p-10 flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-          <div className="text-sm text-[var(--color-text-muted)]">Генерируем персонажа...</div>
+          <div className="text-sm text-[var(--color-text-muted)]">{t('wizard.generatingCharacter')}</div>
           <div className="text-xs text-[var(--color-text-muted)] max-w-xs text-center opacity-60">
-            LLM создаёт имя, описание, личность и примеры диалогов
+            {t('wizard.generatingHint')}
           </div>
         </div>
       )}
@@ -306,7 +313,7 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
       {step === 'preview' && character && (
         <div className="p-5 flex flex-col gap-4">
           <PreviewField
-            label="Имя"
+            label={t('wizard.nameLabel')}
             field="name"
             value={character.name}
             isText
@@ -314,27 +321,30 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
             onRegenerate={() => handleRegenerateField('name')}
             isRegenerating={regeneratingField === 'name'}
             connected={connection.connected}
+            regenerateLabel={t('wizard.regenerateField')}
           />
           <PreviewField
-            label="Описание"
+            label={t('wizard.descriptionLabel')}
             field="description"
             value={character.description}
             onEdit={(v) => updateField('description', v)}
             onRegenerate={() => handleRegenerateField('description')}
             isRegenerating={regeneratingField === 'description'}
             connected={connection.connected}
+            regenerateLabel={t('wizard.regenerateField')}
           />
           <PreviewField
-            label="Личность"
+            label={t('wizard.personalityLabel')}
             field="personality"
             value={character.personality}
             onEdit={(v) => updateField('personality', v)}
             onRegenerate={() => handleRegenerateField('personality')}
             isRegenerating={regeneratingField === 'personality'}
             connected={connection.connected}
+            regenerateLabel={t('wizard.regenerateField')}
           />
           <PreviewField
-            label="Примеры диалогов"
+            label={t('wizard.mesExampleLabel')}
             field="mes_example"
             value={character.mes_example}
             onEdit={(v) => updateField('mes_example', v)}
@@ -342,15 +352,16 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
             isRegenerating={regeneratingField === 'mes_example'}
             rows={6}
             connected={connection.connected}
+            regenerateLabel={t('wizard.regenerateField')}
           />
 
           <div className="flex justify-between pt-2">
             <Button variant="secondary" onClick={() => setStep('concept')}>
               <ArrowLeft size={15} />
-              Назад
+              {t('common.back')}
             </Button>
             <Button onClick={() => setStep('avatar')}>
-              Аватар
+              {t('wizard.avatarButton')}
               <ArrowRight size={15} />
             </Button>
           </div>
@@ -379,7 +390,7 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
                   <button
                     onClick={handleRemoveAvatar}
                     className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors cursor-pointer"
-                    title="Удалить аватар"
+                    title={t('wizard.removeAvatarTooltip')}
                   >
                     <X size={12} />
                   </button>
@@ -395,15 +406,13 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
             </div>
 
             <div className="flex-1 flex flex-col gap-3">
-              <p className="text-xs text-[var(--color-text-muted)]">
-                Перетащите, вставьте (Ctrl+V) или загрузите изображение.
-              </p>
+              <p className="text-xs text-[var(--color-text-muted)]">{t('wizard.avatarUploadHint')}</p>
 
               <label className="cursor-pointer">
                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFileChange} />
                 <div className="rounded-lg font-medium transition-all duration-150 cursor-pointer flex items-center gap-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text)] border border-[var(--color-border)] px-3 py-1.5 text-sm w-full">
                   <Upload size={14} />
-                  Загрузить изображение
+                  {t('wizard.uploadImage')}
                 </div>
               </label>
 
@@ -413,10 +422,10 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
                 onClick={handleGenerateAvatarPrompt}
                 loading={regeneratingField === 'avatar'}
                 disabled={!connection.connected}
-                title={!connection.connected ? 'Нет подключения к API' : undefined}
+                title={!connection.connected ? t('common.noApiConnection') : undefined}
               >
                 <Sparkles size={14} />
-                Сгенерировать SD-промпт
+                {t('wizard.generateSdPrompt')}
               </Button>
             </div>
           </div>
@@ -443,10 +452,10 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
           <div className="flex justify-between pt-2">
             <Button variant="secondary" onClick={() => setStep('preview')}>
               <ArrowLeft size={15} />
-              Назад
+              {t('common.back')}
             </Button>
             <Button onClick={() => setStep('saving')}>
-              Далее
+              {t('common.next')}
               <ArrowRight size={15} />
             </Button>
           </div>
@@ -489,11 +498,11 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
           <div className="flex justify-between">
             <Button variant="secondary" onClick={() => setStep('avatar')}>
               <ArrowLeft size={15} />
-              Назад
+              {t('common.back')}
             </Button>
             <Button onClick={handleSave} loading={isSaving}>
               <Check size={15} />
-              Сохранить персонажа
+              {t('wizard.saveCharacter')}
             </Button>
           </div>
         </div>
@@ -512,6 +521,7 @@ interface PreviewFieldProps {
   onRegenerate: () => void;
   isRegenerating: boolean;
   connected?: boolean;
+  regenerateLabel?: string;
 }
 
 function PreviewField({
@@ -523,6 +533,7 @@ function PreviewField({
   onRegenerate,
   isRegenerating,
   connected = true,
+  regenerateLabel = 'Retry',
 }: PreviewFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -532,10 +543,9 @@ function PreviewField({
           onClick={onRegenerate}
           disabled={isRegenerating || !connected}
           className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors disabled:opacity-50 cursor-pointer"
-          title={!connected ? 'Нет подключения к API' : undefined}
         >
           <RefreshCw size={11} className={isRegenerating ? 'animate-spin' : ''} />
-          Ещё раз
+          {regenerateLabel}
         </button>
       </div>
       {isText ? (
