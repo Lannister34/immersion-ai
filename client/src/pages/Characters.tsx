@@ -54,16 +54,6 @@ type SortDir = 'asc' | 'desc';
 /** Sentinel avatar value for chats without a character */
 const NO_CHARACTER_AVATAR = '_no_character_';
 
-/** Empty character stub used for "Without character" mode */
-const NO_CHARACTER: Character = {
-  name: '',
-  description: '',
-  personality: '',
-  mes_example: '',
-  tags: [],
-  avatar: NO_CHARACTER_AVATAR,
-};
-
 function CharacterCard({
   character,
   chatCount,
@@ -1282,8 +1272,21 @@ export function CharactersPage() {
     setStartChatChar(character);
   };
 
-  const handleStartEmptyChat = () => {
-    setStartChatChar(NO_CHARACTER);
+  const handleStartEmptyChat = async () => {
+    try {
+      const chatId = await createNewChat(NO_CHARACTER_AVATAR, '', '');
+      useAppStore.getState().upsertChatSession({
+        characterAvatar: NO_CHARACTER_AVATAR,
+        characterName: 'Свободный чат',
+        chatFile: chatId,
+        createdAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
+        messageCount: 0,
+      });
+      navigate(`/chat/${encodeURIComponent(chatId)}`);
+    } catch (err) {
+      console.error('Failed to start free chat:', err);
+    }
   };
 
   const handleConfirmStartChat = async (overrides: StartChatOverrides) => {
