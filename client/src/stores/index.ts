@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { getUserSettings, saveUserSettings } from '@/api';
 import type { ChatSessionMeta, ConnectionStatus, SamplerPreset, SamplerSettings } from '@/types';
 
@@ -174,7 +173,7 @@ Guidelines:
 - Stay in character at all times`;
 const DEFAULT_PROMPTS = [DEFAULT_SYSTEM_PROMPT_EN, DEFAULT_SYSTEM_PROMPT_RU, LEGACY_DEFAULT];
 
-// ── Fields to persist (both localStorage and server) ───────────────────────
+// ── Fields persisted to server (user-settings.json) ────────────────────────
 
 const PERSISTED_KEYS = [
   'userName',
@@ -267,242 +266,123 @@ export function getEffectiveSamplerSettings(state: AppState, chatFile?: string):
 
 // ── Store ──────────────────────────────────────────────────────────────────
 
-export const useAppStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-      connection: { connected: false },
-      setConnection: (connection) => set({ connection }),
+export const useAppStore = create<AppState>()((set, get) => ({
+  connection: { connected: false },
+  setConnection: (connection) => set({ connection }),
 
-      // Default collapsed on mobile (< 768px)
-      sidebarCollapsed: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-      toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+  // Default collapsed on mobile (< 768px)
+  sidebarCollapsed: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-      userName: 'Алексей',
-      setUserName: (name) => set({ userName: name }),
+  userName: 'Алексей',
+  setUserName: (name) => set({ userName: name }),
 
-      userPersona: '',
-      setUserPersona: (persona) => set({ userPersona: persona }),
+  userPersona: '',
+  setUserPersona: (persona) => set({ userPersona: persona }),
 
-      // Sampler presets
-      samplerPresets: [DEFAULT_PRESET, MISTRAL_TEKKEN_PRESET],
-      activePresetId: 'default',
-      modelPresetMap: {},
+  // Sampler presets
+  samplerPresets: [DEFAULT_PRESET, MISTRAL_TEKKEN_PRESET],
+  activePresetId: 'default',
+  modelPresetMap: {},
 
-      addPreset: (preset) => set((s) => ({ samplerPresets: [...s.samplerPresets, preset] })),
+  addPreset: (preset) => set((s) => ({ samplerPresets: [...s.samplerPresets, preset] })),
 
-      updatePreset: (id, partial) =>
-        set((s) => ({
-          samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, ...partial } : p)),
-        })),
+  updatePreset: (id, partial) =>
+    set((s) => ({
+      samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, ...partial } : p)),
+    })),
 
-      renamePreset: (id, name) =>
-        set((s) => ({
-          samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, name } : p)),
-        })),
+  renamePreset: (id, name) =>
+    set((s) => ({
+      samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, name } : p)),
+    })),
 
-      deletePreset: (id) =>
-        set((s) => {
-          if (s.samplerPresets.length <= 1) return s; // keep at least one
-          const filtered = s.samplerPresets.filter((p) => p.id !== id);
-          const newActive = s.activePresetId === id ? filtered[0].id : s.activePresetId;
-          // Clean up model mappings pointing to deleted preset
-          const newMap = { ...s.modelPresetMap };
-          for (const [model, pid] of Object.entries(newMap)) {
-            if (pid === id) delete newMap[model];
-          }
-          return {
-            samplerPresets: filtered,
-            activePresetId: newActive,
-            modelPresetMap: newMap,
-          };
-        }),
-
-      setActivePreset: (id) => set({ activePresetId: id }),
-
-      setModelPreset: (model, presetId) =>
-        set((s) => {
-          const newMap = { ...s.modelPresetMap };
-          if (presetId) {
-            newMap[model] = presetId;
-          } else {
-            delete newMap[model];
-          }
-          return { modelPresetMap: newMap };
-        }),
-
-      systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_RU,
-      setSystemPromptTemplate: (template) => set({ systemPromptTemplate: template }),
-
-      responseLanguage: 'ru',
-      setResponseLanguage: (lang) => {
-        const state = get();
-        const update: Partial<AppState> = { responseLanguage: lang };
-        // Auto-swap system prompt template when it's still one of the defaults
-        if (DEFAULT_PROMPTS.includes(state.systemPromptTemplate)) {
-          update.systemPromptTemplate = getDefaultSystemPrompt(lang);
-        }
-        set(update);
-      },
-
-      streamingEnabled: true,
-      setStreamingEnabled: (enabled) => set({ streamingEnabled: enabled }),
-
-      thinkingEnabled: true,
-      setThinkingEnabled: (enabled) => set({ thinkingEnabled: enabled }),
-
-      // Chat sessions
-      chatSessions: [],
-      upsertChatSession: (meta) =>
-        set((s) => {
-          const existing = s.chatSessions.findIndex(
-            (c) => c.characterAvatar === meta.characterAvatar && c.chatFile === meta.chatFile,
-          );
-          const sessions = [...s.chatSessions];
-          if (existing >= 0) {
-            // Filter out undefined values so they don't overwrite existing data (e.g. title)
-            const cleaned = Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined));
-            sessions[existing] = { ...sessions[existing], ...cleaned };
-          } else {
-            sessions.push(meta);
-          }
-          return { chatSessions: sessions };
-        }),
-      removeChatSession: (characterAvatar, chatFile) =>
-        set((s) => ({
-          chatSessions: s.chatSessions.filter(
-            (c) => !(c.characterAvatar === characterAvatar && c.chatFile === chatFile),
-          ),
-        })),
-      getChatSession: (characterAvatar, chatFile) =>
-        get().chatSessions.find((c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile),
-
-      // LLM Server
-      backendMode: 'builtin',
-      setBackendMode: (mode) => set({ backendMode: mode }),
-
-      llmServerConfig: { ...DEFAULT_LLM_SERVER_CONFIG },
-      setLlmServerConfig: (partial) => set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } })),
-
-      llmServerStatus: 'idle',
-      setLlmServerStatus: (status) => set({ llmServerStatus: status }),
-
-      _serverSynced: false,
+  deletePreset: (id) =>
+    set((s) => {
+      if (s.samplerPresets.length <= 1) return s; // keep at least one
+      const filtered = s.samplerPresets.filter((p) => p.id !== id);
+      const newActive = s.activePresetId === id ? filtered[0].id : s.activePresetId;
+      // Clean up model mappings pointing to deleted preset
+      const newMap = { ...s.modelPresetMap };
+      for (const [model, pid] of Object.entries(newMap)) {
+        if (pid === id) delete newMap[model];
+      }
+      return {
+        samplerPresets: filtered,
+        activePresetId: newActive,
+        modelPresetMap: newMap,
+      };
     }),
-    {
-      name: 'st-ui-settings',
-      version: 9,
-      partialize: (state) => ({
-        userName: state.userName,
-        userPersona: state.userPersona,
-        samplerPresets: state.samplerPresets,
-        activePresetId: state.activePresetId,
-        modelPresetMap: state.modelPresetMap,
-        systemPromptTemplate: state.systemPromptTemplate,
-        responseLanguage: state.responseLanguage,
-        streamingEnabled: state.streamingEnabled,
-        thinkingEnabled: state.thinkingEnabled,
-        sidebarCollapsed: state.sidebarCollapsed,
-        chatSessions: state.chatSessions,
-        backendMode: state.backendMode,
-        llmServerConfig: state.llmServerConfig,
-      }),
-      migrate: (persisted: unknown, version: number) => {
-        const state = persisted as Record<string, unknown>;
-        if (version < 1) {
-          // v0→v1: Strip .jsonl from chatFile and deduplicate sessions
-          const sessions = (state.chatSessions ?? []) as Array<Record<string, unknown>>;
-          const cleaned = sessions.map((s) => ({
-            ...s,
-            chatFile: String(s.chatFile ?? '').replace(/\.jsonl$/i, ''),
-          })) as Array<Record<string, unknown>>;
-          const seen = new Map<string, Record<string, unknown>>();
-          for (const s of cleaned) {
-            const key = `${s.characterAvatar}::${s.chatFile}`;
-            seen.set(key, s);
-          }
-          state.chatSessions = [...seen.values()];
-        }
-        if (version < 2) {
-          // v1→v2: Migrate samplerSettings → presets system
-          const oldSettings = state.samplerSettings as SamplerSettings | undefined;
-          const defaultPreset: SamplerPreset = {
-            id: 'default',
-            name: 'Default',
-            ...(oldSettings ?? DEFAULT_SAMPLER_SETTINGS),
-          };
-          state.samplerPresets = [defaultPreset];
-          state.activePresetId = 'default';
-          state.modelPresetMap = state.modelPresetMap ?? {};
-          delete state.samplerSettings;
-        }
-        if (version < 3) {
-          // v2→v3: Add Mistral V7-Tekken preset
-          const presets = (state.samplerPresets ?? []) as SamplerPreset[];
-          if (!presets.some((p) => p.id === 'mistral-v7-tekken')) {
-            presets.push(MISTRAL_TEKKEN_PRESET);
-            state.samplerPresets = presets;
-          }
-        }
-        if (version < 4) {
-          // v3→v4: Enable repetition penalty for Mistral preset
-          const presets = (state.samplerPresets ?? []) as SamplerPreset[];
-          const mistral = presets.find((p) => p.id === 'mistral-v7-tekken');
-          if (mistral && mistral.rep_pen <= 1) {
-            mistral.rep_pen = 1.07;
-            mistral.rep_pen_range = 2048;
-          }
-          state.samplerPresets = presets;
-        }
-        if (version < 5) {
-          // v4→v5: Add LLM server config
-          state.backendMode = state.backendMode ?? 'builtin';
-          state.llmServerConfig = state.llmServerConfig ?? { ...DEFAULT_LLM_SERVER_CONFIG };
-        }
-        if (version < 6) {
-          // v5→v6: Remove executablePath from llmServerConfig (now auto-detected)
-          const cfg = state.llmServerConfig as Record<string, unknown> | undefined;
-          if (cfg) {
-            delete cfg.executablePath;
-            // Reset modelsDir if it was the old default — will be set from engine info
-            if (cfg.modelsDir === 'D:\\Neuro\\llm') {
-              cfg.modelsDir = '';
-            }
-          }
-        }
-        if (version < 7) {
-          // v6→v7: Add context_trim_strategy to all presets
-          const presets = (state.samplerPresets ?? []) as SamplerPreset[];
-          for (const p of presets) {
-            if (!p.context_trim_strategy) {
-              p.context_trim_strategy = 'trim_start';
-            }
-          }
-          state.samplerPresets = presets;
-        }
-        if (version < 8) {
-          // v7→v8: activeScenarioName now available in ChatSessionMeta (no-op, optional field)
-        }
-        if (version < 9) {
-          // v8→v9: Fix _no_character_.png → _no_character_ and deduplicate
-          const sessions = (state.chatSessions ?? []) as Array<Record<string, unknown>>;
-          for (const s of sessions) {
-            if (s.characterAvatar === '_no_character_.png') {
-              s.characterAvatar = '_no_character_';
-              s.characterName = '';
-            }
-          }
-          const seen = new Map<string, Record<string, unknown>>();
-          for (const s of sessions) {
-            const key = `${s.characterAvatar}::${s.chatFile}`;
-            seen.set(key, s);
-          }
-          state.chatSessions = [...seen.values()];
-        }
-        return state as ReturnType<typeof Object.assign>;
-      },
-    },
-  ),
-);
+
+  setActivePreset: (id) => set({ activePresetId: id }),
+
+  setModelPreset: (model, presetId) =>
+    set((s) => {
+      const newMap = { ...s.modelPresetMap };
+      if (presetId) {
+        newMap[model] = presetId;
+      } else {
+        delete newMap[model];
+      }
+      return { modelPresetMap: newMap };
+    }),
+
+  systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_RU,
+  setSystemPromptTemplate: (template) => set({ systemPromptTemplate: template }),
+
+  responseLanguage: 'ru',
+  setResponseLanguage: (lang) => {
+    const state = get();
+    const update: Partial<AppState> = { responseLanguage: lang };
+    // Auto-swap system prompt template when it's still one of the defaults
+    if (DEFAULT_PROMPTS.includes(state.systemPromptTemplate)) {
+      update.systemPromptTemplate = getDefaultSystemPrompt(lang);
+    }
+    set(update);
+  },
+
+  streamingEnabled: true,
+  setStreamingEnabled: (enabled) => set({ streamingEnabled: enabled }),
+
+  thinkingEnabled: true,
+  setThinkingEnabled: (enabled) => set({ thinkingEnabled: enabled }),
+
+  // Chat sessions
+  chatSessions: [],
+  upsertChatSession: (meta) =>
+    set((s) => {
+      const existing = s.chatSessions.findIndex(
+        (c) => c.characterAvatar === meta.characterAvatar && c.chatFile === meta.chatFile,
+      );
+      const sessions = [...s.chatSessions];
+      if (existing >= 0) {
+        // Filter out undefined values so they don't overwrite existing data (e.g. title)
+        const cleaned = Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined));
+        sessions[existing] = { ...sessions[existing], ...cleaned };
+      } else {
+        sessions.push(meta);
+      }
+      return { chatSessions: sessions };
+    }),
+  removeChatSession: (characterAvatar, chatFile) =>
+    set((s) => ({
+      chatSessions: s.chatSessions.filter((c) => !(c.characterAvatar === characterAvatar && c.chatFile === chatFile)),
+    })),
+  getChatSession: (characterAvatar, chatFile) =>
+    get().chatSessions.find((c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile),
+
+  // LLM Server
+  backendMode: 'builtin',
+  setBackendMode: (mode) => set({ backendMode: mode }),
+
+  llmServerConfig: { ...DEFAULT_LLM_SERVER_CONFIG },
+  setLlmServerConfig: (partial) => set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } })),
+
+  llmServerStatus: 'idle',
+  setLlmServerStatus: (status) => set({ llmServerStatus: status }),
+
+  _serverSynced: false,
+}));
 
 // ── Server sync: subscribe to state changes ────────────────────────────────
 
@@ -521,14 +401,17 @@ useAppStore.subscribe((state, prevState) => {
 
 /**
  * Fetch settings from server and merge into store.
- * Server data takes priority over localStorage (it's the source of truth).
+ * Server is the sole source of truth for user settings.
  * Call this once on app startup.
  */
 export async function initSettingsFromServer(): Promise<void> {
+  // Clean up legacy localStorage data (persist middleware removed)
+  localStorage.removeItem('st-ui-settings');
+
   try {
     const serverData = await getUserSettings();
     if (serverData && typeof serverData === 'object') {
-      // Clean up stale llmServerConfig from server (migration only runs on localStorage)
+      // Clean up stale llmServerConfig fields from server (legacy)
       const serverCfg = serverData.llmServerConfig as Record<string, unknown> | undefined;
       if (serverCfg) {
         delete serverCfg.executablePath;
@@ -548,12 +431,12 @@ export async function initSettingsFromServer(): Promise<void> {
         useAppStore.setState(patch);
       }
     } else {
-      // No server data yet — push current local state to server
+      // No server data yet — push current defaults to server
       const data = extractPersisted(useAppStore.getState());
       saveUserSettings(data).catch(() => {});
     }
   } catch (err) {
-    console.warn('Could not load settings from server, using local:', err);
+    console.warn('Could not load settings from server, using defaults:', err);
   }
   // Mark as synced so future changes will be saved
   useAppStore.setState({ _serverSynced: true });

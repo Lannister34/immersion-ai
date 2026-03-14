@@ -123,7 +123,7 @@ export function SettingsPage() {
       showSaved('persona');
     } catch (err) {
       console.error('Failed to save persona to server:', err);
-      showSaved('persona'); // still show saved — localStorage has the value
+      showSaved('persona'); // still show saved — store already has the value
     }
   };
 
@@ -599,7 +599,7 @@ export function SettingsPage() {
             <span className="font-mono bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded">http://localhost:8000</span>
           </div>
           <div>Фронтенд: React 18 + TypeScript + Vite + Tailwind</div>
-          <div>Стейт: Zustand (persist) + TanStack Query</div>
+          <div>Стейт: Zustand + TanStack Query</div>
         </div>
       </section>
     </div>
