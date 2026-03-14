@@ -122,7 +122,8 @@ router.post('/all', async (_req, res) => {
         }
         if (!dirStat.isDirectory()) return;
 
-        const avatar = avatarMap.get(charName) ?? `${charName}.png`;
+        const isEmptyChar = charName === '_no_character_';
+        const avatar = isEmptyChar ? '_no_character_' : (avatarMap.get(charName) ?? `${charName}.png`);
         let chatFiles: string[];
         try {
           chatFiles = (await fs.promises.readdir(charDir)).filter((f) => f.endsWith('.jsonl'));
@@ -169,7 +170,7 @@ router.post('/all', async (_req, res) => {
 
               results.push({
                 characterAvatar: avatar,
-                characterName: charName,
+                characterName: isEmptyChar ? '' : charName,
                 chatFile: path.parse(fileName).name,
                 lastMessage: lastMes.slice(0, 120),
                 lastDate: lastTimestamp || String(Date.now()),
