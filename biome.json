@@ -36,7 +36,8 @@
       },
       "style": {
         "noNonNullAssertion": "off",
-        "useDefaultParameterLast": "off"
+        "useDefaultParameterLast": "off",
+        "noNestedTernary": "warn"
       },
       "suspicious": {
         "noExplicitAny": "error",

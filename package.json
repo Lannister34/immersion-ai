@@ -16,9 +16,11 @@
     "lint": "biome check ./client/src ./server/src",
     "lint:fix": "biome check --write ./client/src ./server/src",
     "format": "biome format --write ./client/src ./server/src",
-    "install:all": "cd server && npm install && cd ../client && npm install"
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.7"
+    "@biomejs/biome": "^2.4.7",
+    "husky": "^9.1.7"
   }
 }
