@@ -1,10 +1,12 @@
 import { Check, Cpu, Loader2, RotateCcw as Reset } from 'lucide-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as api from '@/api';
 import { useAppStore } from '@/stores';
 
 export function ModelSettingsSection(): JSX.Element {
+  const { t } = useTranslation();
   const { llmServerConfig, setLlmServerConfig, backendMode, connection } = useAppStore();
   const [localContextSize, setLocalContextSize] = useState(llmServerConfig.contextSize);
   const [restarting, setRestarting] = useState(false);
@@ -80,7 +82,7 @@ export function ModelSettingsSection(): JSX.Element {
       <div className="flex items-center gap-1.5">
         <Cpu size={10} className="text-[var(--color-primary)]" />
         <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-          Настройки модели
+          {t('chatSettings.modelSettingsTitle')}
         </span>
       </div>
 
@@ -117,12 +119,12 @@ export function ModelSettingsSection(): JSX.Element {
             {restarting ? (
               <>
                 <Loader2 size={12} className="animate-spin" />
-                Перезапуск сервера...
+                {t('chatSettings.restartingServer')}
               </>
             ) : (
               <>
                 <Check size={12} />
-                Применить{isBuiltinRunning ? ' (перезапуск)' : ''}
+                {isBuiltinRunning ? t('chatSettings.applyRestart') : t('common.apply')}
               </>
             )}
           </button>
@@ -130,7 +132,7 @@ export function ModelSettingsSection(): JSX.Element {
             onClick={handleReset}
             disabled={restarting}
             className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
-            title="Сбросить"
+            title={t('common.reset')}
           >
             <Reset size={14} />
           </button>
@@ -139,7 +141,7 @@ export function ModelSettingsSection(): JSX.Element {
 
       {!hasChanged && isBuiltinRunning && (
         <div className="text-[9px] text-[var(--color-text-muted)] opacity-50">
-          Изменение контекста перезапустит сервер
+          {t('chatSettings.contextChangeWillRestart')}
         </div>
       )}
     </div>

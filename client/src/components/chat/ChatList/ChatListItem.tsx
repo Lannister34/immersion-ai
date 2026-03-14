@@ -1,6 +1,7 @@
 import { Check, MessageCircle, Pencil, Trash2 } from 'lucide-react';
 import type { JSX } from 'react';
 import { memo, useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { formatRelativeDate } from '@/lib/dateFormatting';
 import { hideOnImageError } from '@/lib/imageUtils';
 import { useAppStore } from '@/stores';
@@ -9,6 +10,7 @@ import type { ChatSessionMeta } from '@/types';
 interface TitleEditProps {
   inputRef: React.RefObject<HTMLInputElement | null>;
   value: string;
+  placeholder: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
   onBlur: () => void;
@@ -19,6 +21,7 @@ interface TitleEditProps {
 function TitleEdit({
   inputRef,
   value,
+  placeholder,
   onChange,
   onKeyDown,
   onBlur,
@@ -33,7 +36,7 @@ function TitleEdit({
         onChange={onChange}
         onKeyDown={onKeyDown}
         onBlur={onBlur}
-        placeholder="Название чата..."
+        placeholder={placeholder}
         className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-primary)] rounded px-1.5 py-0.5 text-sm text-[var(--color-text)] outline-none min-w-0"
       />
       <button
@@ -48,17 +51,18 @@ function TitleEdit({
 
 interface TitleDisplayProps {
   title: string;
+  renameTooltip: string;
   onStartEditing: (e: React.MouseEvent) => void;
 }
 
-function TitleDisplay({ title, onStartEditing }: TitleDisplayProps): JSX.Element {
+function TitleDisplay({ title, renameTooltip, onStartEditing }: TitleDisplayProps): JSX.Element {
   return (
     <div className="flex items-center gap-1 min-w-0">
       <span className="text-sm font-medium text-[var(--color-text)] truncate">{title}</span>
       <button
         onClick={onStartEditing}
         className="opacity-0 group-hover/chat:opacity-100 p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-opacity cursor-pointer flex-shrink-0"
-        title="Переименовать"
+        title={renameTooltip}
       >
         <Pencil size={10} />
       </button>
@@ -73,6 +77,7 @@ interface ChatListItemProps {
 }
 
 export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, onDelete }: ChatListItemProps) {
+  const { t } = useTranslation();
   const upsertChatSession = useAppStore((s) => s.upsertChatSession);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -135,7 +140,7 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
     e.stopPropagation();
   }, []);
 
-  const displayTitle = session.title || 'Новый чат';
+  const displayTitle = session.title || t('chatList.newChat');
 
   return (
     <div
@@ -158,7 +163,7 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
           )}
         </div>
         <span className="text-[9px] text-[var(--color-text-muted)] truncate w-full text-center mt-0.5 leading-tight">
-          {session.characterName || 'Свободный чат'}
+          {session.characterName || t('chatList.freeChat')}
         </span>
       </div>
 
@@ -168,6 +173,7 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
             <TitleEdit
               inputRef={inputRef}
               value={editValue}
+              placeholder={t('chatList.titlePlaceholder')}
               onChange={handleEditValueChange}
               onKeyDown={handleKeyDown}
               onBlur={saveTitle}
@@ -175,7 +181,7 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
               onClick={stopPropagation}
             />
           ) : (
-            <TitleDisplay title={displayTitle} onStartEditing={startEditing} />
+            <TitleDisplay title={displayTitle} renameTooltip={t('common.rename')} onStartEditing={startEditing} />
           )}
           <div className="flex items-center gap-1 flex-shrink-0">
             <span className="text-[11px] text-[var(--color-text-muted)]">
@@ -184,7 +190,7 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
             <button
               onClick={handleDeleteClick}
               className="opacity-0 group-hover/chat:opacity-100 p-0.5 rounded hover:bg-[var(--color-danger)]/15 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-all cursor-pointer"
-              title="Удалить чат"
+              title={t('chatList.deleteTooltip')}
             >
               <Trash2 size={12} />
             </button>
@@ -193,7 +199,7 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
 
         <div className="flex items-center gap-1 mt-0.5">
           <span className="text-[12px] text-[var(--color-text-muted)] truncate">
-            {session.lastMessagePreview || 'Нет сообщений'}
+            {session.lastMessagePreview || t('chatList.noMessages')}
           </span>
           {session.messageCount !== undefined && session.messageCount > 0 && (
             <span className="text-[10px] text-[var(--color-text-muted)]/60 flex items-center gap-0.5 flex-shrink-0 ml-auto">
