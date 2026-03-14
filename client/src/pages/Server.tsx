@@ -44,9 +44,8 @@ export function ServerPage() {
     }
   };
 
-  const textGenSettings = settings?.textgenerationwebui as Record<string, unknown> | undefined;
-  const serverUrls = textGenSettings?.server_urls as Record<string, string> | undefined;
-  const apiUrl = serverUrls?.koboldcpp ?? 'http://127.0.0.1:5001';
+  const textGen = settings?.textgenerationwebui;
+  const apiUrl = textGen?.server_urls?.koboldcpp ?? 'http://127.0.0.1:5001';
 
   return (
     <div className="max-w-4xl mx-auto w-full flex flex-col gap-4 sm:gap-6 pb-8 flex-1 overflow-y-auto p-3 sm:p-5">

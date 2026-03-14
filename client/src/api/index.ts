@@ -1,9 +1,23 @@
+// Re-export domain types from @/types for backward compatibility
+export type {
+  AllChatsItem,
+  AppSettings,
+  AvatarPrompt,
+  ChatCompletionMessage,
+  ChatFileInfo,
+  ChatLine,
+  EngineInfo,
+  GeneratedScenario,
+  GenerateTextParams,
+  LlmServerStatus,
+  LlmStartConfig,
+  ModelFile,
+  TextGenPresetData,
+} from '@/types';
 export { createCharacter, deleteCharacter, editCharacter, getCharacterByAvatar, getCharacters } from './characters';
-export type { AllChatsItem, ChatFileInfo } from './chats';
 export { createNewChat, deleteChat, getAllChats, getCharacterChats, getChatMessages, saveChat } from './chats';
 export { apiPost, apiPostForm, fetchCsrfToken, getCsrfToken } from './client';
 export { getConnectionStatus } from './connection';
-export type { ChatCompletionMessage, GeneratedScenario, GenerateTextParams } from './generation';
 export {
   abortGeneration,
   generateAvatarPrompt,
@@ -16,7 +30,6 @@ export {
   generateTextStream,
   regenerateCharacterField,
 } from './generation';
-export type { EngineInfo, LlmServerStatus, LlmStartConfig, ModelFile } from './llm-server';
 export {
   browseFile,
   browseFolder,
@@ -28,7 +41,6 @@ export {
   stopLlmServer,
 } from './llm-server';
 export { createScenario, deleteScenario, getScenario, getScenarios, saveScenario } from './scenarios';
-export type { TextGenPresetData } from './settings';
 export {
   getSettings,
   getTextGenPresets,

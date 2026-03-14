@@ -1,3 +1,4 @@
+import type { AppSettings, TextGenPresetData } from '@/types';
 import { apiPost } from './client';
 
 // ── User Settings (server-side persistence) ──────────────────────────────────
@@ -25,10 +26,10 @@ interface SettingsResponse {
   [key: string]: unknown;
 }
 
-export async function getSettings(): Promise<Record<string, unknown>> {
+export async function getSettings(): Promise<AppSettings> {
   const data = await apiPost<SettingsResponse>('/api/settings/get', {});
   try {
-    return JSON.parse(data.settings) as Record<string, unknown>;
+    return JSON.parse(data.settings) as AppSettings;
   } catch {
     return {};
   }
@@ -40,17 +41,6 @@ export async function getTextGenPresets(): Promise<string[]> {
 }
 
 // ── Preset Loading ───────────────────────────────────────────────────────────
-
-export interface TextGenPresetData {
-  name: string;
-  temp: number;
-  top_p: number;
-  top_k: number;
-  min_p: number;
-  rep_pen: number;
-  rep_pen_range: number;
-  [key: string]: unknown;
-}
 
 export async function getTextGenPresetsWithData(): Promise<TextGenPresetData[]> {
   const data = await apiPost<{

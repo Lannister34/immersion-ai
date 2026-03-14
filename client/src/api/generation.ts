@@ -1,35 +1,11 @@
-import type { GeneratedCharacter, GeneratedLorebook } from '@/types';
+import type {
+  AvatarPrompt,
+  GeneratedCharacter,
+  GeneratedLorebook,
+  GeneratedScenario,
+  GenerateTextParams,
+} from '@/types';
 import { apiPost, fetchCsrfToken, getCsrfToken } from './client';
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-export interface ChatCompletionMessage {
-  role: string;
-  content: string;
-}
-
-export interface GenerateTextParams {
-  api_server: string;
-  prompt?: string;
-  messages?: ChatCompletionMessage[];
-  chat_template_kwargs?: Record<string, unknown>;
-  max_length: number;
-  max_context_length: number;
-  temperature?: number;
-  top_p?: number;
-  top_k?: number;
-  min_p?: number;
-  rep_pen?: number;
-  rep_pen_range?: number;
-  presence_penalty?: number;
-  stop_sequence?: string[];
-}
-
-export interface GeneratedScenario {
-  name: string;
-  content: string;
-  tags: string[];
-}
 
 // ── Abort ────────────────────────────────────────────────────────────────────
 
@@ -230,10 +206,8 @@ export async function regenerateCharacterField(
   return result.value;
 }
 
-export async function generateAvatarPrompt(
-  characterData: GeneratedCharacter,
-): Promise<{ positive: string; negative: string }> {
-  return apiPost<{ positive: string; negative: string }>('/api/ai-generation/character-avatar-prompt', {
+export async function generateAvatarPrompt(characterData: GeneratedCharacter): Promise<AvatarPrompt> {
+  return apiPost<AvatarPrompt>('/api/ai-generation/character-avatar-prompt', {
     characterData,
   });
 }

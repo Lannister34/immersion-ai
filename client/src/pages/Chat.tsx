@@ -34,6 +34,10 @@ import {
 } from '@/stores';
 import type {
   Character,
+  ChatHeader,
+  ChatLine,
+  ChatMessage,
+  ChatMetadata,
   ChatSessionMeta,
   ContextTrimStrategy,
   SamplerSettings,
@@ -43,15 +47,6 @@ import type {
 } from '@/types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-interface ChatMessage {
-  name: string;
-  is_user: boolean;
-  mes: string;
-  send_date: string;
-  extra?: Record<string, unknown>;
-  is_system?: boolean;
-}
 
 function formatMarkdown(text: string, applyColors = false): string {
   let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1446,7 +1441,7 @@ export function ActiveChatView() {
   const [lorebook, setLorebook] = useState<WorldInfo | null>(null);
   const [activeScenario, setActiveScenario] = useState<Scenario | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const chatHeaderRef = useRef<Record<string, unknown> | null>(null);
+  const chatHeaderRef = useRef<ChatHeader | null>(null);
   const settingsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullPromptLengthRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1539,19 +1534,16 @@ export function ActiveChatView() {
       });
 
       const chatData = await api.getChatMessages(activeChat.characterAvatar, activeChat.chatFile);
-      const allLines = chatData as unknown as Array<Record<string, unknown>>;
-      const header = allLines.find((m) => 'chat_metadata' in m);
+      const header = chatData.find((line): line is ChatHeader => 'chat_metadata' in line);
       if (header) chatHeaderRef.current = header;
-      const msgs = allLines
-        .filter((m) => !('chat_metadata' in m) && m.mes !== undefined)
-        .map((m) => m as unknown as ChatMessage);
+      const msgs = chatData.filter((line): line is ChatMessage => !('chat_metadata' in line) && 'mes' in line);
       setMessages(msgs);
       shouldAutoScroll.current = true;
 
       // Restore per-chat sampler overrides from chat file metadata
-      const chatMeta = (header?.chat_metadata ?? {}) as Record<string, unknown>;
-      const savedOverrides = chatMeta.customSamplerSettings as Partial<SamplerSettings> | undefined;
-      const savedSystemPrompt = chatMeta.customSystemPrompt as string | undefined;
+      const chatMeta: ChatMetadata = header?.chat_metadata ?? {};
+      const savedOverrides = chatMeta.customSamplerSettings;
+      const savedSystemPrompt = chatMeta.customSystemPrompt ?? undefined;
 
       // Update session with message count/preview + overrides from file
       const existingSession = useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile);
@@ -1769,13 +1761,17 @@ export function ActiveChatView() {
     setLastPromptLength(fullPromptLengthRef.current);
   }, [messages, character, buildChatData]);
 
-  const buildChatForSave = (msgs: ChatMessage[]) => {
-    const header = chatHeaderRef.current ?? { chat_metadata: {}, user_name: '', character_name: character?.name ?? '' };
+  const buildChatForSave = (msgs: ChatMessage[]): ChatLine[] => {
+    const header: ChatHeader = chatHeaderRef.current ?? {
+      chat_metadata: {},
+      user_name: '',
+      character_name: character?.name ?? '',
+    };
     // Persist per-chat sampler overrides inside the chat file
     const session = activeChat
       ? useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile)
       : null;
-    const metadata = (header.chat_metadata ?? {}) as Record<string, unknown>;
+    const metadata: ChatMetadata = { ...header.chat_metadata };
     if (session?.customSamplerSettings && Object.keys(session.customSamplerSettings).length > 0) {
       metadata.customSamplerSettings = session.customSamplerSettings;
     } else {
@@ -1786,9 +1782,9 @@ export function ActiveChatView() {
     } else {
       delete metadata.customSystemPrompt;
     }
-    const updatedHeader = { ...header, chat_metadata: metadata };
+    const updatedHeader: ChatHeader = { ...header, chat_metadata: metadata };
     chatHeaderRef.current = updatedHeader;
-    return [updatedHeader, ...msgs] as unknown as Record<string, unknown>[];
+    return [updatedHeader, ...msgs];
   };
 
   const updateSessionMeta = (msgs: ChatMessage[]) => {
@@ -1863,9 +1859,8 @@ export function ActiveChatView() {
     const { messages: chatCompletionMessages } = buildChatData(msgsForGeneration);
     const { thinkingEnabled, backendMode, llmServerConfig } = useAppStore.getState();
     const settings = await api.getSettings();
-    const textGen = settings?.textgenerationwebui as Record<string, unknown> | undefined;
-    const urls = textGen?.server_urls as Record<string, string> | undefined;
-    const rawUrl = urls?.koboldcpp ?? 'http://127.0.0.1:5001';
+    const textGen = settings?.textgenerationwebui;
+    const rawUrl = textGen?.server_urls?.koboldcpp ?? 'http://127.0.0.1:5001';
     const apiServer = backendMode === 'builtin' ? rawUrl : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
 
     abortRef.current = new AbortController();

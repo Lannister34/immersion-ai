@@ -1,31 +1,14 @@
+import type { AllChatsItem, ChatFileInfo, ChatLine } from '@/types';
 import { apiPost } from './client';
 
-export interface ChatFileInfo {
-  file_name: string;
-  file_size: string;
-  chat_items: number;
-  mes: string;
-  last_mes: string;
-}
-
-export interface AllChatsItem {
-  characterAvatar: string;
-  characterName: string;
-  chatFile: string;
-  lastMessage: string;
-  lastDate: string;
-  messageCount: number;
-  fileSize: number;
-}
-
-export async function getChatMessages(avatarUrl: string, chatId: string): Promise<Record<string, unknown>[]> {
-  return apiPost<Record<string, unknown>[]>('/api/chats/get', {
+export async function getChatMessages(avatarUrl: string, chatId: string): Promise<ChatLine[]> {
+  return apiPost<ChatLine[]>('/api/chats/get', {
     avatar_url: avatarUrl,
     file_name: chatId,
   });
 }
 
-export async function saveChat(avatarUrl: string, chatId: string, chat: Record<string, unknown>[]): Promise<void> {
+export async function saveChat(avatarUrl: string, chatId: string, chat: ChatLine[]): Promise<void> {
   await apiPost('/api/chats/save', {
     avatar_url: avatarUrl,
     file_name: chatId,
