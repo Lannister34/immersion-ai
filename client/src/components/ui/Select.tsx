@@ -117,7 +117,7 @@ export function Select({ label, value, options, onChange, placeholder, className
         </button>
 
         {open && (
-          <ul className="absolute top-full left-0 right-0 mt-1 z-50 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto">
+          <ul className="absolute top-full left-0 right-0 mt-1 z-50 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.4)] py-1 max-h-60 overflow-y-auto">
             {options.map((opt, idx) => (
               <li
                 key={opt.value}
@@ -129,7 +129,7 @@ export function Select({ label, value, options, onChange, placeholder, className
                 className={clsx(
                   'px-3 py-2 text-sm cursor-pointer transition-colors',
                   opt.value === value ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)]',
-                  idx === highlightedIndex && 'bg-[var(--color-surface)]',
+                  idx === highlightedIndex && 'bg-[var(--color-surface-2)]',
                 )}
               >
                 {opt.label}

@@ -147,10 +147,6 @@ export function ConnectionConfig() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
-        {t('server.connectionTitle')}
-      </h3>
-
       <Select
         label={t('server.providerLabel')}
         value={activeProvider}
