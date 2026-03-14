@@ -37,8 +37,8 @@ if not exist "client\node_modules" (
 
 :: Check llama-server
 if not exist "bin\llama-server.exe" (
-    echo  [!] llama-server не найден.
-    echo      Запустите setup-llama.bat для автоматической установки.
+    echo  [!] llama-server not found.
+    echo      Run setup-llama.bat to install it automatically.
     echo.
 )
 

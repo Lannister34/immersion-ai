@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -11,7 +11,7 @@ $apiUrl = 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest'
 
 function Write-Step($msg) { Write-Host "  $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "  $msg" -ForegroundColor Green }
-function Write-Err($msg)  { Write-Host "  $msg" -ForegroundColor Red }
+function Write-Err($msg)  { Write-Host "  [ERROR] $msg" -ForegroundColor Red }
 function Write-Dim($msg)  { Write-Host "  $msg" -ForegroundColor Gray }
 
 function Get-AssetsByPattern {
@@ -25,11 +25,11 @@ function Install-FromZip {
     $zipPath = Join-Path $tempDir $ZipName
     $extractPath = Join-Path $tempDir ($ZipName -replace '\.zip$', '')
 
-    Write-Step "Скачивание $Label..."
+    Write-Step "Downloading $Label..."
     Invoke-WebRequest -Uri $Url -OutFile $zipPath -UseBasicParsing
-    Write-Ok 'Скачивание завершено.'
+    Write-Ok 'Download complete.'
 
-    Write-Step 'Распаковка...'
+    Write-Step 'Extracting...'
     Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
     $serverExe = Get-ChildItem -Path $extractPath -Recurse -Filter 'llama-server.exe' |
@@ -42,7 +42,7 @@ function Install-FromZip {
         foreach ($dll in $dlls) {
             Copy-Item -Path $dll.FullName -Destination $binDir -Force
         }
-        Write-Ok "Скопировано: llama-server.exe + $($dlls.Count) DLL"
+        Write-Ok "Copied: llama-server.exe + $($dlls.Count) DLLs"
     }
     else {
         # cudart archive: copy all DLLs
@@ -50,38 +50,38 @@ function Install-FromZip {
         foreach ($dll in $dlls) {
             Copy-Item -Path $dll.FullName -Destination $binDir -Force
         }
-        Write-Ok "Скопировано: $($dlls.Count) DLL"
+        Write-Ok "Copied: $($dlls.Count) DLLs"
     }
 }
 
 # ── Interactive menu ───────────────────────────────────────────────────────────
 
 Write-Host ''
-Write-Host '  ╔══════════════════════════════════════════════════╗' -ForegroundColor Magenta
-Write-Host '  ║   Immersion AI — Установка llama-server          ║' -ForegroundColor Magenta
-Write-Host '  ╚══════════════════════════════════════════════════╝' -ForegroundColor Magenta
+Write-Host '  =========================================' -ForegroundColor Magenta
+Write-Host '    Immersion AI - llama-server Setup' -ForegroundColor Magenta
+Write-Host '  =========================================' -ForegroundColor Magenta
 Write-Host ''
-Write-Host '  Выберите сборку llama-server:' -ForegroundColor White
+Write-Host '  Select llama-server build:' -ForegroundColor White
 Write-Host ''
 Write-Host '    [1] CUDA (NVIDIA GPU)' -ForegroundColor Yellow
 Write-Host '    [2] Vulkan (AMD / Intel GPU)' -ForegroundColor Cyan
-Write-Host '    [3] CPU (без GPU ускорения)' -ForegroundColor Gray
+Write-Host '    [3] CPU (no GPU acceleration)' -ForegroundColor Gray
 Write-Host ''
 
-$choice = Read-Host '  Ваш выбор (1-3)'
+$choice = Read-Host '  Your choice (1-3)'
 
 switch ($choice) {
     '1' { $Backend = 'cuda' }
     '2' { $Backend = 'vulkan' }
     '3' { $Backend = 'cpu' }
     default {
-        Write-Err 'Неверный выбор. Введите 1, 2 или 3.'
+        Write-Err 'Invalid choice. Enter 1, 2, or 3.'
         exit 1
     }
 }
 
 Write-Host ''
-Write-Step "Выбрано: $Backend"
+Write-Step "Selected: $Backend"
 Write-Host ''
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -91,21 +91,21 @@ try {
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     }
 
-    Write-Step 'Получение информации о последнем релизе...'
+    Write-Step 'Fetching latest release info...'
     $release = Invoke-RestMethod -Uri $apiUrl -Headers @{ 'User-Agent' = 'Immersion-AI' }
     $tag = $release.tag_name
-    Write-Ok "Последняя версия: $tag"
+    Write-Ok "Latest version: $tag"
 
     # Check current version
     if (Test-Path $versionFile) {
         $currentVersion = (Get-Content $versionFile -Raw).Trim()
         if ($currentVersion -eq $tag) {
             Write-Host ''
-            Write-Ok "Уже установлена последняя версия ($tag)."
-            Write-Dim 'Обновление не требуется.'
+            Write-Ok "Already up to date ($tag)."
+            Write-Dim 'No update needed.'
             exit 0
         }
-        Write-Host "  Текущая версия: $currentVersion -> обновление до $tag" -ForegroundColor Yellow
+        Write-Host "  Current: $currentVersion -> updating to $tag" -ForegroundColor Yellow
     }
 
     $assets = $release.assets
@@ -121,13 +121,13 @@ try {
                 Where-Object { $_.name -notmatch '^cudart-' })
 
             if ($cudaAssets.Count -eq 0) {
-                Write-Err "CUDA-сборка не найдена в релизе $tag"
+                Write-Err "No CUDA build found in release $tag"
                 exit 1
             }
 
             if ($cudaAssets.Count -gt 1) {
                 Write-Host ''
-                Write-Host '  Доступные версии CUDA:' -ForegroundColor Cyan
+                Write-Host '  Available CUDA versions:' -ForegroundColor Cyan
                 for ($i = 0; $i -lt $cudaAssets.Count; $i++) {
                     if ($cudaAssets[$i].name -match 'cuda-([\d.]+)') {
                         $ver = $Matches[1]
@@ -138,10 +138,10 @@ try {
                     Write-Host "    [$($i + 1)] CUDA $ver" -ForegroundColor White
                 }
                 Write-Host ''
-                $cudaChoice = Read-Host '  Ваш выбор'
+                $cudaChoice = Read-Host '  Your choice'
                 $cudaIdx = [int]$cudaChoice - 1
                 if ($cudaIdx -lt 0 -or $cudaIdx -ge $cudaAssets.Count) {
-                    Write-Err 'Неверный выбор.'
+                    Write-Err 'Invalid choice.'
                     exit 1
                 }
                 $mainAsset = $cudaAssets[$cudaIdx]
@@ -167,12 +167,12 @@ try {
     }
 
     if (-not $mainAsset) {
-        Write-Err "Сборка '$Backend' не найдена в релизе $tag"
+        Write-Err "Build '$Backend' not found in release $tag"
         exit 1
     }
 
     $sizeMain = [math]::Round($mainAsset.size / 1MB, 1)
-    Write-Dim "Файл: $($mainAsset.name) ($sizeMain MB)"
+    Write-Dim "File: $($mainAsset.name) ($sizeMain MB)"
     if ($cudartAsset) {
         $sizeCudart = [math]::Round($cudartAsset.size / 1MB, 1)
         Write-Dim "CUDA runtime: $($cudartAsset.name) ($sizeCudart MB)"
@@ -195,7 +195,7 @@ try {
 
     $finalExe = Join-Path $binDir 'llama-server.exe'
     if (-not (Test-Path $finalExe)) {
-        Write-Err 'llama-server.exe не найден после установки!'
+        Write-Err 'llama-server.exe not found after installation!'
         exit 1
     }
 
@@ -204,19 +204,19 @@ try {
     Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 
     Write-Host ''
-    Write-Host '  ══════════════════════════════════════════' -ForegroundColor Green
-    Write-Ok "Установка завершена! Версия: $tag"
-    Write-Ok 'llama-server готов к использованию.'
-    Write-Host '  ══════════════════════════════════════════' -ForegroundColor Green
+    Write-Host '  =========================================' -ForegroundColor Green
+    Write-Ok "Installation complete! Version: $tag"
+    Write-Ok 'llama-server is ready to use.'
+    Write-Host '  =========================================' -ForegroundColor Green
 }
 catch {
     Write-Host ''
     Write-Err $_.Exception.Message
     Write-Host ''
-    Write-Host '  Возможные причины:' -ForegroundColor Yellow
-    Write-Host '    - Нет подключения к интернету' -ForegroundColor Yellow
-    Write-Host '    - GitHub API недоступен' -ForegroundColor Yellow
-    Write-Host '    - Антивирус блокирует скачивание' -ForegroundColor Yellow
+    Write-Host '  Possible causes:' -ForegroundColor Yellow
+    Write-Host '    - No internet connection' -ForegroundColor Yellow
+    Write-Host '    - GitHub API is unavailable' -ForegroundColor Yellow
+    Write-Host '    - Antivirus is blocking the download' -ForegroundColor Yellow
 
     if (Test-Path $tempDir) {
         Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
