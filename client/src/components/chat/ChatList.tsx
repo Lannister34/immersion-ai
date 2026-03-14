@@ -169,8 +169,9 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
     try {
       await api.deleteChat(deleteTarget.characterAvatar, deleteTarget.chatFile);
     } catch (err) {
-      // 404 = file already gone on disk — still clean up the session
-      if (!(err instanceof Error && err.message.includes('404'))) {
+      // File already gone on disk — still clean up the session
+      const msg = err instanceof Error ? err.message.toLowerCase() : '';
+      if (!msg.includes('404') && !msg.includes('not found')) {
         console.error('Failed to delete chat:', err);
       }
     }
