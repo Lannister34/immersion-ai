@@ -44,6 +44,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { CharacterWizard } from '@/components/wizard/CharacterWizard';
+import { hideOnImageError } from '@/lib/imageUtils';
 import { useAppStore } from '@/stores';
 import type { Character } from '@/types';
 
@@ -88,14 +89,7 @@ function CharacterCard({
       {/* Avatar */}
       <div className="aspect-[3/4] bg-[var(--color-surface-2)] relative overflow-hidden">
         {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={character.name}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
+          <img src={avatarUrl} alt={character.name} className="w-full h-full object-cover" onError={hideOnImageError} />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <User size={48} className="text-[var(--color-border)]" />
@@ -180,14 +174,7 @@ function CharacterListItem({
       {/* Avatar thumbnail */}
       <div className="w-10 h-10 rounded-full bg-[var(--color-surface-2)] flex-shrink-0 overflow-hidden flex items-center justify-center">
         {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={character.name}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
+          <img src={avatarUrl} alt={character.name} className="w-full h-full object-cover" onError={hideOnImageError} />
         ) : (
           <span className="text-xs font-semibold text-[var(--color-text-muted)]">{initials}</span>
         )}

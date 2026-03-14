@@ -1,4 +1,5 @@
 export { formatRelativeDate, formatTime, wordCount } from './dateFormatting';
+export { hideOnImageError } from './imageUtils';
 export {
   formatMarkdown,
   formatMessageContent,

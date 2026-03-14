@@ -1,5 +1,10 @@
 export { ChatList } from './ChatList';
+export { ChatListItem } from './ChatListItem';
+export { ChatSettingSlider } from './ChatSettingSlider';
 export { ChatSettingsPanel } from './ChatSettingsPanel';
 export { ContextIndicator } from './ContextIndicator';
+export { ContextTrimToggle } from './ContextTrimToggle';
 export { GenerationTimer } from './GenerationTimer';
 export { MessageBubble } from './MessageBubble';
+export { ModelSettingsSection } from './ModelSettingsSection';
+export { SystemPromptSection } from './SystemPromptSection';

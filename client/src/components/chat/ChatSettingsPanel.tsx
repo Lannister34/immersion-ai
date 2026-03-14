@@ -1,274 +1,15 @@
 import { clsx } from 'clsx';
-import { Check, ChevronRight, Cpu, FileText, Loader2, RotateCcw as Reset, Sliders, X } from 'lucide-react';
+import { FileText, RotateCcw as Reset, Sliders, X } from 'lucide-react';
 import type { JSX } from 'react';
-import { useEffect, useMemo, useState } from 'react';
-
-import * as api from '@/api';
-import { computeBaseSystemPrompt } from '@/lib/promptBuilder';
+import { useCallback } from 'react';
 import { getBasePreset, getEffectiveSamplerSettings, useAppStore } from '@/stores';
-import type { Character, ChatSessionMeta, ContextTrimStrategy, SamplerSettings, Scenario } from '@/types';
+import type { Character, ChatSessionMeta, SamplerSettings, Scenario } from '@/types';
+import { ChatSettingSlider } from './ChatSettingSlider';
+import { ContextTrimToggle } from './ContextTrimToggle';
+import { ModelSettingsSection } from './ModelSettingsSection';
+import { SystemPromptSection } from './SystemPromptSection';
 
-// ── Chat Setting Slider ─────────────────────────────────────────────────────
-
-function ChatSettingSlider({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  hint,
-  modified,
-  tooltip,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min: number;
-  max: number;
-  step: number;
-  hint?: string;
-  modified?: boolean;
-  tooltip?: string;
-}) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex justify-between items-center">
-        <div className="relative flex items-center gap-1">
-          <label
-            className={clsx(
-              'text-[10px] cursor-help',
-              modified ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]',
-            )}
-            onMouseEnter={() => tooltip && setShowTooltip(true)}
-            onMouseLeave={() => setShowTooltip(false)}
-          >
-            {label}
-          </label>
-          {showTooltip && tooltip && (
-            <div className="absolute left-0 bottom-full mb-1 z-50 w-[min(13rem,calc(100vw-2rem))] px-2.5 py-2 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] shadow-lg text-[10px] leading-snug text-[var(--color-text-muted)] pointer-events-none">
-              {tooltip}
-            </div>
-          )}
-        </div>
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          min={min}
-          max={max}
-          step={step}
-          className="w-16 text-right bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[10px] text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
-        />
-      </div>
-      <input
-        type="range"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        min={min}
-        max={max}
-        step={step}
-        className="w-full h-1 bg-[var(--color-surface-2)] rounded-full appearance-none cursor-pointer accent-[var(--color-primary)]"
-      />
-      {hint && <span className="text-[9px] text-[var(--color-text-muted)] opacity-50">{hint}</span>}
-    </div>
-  );
-}
-
-// ── Context Trim Toggle ─────────────────────────────────────────────────────
-
-function ContextTrimToggle({
-  value,
-  onChange,
-  modified,
-}: {
-  value: ContextTrimStrategy;
-  onChange: (v: ContextTrimStrategy) => void;
-  modified?: boolean;
-}) {
-  const options: { key: ContextTrimStrategy; label: string }[] = [
-    { key: 'trim_start', label: 'Начало' },
-    { key: 'trim_middle', label: 'Середина' },
-  ];
-  const [showTooltip, setShowTooltip] = useState(false);
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="relative flex items-center gap-1">
-        <label
-          className={clsx(
-            'text-[10px] cursor-help',
-            modified ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]',
-          )}
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-        >
-          Обрезка контекста
-        </label>
-        {showTooltip && (
-          <div className="absolute left-0 bottom-full mb-1 z-50 w-[min(13rem,calc(100vw-2rem))] px-2.5 py-2 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] shadow-lg text-[10px] leading-snug text-[var(--color-text-muted)] pointer-events-none">
-            Что удалять при заполнении контекста. «Начало» — самые старые сообщения удаляются первыми. «Середина» —
-            сохраняет начало чата (завязка, приветствие) и последние сообщения, удаляя середину.
-          </div>
-        )}
-      </div>
-      <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)]">
-        {options.map((opt) => (
-          <button
-            key={opt.key}
-            onClick={() => onChange(opt.key)}
-            className={clsx(
-              'flex-1 px-2 py-1 text-[10px] font-medium transition-colors cursor-pointer',
-              value === opt.key
-                ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
-                : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]',
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Model Settings Section ──────────────────────────────────────────────────
-
-function ModelSettingsSection(): JSX.Element {
-  const { llmServerConfig, setLlmServerConfig, backendMode, connection } = useAppStore();
-  const [localContextSize, setLocalContextSize] = useState(llmServerConfig.contextSize);
-  const [restarting, setRestarting] = useState(false);
-
-  // Sync local state when store changes externally
-  useEffect(() => {
-    setLocalContextSize(llmServerConfig.contextSize);
-  }, [llmServerConfig.contextSize]);
-
-  const hasChanged = localContextSize !== llmServerConfig.contextSize;
-  const isBuiltinRunning = backendMode === 'builtin' && connection.connected;
-
-  const handleApply = async () => {
-    if (!hasChanged) return;
-
-    if (isBuiltinRunning) {
-      // Restart server with new context size
-      setRestarting(true);
-      try {
-        const status = await api.getLlmServerStatus();
-        const modelPath = status.modelPath;
-
-        if (!modelPath) {
-          setLlmServerConfig({ contextSize: localContextSize });
-          setRestarting(false);
-          return;
-        }
-
-        setLlmServerConfig({ contextSize: localContextSize });
-
-        // Stop server
-        await api.stopLlmServer();
-
-        // Poll until idle
-        let attempts = 0;
-        while (attempts < 60) {
-          await new Promise((r) => setTimeout(r, 500));
-          const s = await api.getLlmServerStatus();
-          if (s.status === 'idle' || s.status === 'error') break;
-          attempts++;
-        }
-
-        // Restart with new config
-        const cfg = useAppStore.getState().llmServerConfig;
-        await api.startLlmServer({
-          modelPath,
-          port: cfg.port,
-          gpuLayers: cfg.gpuLayers,
-          contextSize: cfg.contextSize,
-          flashAttention: cfg.flashAttention,
-          threads: cfg.threads,
-        });
-      } catch (err) {
-        console.error('[ModelSettings] restart failed:', err);
-      } finally {
-        setRestarting(false);
-      }
-    } else {
-      setLlmServerConfig({ contextSize: localContextSize });
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2.5 border-t border-[var(--color-border)] pt-3">
-      <div className="flex items-center gap-1.5">
-        <Cpu size={10} className="text-[var(--color-primary)]" />
-        <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-          Настройки модели
-        </span>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] text-[var(--color-text-muted)]">Context Size</label>
-          <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
-            {localContextSize.toLocaleString()}
-          </span>
-        </div>
-        <input
-          type="range"
-          min={2048}
-          max={131072}
-          step={1024}
-          value={localContextSize}
-          onChange={(e) => setLocalContextSize(Number(e.target.value))}
-          className="w-full accent-[var(--color-primary)]"
-          disabled={restarting}
-        />
-        <div className="flex items-center justify-between text-[9px] text-[var(--color-text-muted)] opacity-50">
-          <span>2K</span>
-          <span>128K</span>
-        </div>
-      </div>
-
-      {hasChanged && (
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={handleApply}
-            disabled={restarting}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90 disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
-          >
-            {restarting ? (
-              <>
-                <Loader2 size={12} className="animate-spin" />
-                Перезапуск сервера...
-              </>
-            ) : (
-              <>
-                <Check size={12} />
-                Применить{isBuiltinRunning ? ' (перезапуск)' : ''}
-              </>
-            )}
-          </button>
-          <button
-            onClick={() => setLocalContextSize(llmServerConfig.contextSize)}
-            disabled={restarting}
-            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
-            title="Сбросить"
-          >
-            <Reset size={14} />
-          </button>
-        </div>
-      )}
-
-      {!hasChanged && isBuiltinRunning && (
-        <div className="text-[9px] text-[var(--color-text-muted)] opacity-50">
-          Изменение контекста перезапустит сервер
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Scenario Display ────────────────────────────────────────────────────────
+// ── Scenario Display (stateless, <15 lines) ─────────────────────────────────
 
 function ScenarioDisplay({ session }: { session: ChatSessionMeta | null }): JSX.Element | null {
   const activeScenarioName = session?.activeScenarioName;
@@ -282,107 +23,6 @@ function ScenarioDisplay({ session }: { session: ChatSessionMeta | null }): JSX.
       </div>
       <div className="text-xs text-[var(--color-text)]">{activeScenarioName}</div>
       <div className="text-[9px] text-[var(--color-text-muted)] opacity-60">Выбирается при создании чата</div>
-    </div>
-  );
-}
-
-// ── System Prompt Section ───────────────────────────────────────────────────
-
-function SystemPromptSection({
-  session,
-  character,
-  activeScenario,
-  onSettingsChanged,
-}: {
-  session: ChatSessionMeta | null;
-  character: Character | null;
-  activeScenario: Scenario | null;
-  onSettingsChanged?: () => void;
-}): JSX.Element | null {
-  const [expanded, setExpanded] = useState(false);
-  const upsertChatSession = useAppStore((s) => s.upsertChatSession);
-
-  const autoPrompt = useMemo(() => {
-    if (!character) return '';
-    return computeBaseSystemPrompt(character, session?.characterOverrides, activeScenario);
-  }, [character, session?.characterOverrides, activeScenario]);
-
-  const hasOverride = !!session?.customSystemPrompt;
-  const displayText = hasOverride ? session!.customSystemPrompt! : autoPrompt;
-
-  const [editText, setEditText] = useState(displayText);
-
-  useEffect(() => {
-    setEditText(displayText);
-  }, [displayText]);
-
-  const isDirty = editText !== displayText;
-
-  const handleSave = () => {
-    if (!session) return;
-    upsertChatSession({ ...session, customSystemPrompt: editText });
-    onSettingsChanged?.();
-  };
-
-  const handleReset = () => {
-    if (!session) return;
-    upsertChatSession({ ...session, customSystemPrompt: null });
-    setEditText(autoPrompt);
-    onSettingsChanged?.();
-  };
-
-  if (!character) return null;
-
-  return (
-    <div className="flex flex-col gap-1.5 border-t border-[var(--color-border)] pt-3">
-      <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-1.5 cursor-pointer group">
-        <ChevronRight
-          size={12}
-          className={clsx('text-[var(--color-primary)] transition-transform duration-200', expanded && 'rotate-90')}
-        />
-        <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide group-hover:text-[var(--color-text)] transition-colors">
-          Системный промпт
-        </span>
-        {hasOverride && (
-          <span className="text-[8px] px-1.5 py-0.5 rounded bg-[var(--color-primary)]/15 text-[var(--color-primary)]">
-            Custom
-          </span>
-        )}
-      </button>
-
-      {expanded && (
-        <div className="flex flex-col gap-2 mt-1">
-          <textarea
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            rows={12}
-            className="w-full text-[11px] leading-relaxed bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-2.5 py-2 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] transition-colors resize-y font-mono"
-          />
-          <div className="text-[9px] text-[var(--color-text-muted)] opacity-60">
-            World Info и язык добавляются автоматически
-          </div>
-          <div className="flex items-center gap-1.5">
-            {isDirty && (
-              <button
-                onClick={handleSave}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90 transition-colors cursor-pointer"
-              >
-                <Check size={10} />
-                Сохранить
-              </button>
-            )}
-            {hasOverride && (
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] bg-[var(--color-surface-2)] text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 transition-colors cursor-pointer"
-              >
-                <Reset size={10} />
-                Сбросить
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -416,21 +56,27 @@ export function ChatSettingsPanel({
   const customOverrides = session?.customSamplerSettings ?? {};
   const hasOverrides = Object.keys(customOverrides).length > 0;
 
-  const updateSession = (patch: Partial<ChatSessionMeta>) => {
-    if (!session) return;
-    upsertChatSession({ ...session, ...patch });
-    onSettingsChanged?.();
-  };
+  const updateSession = useCallback(
+    (patch: Partial<ChatSessionMeta>) => {
+      if (!session) return;
+      upsertChatSession({ ...session, ...patch });
+      onSettingsChanged?.();
+    },
+    [session, upsertChatSession, onSettingsChanged],
+  );
 
-  const handleOverride = (key: keyof SamplerSettings, value: SamplerSettings[keyof SamplerSettings]) => {
-    updateSession({
-      customSamplerSettings: { ...customOverrides, [key]: value },
-    });
-  };
+  const handleOverride = useCallback(
+    (key: keyof SamplerSettings, value: SamplerSettings[keyof SamplerSettings]) => {
+      updateSession({
+        customSamplerSettings: { ...customOverrides, [key]: value },
+      });
+    },
+    [updateSession, customOverrides],
+  );
 
-  const handleResetOverrides = () => {
+  const handleResetOverrides = useCallback(() => {
     updateSession({ customSamplerSettings: {} });
-  };
+  }, [updateSession]);
 
   return (
     <div className="w-full sm:w-72 fixed inset-0 sm:relative sm:inset-auto z-30 sm:z-auto flex-shrink-0 border-l border-[var(--color-border)] bg-[var(--color-surface)] overflow-y-auto flex flex-col">
