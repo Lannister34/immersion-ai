@@ -47,6 +47,22 @@ export async function apiPostForm(
   }
 }
 
+/** GET request (no CSRF needed for read-only endpoints). */
+export async function apiGet<T>(path: string): Promise<T> {
+  const res = await fetch(path);
+  if (!res.ok) {
+    let msg = `Ошибка сервера (${res.status})`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data?.error) msg = data.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const token = await getCsrfToken();
   const res = await fetch(path, {

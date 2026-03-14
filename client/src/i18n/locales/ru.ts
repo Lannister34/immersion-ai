@@ -310,6 +310,12 @@ export const ru = {
     connected: 'Подключено: {{model}}',
     disconnected: 'Не подключено',
     checkConnection: 'Проверить',
+    connectionTitle: 'Подключение',
+    providerLabel: 'Провайдер',
+    fieldUrl: 'API URL',
+    fieldApiKey: 'API Key',
+    provider_koboldcpp: 'KoboldCpp',
+    provider_custom: 'Пользовательский',
   },
 
   // ── Model manager ──────────────────────────────────────────────────────────
@@ -328,8 +334,8 @@ export const ru = {
     stop: 'Стоп',
     modelLabel: 'Модель: ',
     loadingModel: 'Загрузка {{modelName}}...',
-    modelsDirLabel: 'Папка с моделями',
-    browseFolderTooltip: 'Выбрать папку',
+    modelsDirsLabel: 'Папки с моделями',
+    addFolderButton: 'Добавить папку',
     gpuLayersHint: '0 = CPU, 999 = все на GPU',
     threadsHint: '0 = авто',
     portLabel: 'Порт',

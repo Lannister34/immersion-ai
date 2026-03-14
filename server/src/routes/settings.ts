@@ -22,11 +22,11 @@ router.post('/get', (_req, res) => {
     }
 
     // The frontend expects settings as a raw JSON string plus top-level fields
+    // Note: connection URL is now resolved from user-settings.json connectionPresets,
+    // not from textgenerationwebui.server_urls (kept for backward compatibility only)
     res.json({
       settings: settingsRaw,
-      textgenerationwebui: settingsObj.textgenerationwebui ?? {
-        server_urls: { koboldcpp: 'http://127.0.0.1:5001' },
-      },
+      textgenerationwebui: settingsObj.textgenerationwebui ?? {},
       textgenerationwebui_preset_names: [],
       textgenerationwebui_presets: [],
     });

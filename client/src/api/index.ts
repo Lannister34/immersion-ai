@@ -16,7 +16,7 @@ export type {
 } from '@/types';
 export { createCharacter, deleteCharacter, editCharacter, getCharacterByAvatar, getCharacters } from './characters';
 export { createNewChat, deleteChat, getAllChats, getCharacterChats, getChatMessages, saveChat } from './chats';
-export { apiPost, apiPostForm, fetchCsrfToken, getCsrfToken } from './client';
+export { apiGet, apiPost, apiPostForm, fetchCsrfToken, getCsrfToken } from './client';
 export { getConnectionStatus } from './connection';
 export {
   abortGeneration,
@@ -40,6 +40,7 @@ export {
   startLlmServer,
   stopLlmServer,
 } from './llm-server';
+export { getProviderDefinitions } from './providers';
 export { createScenario, deleteScenario, getScenario, getScenarios, saveScenario } from './scenarios';
 export {
   getSettings,

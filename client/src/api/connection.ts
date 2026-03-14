@@ -1,17 +1,32 @@
-import type { AppSettings } from '@/types';
+import { getActiveProviderConfig, useAppStore } from '@/stores';
+import type { ProviderConfig } from '@/types';
 import { apiPost } from './client';
 
-export async function getConnectionStatus(): Promise<{ connected: boolean; model: string }> {
-  try {
-    const settings = await apiPost<AppSettings>('/api/settings/get', {});
-    const textGen = settings?.textgenerationwebui;
-    const rawUrl = textGen?.server_urls?.koboldcpp ?? 'http://127.0.0.1:5001';
+interface ConnectionCheckParams {
+  url: string;
+  apiKey?: string;
+}
 
-    const { backendMode } = await import('@/stores').then((m) => m.useAppStore.getState());
-    const apiServer = backendMode === 'builtin' ? rawUrl : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
+export async function getConnectionStatus(
+  params?: ConnectionCheckParams,
+): Promise<{ connected: boolean; model: string }> {
+  try {
+    let url: string;
+    let apiKey: string | undefined;
+
+    if (params) {
+      url = params.url;
+      apiKey = params.apiKey;
+    } else {
+      const state = useAppStore.getState();
+      const config: ProviderConfig = getActiveProviderConfig(state);
+      url = state.backendMode === 'builtin' ? `http://127.0.0.1:${state.llmServerConfig.port}` : config.url;
+      apiKey = config.apiKey;
+    }
 
     const data = await apiPost<{ model: string; koboldCppVersion: string }>('/api/backends/kobold/status', {
-      api_server: apiServer,
+      api_server: url,
+      api_key: apiKey,
     });
     const model = data.model === 'no_connection' ? '' : data.model;
     return { connected: !!model, model: model || '' };

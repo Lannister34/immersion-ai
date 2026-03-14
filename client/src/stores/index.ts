@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { getUserSettings, saveUserSettings } from '@/api';
 import type { UiLanguage } from '@/i18n';
-import type { ChatSessionMeta, ConnectionStatus, SamplerPreset, SamplerSettings } from '@/types';
+import type { ChatSessionMeta, ConnectionStatus, ProviderConfig, SamplerPreset, SamplerSettings } from '@/types';
+import { ProviderType } from '@/types';
 
 interface AppState {
   connection: ConnectionStatus;
@@ -49,6 +50,12 @@ interface AppState {
   removeChatSession: (characterAvatar: string, chatFile: string) => void;
   getChatSession: (characterAvatar: string, chatFile: string) => ChatSessionMeta | undefined;
 
+  // Provider connection config (external providers)
+  activeProvider: ProviderType;
+  providerConfigs: Record<string, ProviderConfig>;
+  setActiveProvider: (provider: ProviderType) => void;
+  updateProviderConfig: (provider: ProviderType, partial: Partial<ProviderConfig>) => void;
+
   // LLM Server management
   backendMode: 'builtin' | 'external';
   setBackendMode: (mode: 'builtin' | 'external') => void;
@@ -65,7 +72,7 @@ interface AppState {
 }
 
 export interface LlmServerConfig {
-  modelsDir: string;
+  modelsDirs: string[];
   port: number;
   gpuLayers: number;
   contextSize: number;
@@ -74,12 +81,16 @@ export interface LlmServerConfig {
 }
 
 const DEFAULT_LLM_SERVER_CONFIG: LlmServerConfig = {
-  modelsDir: '', // Will be set from server's defaultModelsDir on first load
+  modelsDirs: [], // Will be set from server's defaultModelsDir on first load
   port: 5001,
   gpuLayers: 999,
   contextSize: 8192,
   flashAttention: true,
   threads: 0,
+};
+
+const DEFAULT_PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
+  [ProviderType.KoboldCpp]: { url: 'http://127.0.0.1:5001' },
 };
 
 const DEFAULT_SAMPLER_SETTINGS: SamplerSettings = {
@@ -193,6 +204,8 @@ const PERSISTED_KEYS = [
   'chatSessions',
   'backendMode',
   'llmServerConfig',
+  'activeProvider',
+  'providerConfigs',
 ] as const;
 
 type PersistedKey = (typeof PERSISTED_KEYS)[number];
@@ -267,6 +280,20 @@ export function getEffectiveSamplerSettings(state: AppState, chatFile?: string):
   }
 
   return base;
+}
+
+/**
+ * Resolve the active provider's connection config.
+ */
+export function getActiveProviderConfig(state: AppState): ProviderConfig {
+  return state.providerConfigs[state.activeProvider] ?? DEFAULT_PROVIDER_CONFIGS[ProviderType.KoboldCpp];
+}
+
+/**
+ * Resolve the active connection URL (shortcut).
+ */
+export function getActiveConnectionUrl(state: AppState): string {
+  return getActiveProviderConfig(state).url;
 }
 
 // ── Store ──────────────────────────────────────────────────────────────────
@@ -382,6 +409,20 @@ export const useAppStore = create<AppState>()((set, get) => ({
   getChatSession: (characterAvatar, chatFile) =>
     get().chatSessions.find((c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile),
 
+  // Provider connection config
+  activeProvider: ProviderType.KoboldCpp,
+  providerConfigs: { ...DEFAULT_PROVIDER_CONFIGS },
+
+  setActiveProvider: (provider) => set({ activeProvider: provider }),
+
+  updateProviderConfig: (provider, partial) =>
+    set((s) => ({
+      providerConfigs: {
+        ...s.providerConfigs,
+        [provider]: { ...(s.providerConfigs[provider] ?? { url: '' }), ...partial },
+      },
+    })),
+
   // LLM Server
   backendMode: 'builtin',
   setBackendMode: (mode) => set({ backendMode: mode }),
@@ -426,9 +467,35 @@ export async function initSettingsFromServer(): Promise<void> {
       const serverCfg = serverData.llmServerConfig as Record<string, unknown> | undefined;
       if (serverCfg) {
         delete serverCfg.executablePath;
-        if (!serverCfg.modelsDir || serverCfg.modelsDir === 'D:\\Neuro\\llm') {
-          serverCfg.modelsDir = '';
+
+        // Migrate legacy modelsDir (string) → modelsDirs (string[])
+        if (typeof serverCfg.modelsDir === 'string') {
+          const dir = serverCfg.modelsDir as string;
+          if (!serverCfg.modelsDirs) {
+            serverCfg.modelsDirs = dir && dir !== 'D:\\Neuro\\llm' ? [dir] : [];
+          }
+          delete serverCfg.modelsDir;
         }
+      }
+
+      // Migrate legacy connectionPresets → activeProvider + providerConfigs
+      if ('connectionPresets' in serverData && !('providerConfigs' in serverData)) {
+        const presets = serverData.connectionPresets as Array<{
+          provider?: string;
+          url?: string;
+          apiKey?: string;
+          id?: string;
+        }>;
+        const activeId = serverData.activeConnectionPresetId as string | undefined;
+        const active = presets?.find((p) => p.id === activeId) ?? presets?.[0];
+        if (active?.url) {
+          serverData.activeProvider = active.provider ?? ProviderType.KoboldCpp;
+          serverData.providerConfigs = {
+            [active.provider ?? ProviderType.KoboldCpp]: { url: active.url, apiKey: active.apiKey },
+          };
+        }
+        delete serverData.connectionPresets;
+        delete serverData.activeConnectionPresetId;
       }
 
       // Apply only known persisted keys from server
@@ -456,6 +523,7 @@ export async function initSettingsFromServer(): Promise<void> {
 export type { SamplerSettings };
 export {
   DEFAULT_PROMPTS,
+  DEFAULT_PROVIDER_CONFIGS,
   DEFAULT_SAMPLER_SETTINGS,
   DEFAULT_SYSTEM_PROMPT_EN,
   DEFAULT_SYSTEM_PROMPT_RU,

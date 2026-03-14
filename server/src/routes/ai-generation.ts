@@ -10,17 +10,31 @@ import { DATA_ROOT } from '../lib/paths.js';
 
 export const router = Router();
 
-/** Read KoboldCpp API server URL from settings */
-function getApiServer(): string {
+/** Resolve active provider config from user-settings.json */
+function getActivePreset(): { url: string; apiKey?: string } {
   try {
-    const settingsPath = path.join(DATA_ROOT, 'settings.json');
-    if (!fs.existsSync(settingsPath)) return 'http://127.0.0.1:5001';
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    const url =
-      settings?.textgenerationwebui?.server_urls?.koboldcpp ?? settings?.api_server ?? 'http://127.0.0.1:5001';
-    return url.replace(/\/api$/, '');
+    const settingsPath = path.join(DATA_ROOT, 'user-settings.json');
+    if (!fs.existsSync(settingsPath)) return { url: 'http://127.0.0.1:5001' };
+    const data = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+    // New format: activeProvider + providerConfigs
+    if (data.providerConfigs && data.activeProvider) {
+      const config = data.providerConfigs[data.activeProvider] as { url?: string; apiKey?: string } | undefined;
+      if (config?.url) return { url: config.url.replace(/\/api$/, ''), apiKey: config.apiKey };
+    }
+
+    // Legacy format: connectionPresets + activeConnectionPresetId
+    if (Array.isArray(data.connectionPresets)) {
+      const activeId: string = data.activeConnectionPresetId ?? '';
+      const preset = data.connectionPresets.find((p: { id: string }) => p.id === activeId) as
+        | { url?: string; apiKey?: string }
+        | undefined;
+      if (preset?.url) return { url: preset.url.replace(/\/api$/, ''), apiKey: preset.apiKey };
+    }
+
+    return { url: 'http://127.0.0.1:5001' };
   } catch {
-    return 'http://127.0.0.1:5001';
+    return { url: 'http://127.0.0.1:5001' };
   }
 }
 
@@ -28,6 +42,7 @@ function getApiServer(): string {
 interface LlmCallOptions {
   maxTokens?: number;
   temperature?: number;
+  apiKey?: string;
 }
 
 /** Call LLM via OpenAI-compatible /v1/chat/completions (works with llama-server, KoboldCpp, vLLM) */
@@ -37,7 +52,7 @@ async function callLlm(
   userPrompt: string,
   options: LlmCallOptions = {},
 ): Promise<string> {
-  const { maxTokens = 2048, temperature = 0.8 } = options;
+  const { maxTokens = 2048, temperature = 0.8, apiKey } = options;
   const body = {
     messages: [
       { role: 'system', content: systemPrompt },
@@ -51,11 +66,16 @@ async function callLlm(
     chat_template_kwargs: { enable_thinking: false },
   };
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
   let res: Response;
   try {
     res = await fetch(`${apiServer}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(120000),
     });
@@ -199,7 +219,7 @@ router.post('/character', async (req, res) => {
     const { concept, language } = req.body;
     if (!concept?.trim()) return res.status(400).json({ error: 'concept is required' });
 
-    const apiServer = getApiServer();
+    const { url: apiServer, apiKey } = getActivePreset();
     const _lang = language === 'en' ? 'English' : 'Russian';
 
     const isRu = language !== 'en';
@@ -235,7 +255,7 @@ Return a JSON object with these exact fields:
 IMPORTANT: "description" is NOT a backstory or biography. It is a physical/visual reference card. Do NOT include history, motivations, or narrative prose.
 Write in English. Be specific but brief.`;
 
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 2048 });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 2048, apiKey });
     const character = extractJson(raw) as Record<string, unknown>;
 
     const required = ['name', 'description', 'personality', 'mes_example', 'tags'];
@@ -281,7 +301,7 @@ router.post('/character-field', async (req, res) => {
     const fieldInstr = FIELD_INSTRUCTIONS[field];
     if (!fieldInstr) return res.status(400).json({ error: `Unknown field: ${field}` });
 
-    const apiServer = getApiServer();
+    const { url: apiServer, apiKey } = getActivePreset();
     const isRu = language !== 'en';
     const instruction = isRu ? fieldInstr.ru : fieldInstr.en;
 
@@ -311,7 +331,7 @@ Task: Regenerate ONLY the "${field}" field. ${instruction}
 
 Write in English. Keep it consistent with the rest of the character card. Return ONLY the new value for "${field}", nothing else.`;
 
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 1024 });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 1024, apiKey });
     res.json({ field, value: raw.trim() });
   } catch (err) {
     console.error('[ai-generation/character-field]', err);
@@ -327,7 +347,7 @@ router.post('/character-avatar-prompt', async (req, res) => {
     const { characterData } = req.body;
     if (!characterData) return res.status(400).json({ error: 'characterData is required' });
 
-    const apiServer = getApiServer();
+    const { url: apiServer, apiKey } = getActivePreset();
 
     const systemPrompt =
       'You are an expert at writing Stable Diffusion image generation prompts. Return ONLY valid JSON.';
@@ -343,7 +363,7 @@ Return JSON:
   "negative": "ugly, deformed, blurry, low quality, extra limbs, bad anatomy"
 }`;
 
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 512 });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 512, apiKey });
     const result = extractJson(raw) as Record<string, string>;
 
     res.json({
@@ -364,7 +384,7 @@ router.post('/chat-title', async (req, res) => {
     const { messages, characterName } = req.body;
     if (!messages?.length) return res.status(400).json({ error: 'messages are required' });
 
-    const apiServer = getApiServer();
+    const { url: apiServer, apiKey } = getActivePreset();
 
     const systemPrompt =
       'You generate very short chat titles (2-5 words) that capture the essence of a conversation. Return ONLY the title text, nothing else. No quotes, no punctuation at the end. Write in the same language as the conversation.';
@@ -376,7 +396,7 @@ router.post('/chat-title', async (req, res) => {
 
     const userPrompt = `Generate a short title (2-5 words) for this roleplay conversation with character "${characterName}":\n\n${chatSnippet}\n\nTitle:`;
 
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 30 });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 30, apiKey });
 
     const title = raw
       .split('\n')[0]
@@ -399,7 +419,7 @@ router.post('/lorebook', async (req, res) => {
     const { concept, entryCount = 8, language } = req.body;
     if (!concept?.trim()) return res.status(400).json({ error: 'concept is required' });
 
-    const apiServer = getApiServer();
+    const { url: apiServer, apiKey } = getActivePreset();
     const count = Math.min(Math.max(Number(entryCount) || 8, 3), 20);
     const isRu = language !== 'en';
 
@@ -437,7 +457,7 @@ Return a JSON object:
 
 Each entry should cover a distinct aspect of the world. Cover: locations, factions, characters, history, technology/magic, culture. Write in English.`;
 
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 3000 });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 3000, apiKey });
     const result = extractJson(raw) as Record<string, unknown>;
 
     const entries = Array.isArray(result?.entries) ? result.entries : Array.isArray(result) ? result : [];
@@ -520,7 +540,7 @@ router.post('/scenario', async (req, res) => {
     const { concept, language, character, lorebookEntries, user } = req.body;
     if (!concept?.trim()) return res.status(400).json({ error: 'concept is required' });
 
-    const apiServer = getApiServer();
+    const { url: apiServer, apiKey } = getActivePreset();
     const isRu = language !== 'en';
 
     // ── Step 1: Summarize character + world into a brief (if data provided) ──
@@ -540,6 +560,7 @@ router.post('/scenario', async (req, res) => {
         const briefRaw = await callLlm(apiServer, summarySystem, summaryUser, {
           maxTokens: 400,
           temperature: 0.3,
+          apiKey,
         });
         brief = extractJson(briefRaw) as Record<string, unknown>;
         console.log('[scenario] Step 1 done');
@@ -648,7 +669,7 @@ RULES:
 5. Write in English. Be creative and specific.${character?.name ? ' The scenario should fit this character.' : ''}`;
 
     console.log('[scenario] Step 2: generating scenario (brief=%s)...', !!brief);
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 2048 });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 2048, apiKey });
     const scenario = extractJson(raw) as Record<string, unknown>;
 
     for (const field of ['name', 'content']) {
@@ -678,7 +699,7 @@ router.post('/first-message', async (req, res) => {
     const { character, scenario, user, language } = req.body;
     if (!character?.name) return res.status(400).json({ error: 'character with name is required' });
 
-    const apiServer = getApiServer();
+    const { url: apiServer, apiKey } = getActivePreset();
     const isRu = language !== 'en';
 
     const genderHint = isRu
@@ -721,7 +742,7 @@ Write an opening roleplay message from {{char}}'s perspective. Include {{char}}'
 ${genderHint}Use appropriate English grammatical forms. Write in English.
 Use {{user}} and {{char}} as literal placeholders — they will be substituted at runtime.`;
 
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 512 });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 512, apiKey });
     let firstMes = raw.trim();
 
     // Post-process: replace real names with placeholders

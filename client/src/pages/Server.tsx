@@ -1,30 +1,26 @@
-import { useQuery } from '@tanstack/react-query';
 import { Globe, RefreshCw, Server } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getConnectionStatus, getSettings } from '@/api';
+import { getConnectionStatus } from '@/api';
+import { ConnectionConfig } from '@/components/ConnectionConfig';
 import { ModelManager } from '@/components/ModelManager';
 import { Button } from '@/components/ui/Button';
-import { useAppStore } from '@/stores';
+import { getActiveProviderConfig, useAppStore } from '@/stores';
 
 export function ServerPage() {
   const { t } = useTranslation();
   const { connection, setConnection, backendMode, setBackendMode } = useAppStore();
+  const { url: connectionUrl, apiKey: connectionApiKey } = useAppStore(getActiveProviderConfig);
 
   const [testing, setTesting] = useState(false);
 
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: getSettings,
-  });
-
-  // Auto-check connection on mount (only for external mode)
+  // Auto-check connection when provider URL changes (only for external mode)
   useEffect(() => {
     if (backendMode !== 'external') return;
     let cancelled = false;
     const check = async () => {
       try {
-        const status = await getConnectionStatus();
+        const status = await getConnectionStatus({ url: connectionUrl, apiKey: connectionApiKey });
         if (!cancelled) setConnection(status);
       } catch {
         if (!cancelled) setConnection({ connected: false });
@@ -34,9 +30,9 @@ export function ServerPage() {
     return () => {
       cancelled = true;
     };
-  }, [backendMode, setConnection]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [backendMode, connectionUrl, connectionApiKey, setConnection]);
 
-  const handleTestConnection = async () => {
+  const handleTestConnection = useCallback(async () => {
     setTesting(true);
     try {
       const status = await getConnectionStatus();
@@ -44,21 +40,19 @@ export function ServerPage() {
     } finally {
       setTesting(false);
     }
-  };
+  }, [setConnection]);
 
-  const textGen = settings?.textgenerationwebui;
-  const apiUrl = textGen?.server_urls?.koboldcpp ?? 'http://127.0.0.1:5001';
+  const handleSetBuiltin = useCallback(() => setBackendMode('builtin'), [setBackendMode]);
+  const handleSetExternal = useCallback(() => setBackendMode('external'), [setBackendMode]);
 
   return (
     <div className="max-w-4xl mx-auto w-full flex flex-col gap-4 sm:gap-6 pb-8 flex-1 overflow-y-auto p-3 sm:p-5">
-      {/* Backend section */}
       <section className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-5 flex flex-col gap-4">
         <h2 className="text-sm font-semibold text-[var(--color-text)]">{t('server.backendTitle')}</h2>
 
-        {/* Mode toggle */}
         <div className="flex items-center gap-1 bg-[var(--color-surface-2)] rounded-lg p-0.5 w-fit">
           <button
-            onClick={() => setBackendMode('builtin')}
+            onClick={handleSetBuiltin}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
               backendMode === 'builtin'
                 ? 'bg-[var(--color-primary)] text-white'
@@ -69,7 +63,7 @@ export function ServerPage() {
             {t('server.builtinMode')}
           </button>
           <button
-            onClick={() => setBackendMode('external')}
+            onClick={handleSetExternal}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
               backendMode === 'external'
                 ? 'bg-[var(--color-primary)] text-white'
@@ -81,12 +75,12 @@ export function ServerPage() {
           </button>
         </div>
 
-        {/* Builtin mode: ModelManager */}
         {backendMode === 'builtin' && <ModelManager />}
 
-        {/* External mode: existing connection UI */}
         {backendMode === 'external' && (
           <>
+            <ConnectionConfig />
+
             <div className="flex items-center gap-3">
               <div
                 className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
@@ -102,10 +96,6 @@ export function ServerPage() {
                 <RefreshCw size={13} />
                 {t('server.checkConnection')}
               </Button>
-            </div>
-
-            <div className="text-xs text-[var(--color-text-muted)]">
-              API URL: <span className="font-mono bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded">{apiUrl}</span>
             </div>
           </>
         )}
