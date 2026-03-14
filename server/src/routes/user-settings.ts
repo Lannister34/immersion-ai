@@ -1,6 +1,6 @@
-import { Router, Request, Response } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { type Request, type Response, Router } from 'express';
 import { DATA_ROOT } from '../lib/paths.js';
 
 export const router = Router();

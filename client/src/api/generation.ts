@@ -1,35 +1,11 @@
-import type { GeneratedCharacter, GeneratedLorebook } from '@/types';
-import { apiPost, getCsrfToken, fetchCsrfToken } from './client';
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-export interface ChatCompletionMessage {
-  role: string;
-  content: string;
-}
-
-export interface GenerateTextParams {
-  api_server: string;
-  prompt?: string;
-  messages?: ChatCompletionMessage[];
-  chat_template_kwargs?: Record<string, unknown>;
-  max_length: number;
-  max_context_length: number;
-  temperature?: number;
-  top_p?: number;
-  top_k?: number;
-  min_p?: number;
-  rep_pen?: number;
-  rep_pen_range?: number;
-  presence_penalty?: number;
-  stop_sequence?: string[];
-}
-
-export interface GeneratedScenario {
-  name: string;
-  content: string;
-  tags: string[];
-}
+import type {
+  AvatarPrompt,
+  GeneratedCharacter,
+  GeneratedLorebook,
+  GeneratedScenario,
+  GenerateTextParams,
+} from '@/types';
+import { apiPost, fetchCsrfToken, getCsrfToken } from './client';
 
 // ── Abort ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +33,7 @@ export async function generateText(params: GenerateTextParams): Promise<string> 
     const text = await res.text();
     throw new Error(`Generation failed: ${res.status} ${text}`);
   }
-  const data = await res.json() as { results?: Array<{ text: string }> };
+  const data = (await res.json()) as { results?: Array<{ text: string }> };
   return data?.results?.[0]?.text ?? '';
 }
 
@@ -72,9 +48,7 @@ export async function generateTextStream(
   const token = await getCsrfToken();
 
   const useChatCompletions = !!params.messages;
-  const endpoint = useChatCompletions
-    ? '/api/backends/kobold/generate-chat'
-    : '/api/backends/kobold/generate';
+  const endpoint = useChatCompletions ? '/api/backends/kobold/generate-chat' : '/api/backends/kobold/generate';
 
   const requestBody = JSON.stringify({
     ...params,
@@ -117,7 +91,9 @@ export async function generateTextStream(
     const decoder = new TextDecoder();
     let fullText = '';
 
-    const abortHandler = () => { reader.cancel().catch(() => {}); };
+    const abortHandler = () => {
+      reader.cancel().catch(() => {});
+    };
     signal?.addEventListener('abort', abortHandler);
 
     // Thinking models (Qwen3.5, etc.) stream reasoning_content first, then content.
@@ -194,7 +170,7 @@ export async function generateTextStream(
 
   // Fallback: non-streaming response
   try {
-    const data = await res.json() as { results?: Array<{ text: string }>; error?: unknown };
+    const data = (await res.json()) as { results?: Array<{ text: string }>; error?: unknown };
     if (data?.error) {
       throw new Error('Ошибка генерации: сервер вернул ошибку');
     }
@@ -221,20 +197,19 @@ export async function regenerateCharacterField(
   concept: string,
   language: string = 'ru',
 ): Promise<string> {
-  const result = await apiPost<{ field: string; value: string }>(
-    '/api/ai-generation/character-field',
-    { field, character, concept, language },
-  );
+  const result = await apiPost<{ field: string; value: string }>('/api/ai-generation/character-field', {
+    field,
+    character,
+    concept,
+    language,
+  });
   return result.value;
 }
 
-export async function generateAvatarPrompt(
-  characterData: GeneratedCharacter,
-): Promise<{ positive: string; negative: string }> {
-  return apiPost<{ positive: string; negative: string }>(
-    '/api/ai-generation/character-avatar-prompt',
-    { characterData },
-  );
+export async function generateAvatarPrompt(characterData: GeneratedCharacter): Promise<AvatarPrompt> {
+  return apiPost<AvatarPrompt>('/api/ai-generation/character-avatar-prompt', {
+    characterData,
+  });
 }
 
 export async function generateLorebook(
@@ -253,7 +228,11 @@ export async function generateScenario(
   user?: { name: string; persona?: string },
 ): Promise<GeneratedScenario> {
   return apiPost<GeneratedScenario>('/api/ai-generation/scenario', {
-    concept, language, character, lorebookEntries, user,
+    concept,
+    language,
+    character,
+    lorebookEntries,
+    user,
   });
 }
 
@@ -264,7 +243,10 @@ export async function generateFirstMessage(
   language = 'ru',
 ): Promise<string> {
   const data = await apiPost<{ first_mes: string }>('/api/ai-generation/first-message', {
-    character, scenario, user, language,
+    character,
+    scenario,
+    user,
+    language,
   });
   return data.first_mes;
 }

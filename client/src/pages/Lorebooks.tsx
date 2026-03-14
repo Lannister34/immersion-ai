@@ -1,14 +1,32 @@
-import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, BookOpen, ChevronDown, ChevronRight, Sparkles, Check, ArrowLeft, ArrowRight, Search, Key, ToggleLeft, ToggleRight, Edit3, Save, X, Trash2, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { getWorlds, getWorldInfo, saveWorldInfo, generateLorebook, deleteWorldInfo } from '@/api';
-import { useAppStore } from '@/stores';
-import type { WorldInfo, WorldInfoEntry, GeneratedLorebook } from '@/types';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Edit3,
+  Key,
+  Plus,
+  Save,
+  Search,
+  Sparkles,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { deleteWorldInfo, generateLorebook, getWorldInfo, getWorlds, saveWorldInfo } from '@/api';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
-import { Input } from '@/components/ui/Input';
+import { useAppStore } from '@/stores';
+import type { GeneratedLorebook, WorldInfo, WorldInfoEntry } from '@/types';
 
 // ── Lorebook Wizard ────────────────────────────────────────────────────────────
 
@@ -51,7 +69,12 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
     try {
       const result = await generateLorebook(concept, entryCount, useAppStore.getState().responseLanguage);
       setGenerated(result);
-      setLorebookName(concept.slice(0, 30).replace(/[^a-zA-Zа-яА-Я0-9\s]/g, '').trim() || 'Новый лорбук');
+      setLorebookName(
+        concept
+          .slice(0, 30)
+          .replace(/[^a-zA-Zа-яА-Я0-9\s]/g, '')
+          .trim() || 'Новый лорбук',
+      );
       setStep('preview');
     } catch (err) {
       setError(String(err));
@@ -102,11 +125,7 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
     }
   };
 
-  const updateEntry = (
-    index: number,
-    field: 'key' | 'comment' | 'content',
-    value: string | string[],
-  ) => {
+  const updateEntry = (index: number, field: 'key' | 'comment' | 'content', value: string | string[]) => {
     setGenerated((prev) => {
       if (!prev) return prev;
       const entries = [...prev.entries];
@@ -129,13 +148,15 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
                 i < stepIdx
                   ? 'bg-[var(--color-accent)] text-white'
                   : i === stepIdx
-                  ? 'bg-[var(--color-primary)] text-white'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
               }`}
             >
               {i < stepIdx ? <Check size={12} /> : i + 1}
             </div>
-            <span className={`text-xs whitespace-nowrap ${i === stepIdx ? 'text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'}`}>
+            <span
+              className={`text-xs whitespace-nowrap ${i === stepIdx ? 'text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'}`}
+            >
               {label}
             </span>
             {i < STEPS.length - 1 && <div className="w-8 h-px bg-[var(--color-border)] flex-shrink-0" />}
@@ -174,7 +195,11 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
             <div className="text-xs text-[var(--color-danger)] bg-[var(--color-danger)]/10 rounded-lg p-3">{error}</div>
           )}
           <div className="flex justify-end">
-            <Button onClick={handleGenerate} disabled={!concept.trim() || !connection.connected} title={!connection.connected ? 'Нет подключения к API' : undefined}>
+            <Button
+              onClick={handleGenerate}
+              disabled={!concept.trim() || !connection.connected}
+              title={!connection.connected ? 'Нет подключения к API' : undefined}
+            >
               <Sparkles size={15} />
               Сгенерировать
             </Button>
@@ -202,7 +227,12 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
                 <div className="text-xs font-semibold text-[var(--color-text)]">{entry.comment}</div>
                 <div className="flex gap-1 flex-wrap">
                   {entry.key.map((k, ki) => (
-                    <span key={ki} className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-muted)]">{k}</span>
+                    <span
+                      key={ki}
+                      className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-border)] text-[var(--color-text-muted)]"
+                    >
+                      {k}
+                    </span>
                   ))}
                 </div>
                 <textarea
@@ -287,7 +317,10 @@ function EntryItem({
 
   const saveEdit = () => {
     if (!onSave) return;
-    const newKeys = editKeys.split(',').map((k) => k.trim()).filter(Boolean);
+    const newKeys = editKeys
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
     onSave(entry.uid, {
       content: editContent,
       key: newKeys,
@@ -297,10 +330,12 @@ function EntryItem({
   };
 
   return (
-    <div className={clsx(
-      'bg-[var(--color-surface-2)] rounded-xl overflow-hidden transition-opacity',
-      entry.disable && 'opacity-50',
-    )}>
+    <div
+      className={clsx(
+        'bg-[var(--color-surface-2)] rounded-xl overflow-hidden transition-opacity',
+        entry.disable && 'opacity-50',
+      )}
+    >
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-3 p-3 text-left cursor-pointer hover:bg-[var(--color-border)]/30 transition-colors"
@@ -310,16 +345,16 @@ function EntryItem({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[var(--color-text)] truncate">{entry.comment || 'Без названия'}</span>
+            <span className="text-sm font-medium text-[var(--color-text)] truncate">
+              {entry.comment || 'Без названия'}
+            </span>
             {entry.constant && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-accent)]/20 text-[var(--color-accent)] flex-shrink-0">
                 const
               </span>
             )}
           </div>
-          {!expanded && (
-            <div className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">{contentPreview}</div>
-          )}
+          {!expanded && <div className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">{contentPreview}</div>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
@@ -328,10 +363,15 @@ function EntryItem({
           </div>
           {onToggle && (
             <button
-              onClick={(e) => { e.stopPropagation(); onToggle(entry.uid, !entry.disable); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(entry.uid, !entry.disable);
+              }}
               className={clsx(
                 'p-1 rounded transition-colors cursor-pointer',
-                entry.disable ? 'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]' : 'text-[var(--color-accent)] hover:text-[var(--color-text-muted)]',
+                entry.disable
+                  ? 'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]'
+                  : 'text-[var(--color-accent)] hover:text-[var(--color-text-muted)]',
               )}
               title={entry.disable ? 'Включить' : 'Отключить'}
             >
@@ -346,7 +386,9 @@ function EntryItem({
             <>
               {/* Edit mode */}
               <div>
-                <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">Название</label>
+                <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">
+                  Название
+                </label>
                 <input
                   type="text"
                   value={editComment}
@@ -355,7 +397,9 @@ function EntryItem({
                 />
               </div>
               <div>
-                <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">Ключи (через запятую)</label>
+                <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">
+                  Ключи (через запятую)
+                </label>
                 <input
                   type="text"
                   value={editKeys}
@@ -364,7 +408,9 @@ function EntryItem({
                 />
               </div>
               <div>
-                <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">Содержание</label>
+                <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">
+                  Содержание
+                </label>
                 <textarea
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
@@ -395,7 +441,10 @@ function EntryItem({
               <div className="flex items-center justify-between">
                 <div className="flex flex-wrap gap-1.5">
                   {entry.key.map((k, i) => (
-                    <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-primary)]/15 text-[var(--color-primary)]">
+                    <span
+                      key={i}
+                      className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-primary)]/15 text-[var(--color-primary)]"
+                    >
                       {k}
                     </span>
                   ))}
@@ -403,7 +452,10 @@ function EntryItem({
                     <>
                       <span className="text-xs text-[var(--color-text-muted)] self-center px-1">+</span>
                       {entry.keysecondary.map((k, i) => (
-                        <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-[var(--color-border)]">
+                        <span
+                          key={i}
+                          className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-[var(--color-border)]"
+                        >
                           {k}
                         </span>
                       ))}
@@ -579,11 +631,13 @@ export function LorebooksPage() {
   return (
     <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-0 overflow-y-auto p-3 sm:p-5">
       {/* Sidebar list */}
-      <div className={clsx(
-        'flex-shrink-0 flex flex-col gap-3',
-        // On mobile: show as horizontal scroll or compact list when no world selected
-        selectedWorld ? 'hidden sm:flex sm:w-56' : 'w-full sm:w-56',
-      )}>
+      <div
+        className={clsx(
+          'flex-shrink-0 flex flex-col gap-3',
+          // On mobile: show as horizontal scroll or compact list when no world selected
+          selectedWorld ? 'hidden sm:flex sm:w-56' : 'w-full sm:w-56',
+        )}
+      >
         <Button onClick={() => setWizardOpen(true)} size="sm">
           <Plus size={14} />
           Создать
@@ -613,7 +667,10 @@ export function LorebooksPage() {
                   <span className="truncate flex-1">{name}</span>
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(name); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(name);
+                  }}
                   className="opacity-0 group-hover/lb:opacity-100 p-1 rounded hover:bg-[var(--color-danger)]/20 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-all cursor-pointer flex-shrink-0"
                   title="Удалить лорбук"
                 >
@@ -634,8 +691,7 @@ export function LorebooksPage() {
               onClick={() => setSelectedWorld(null)}
               className="sm:hidden flex items-center gap-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors cursor-pointer"
             >
-              <ArrowLeft size={14} />
-              К списку лорбуков
+              <ArrowLeft size={14} />К списку лорбуков
             </button>
             <LorebookDetail name={selectedWorld} />
           </div>
@@ -649,11 +705,7 @@ export function LorebooksPage() {
         )}
       </div>
 
-      <LorebookWizard
-        open={wizardOpen}
-        onClose={() => setWizardOpen(false)}
-        onComplete={handleWizardComplete}
-      />
+      <LorebookWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onComplete={handleWizardComplete} />
 
       {/* Delete confirmation modal */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Удаление лорбука" size="sm">
@@ -663,12 +715,14 @@ export function LorebooksPage() {
               <AlertTriangle size={20} className="text-[var(--color-danger)]" />
             </div>
             <div className="text-sm text-[var(--color-text-muted)]">
-              Вы уверены, что хотите удалить лорбук <strong className="text-[var(--color-text)]">{deleteTarget}</strong>?
-              Это действие необратимо.
+              Вы уверены, что хотите удалить лорбук <strong className="text-[var(--color-text)]">{deleteTarget}</strong>
+              ? Это действие необратимо.
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
-            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Отмена</Button>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+              Отмена
+            </Button>
             <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

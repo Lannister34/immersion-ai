@@ -1,10 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Play, Square, HardDrive, Settings, ExternalLink, Loader2, AlertCircle, FolderOpen, Download } from 'lucide-react';
-import { useAppStore } from '@/stores';
-import { startLlmServer, stopLlmServer, getLlmServerStatus, listModelFiles, getEngineInfo, browseFolder } from '@/api';
-import type { LlmServerStatus, ModelFile, EngineInfo } from '@/api';
+import {
+  AlertCircle,
+  Download,
+  ExternalLink,
+  FolderOpen,
+  HardDrive,
+  Loader2,
+  Play,
+  Settings,
+  Square,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type { EngineInfo, LlmServerStatus, ModelFile } from '@/api';
+import { browseFolder, getEngineInfo, getLlmServerStatus, listModelFiles, startLlmServer, stopLlmServer } from '@/api';
 import { Button } from '@/components/ui/Button';
+import { useAppStore } from '@/stores';
 
 function formatSize(bytes: number): string {
   const gb = bytes / (1024 * 1024 * 1024);
@@ -38,7 +48,7 @@ export function ModelManager() {
     if (engineInfo?.defaultModelsDir && !llmServerConfig.modelsDir) {
       setLlmServerConfig({ modelsDir: engineInfo.defaultModelsDir });
     }
-  }, [engineInfo?.defaultModelsDir]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [engineInfo?.defaultModelsDir, llmServerConfig.modelsDir, setLlmServerConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll server status every 2s
   const { data: serverStatus } = useQuery<LlmServerStatus>({
@@ -118,23 +128,25 @@ export function ModelManager() {
     }
   };
 
-  const statusDot = status === 'running'
-    ? 'bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]'
-    : status === 'starting' || status === 'stopping'
-    ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse'
-    : status === 'error'
-    ? 'bg-[var(--color-danger)] shadow-[0_0_8px_var(--color-danger)]'
-    : 'bg-[var(--color-text-muted)]';
+  const statusDot =
+    status === 'running'
+      ? 'bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]'
+      : status === 'starting' || status === 'stopping'
+        ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse'
+        : status === 'error'
+          ? 'bg-[var(--color-danger)] shadow-[0_0_8px_var(--color-danger)]'
+          : 'bg-[var(--color-text-muted)]';
 
-  const statusText = status === 'running'
-    ? `Запущен${serverStatus?.pid ? ` (PID ${serverStatus.pid})` : ''}`
-    : status === 'starting'
-    ? `Загрузка модели... ${formatElapsed(elapsed)}`
-    : status === 'stopping'
-    ? 'Остановка...'
-    : status === 'error'
-    ? `Ошибка: ${serverStatus?.error ?? 'неизвестная'}`
-    : 'Остановлен';
+  const statusText =
+    status === 'running'
+      ? `Запущен${serverStatus?.pid ? ` (PID ${serverStatus.pid})` : ''}`
+      : status === 'starting'
+        ? `Загрузка модели... ${formatElapsed(elapsed)}`
+        : status === 'stopping'
+          ? 'Остановка...'
+          : status === 'error'
+            ? `Ошибка: ${serverStatus?.error ?? 'неизвестная'}`
+            : 'Остановлен';
 
   const currentModelName = serverStatus?.model ?? null;
   const isActive = status === 'running' || status === 'starting' || status === 'stopping';
@@ -148,12 +160,11 @@ export function ModelManager() {
           <div className="flex flex-col gap-1.5">
             <span className="text-[var(--color-text)] font-medium text-xs">llama-server не найден</span>
             <span className="text-xs leading-relaxed">
-              Скачайте <span className="font-mono text-[var(--color-primary)]">llama-server</span> с GitHub Releases
-              и поместите в папку <span className="font-mono bg-[var(--color-surface-2)] px-1 py-0.5 rounded">bin/</span> проекта.
+              Скачайте <span className="font-mono text-[var(--color-primary)]">llama-server</span> с GitHub Releases и
+              поместите в папку <span className="font-mono bg-[var(--color-surface-2)] px-1 py-0.5 rounded">bin/</span>{' '}
+              проекта.
             </span>
-            <span className="text-[10px] opacity-60">
-              Выберите сборку: CUDA (NVIDIA), Vulkan (AMD/Intel) или CPU
-            </span>
+            <span className="text-[10px] opacity-60">Выберите сборку: CUDA (NVIDIA), Vulkan (AMD/Intel) или CPU</span>
           </div>
         </div>
         <a
@@ -174,9 +185,7 @@ export function ModelManager() {
       {/* Status bar */}
       <div className="flex items-center gap-3">
         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${statusDot}`} />
-        <span className="text-sm text-[var(--color-text-muted)] flex-1">
-          {statusText}
-        </span>
+        <span className="text-sm text-[var(--color-text-muted)] flex-1">{statusText}</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -197,7 +206,10 @@ export function ModelManager() {
       {/* Current model */}
       {currentModelName && status === 'running' && (
         <div className="text-xs text-[var(--color-text-muted)]">
-          Модель: <span className="font-mono bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded text-[var(--color-text)]">{currentModelName}</span>
+          Модель:{' '}
+          <span className="font-mono bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded text-[var(--color-text)]">
+            {currentModelName}
+          </span>
         </div>
       )}
 
@@ -226,9 +238,7 @@ export function ModelManager() {
       {showSettings && (
         <div className="border border-[var(--color-border)] rounded-lg p-3 flex flex-col gap-3 bg-[var(--color-surface-2)]/50">
           <div>
-            <label className="text-xs text-[var(--color-text-muted)] mb-1 block">
-              Папка с моделями
-            </label>
+            <label className="text-xs text-[var(--color-text-muted)] mb-1 block">Папка с моделями</label>
             <div className="flex gap-1.5">
               <input
                 type="text"
@@ -343,9 +353,7 @@ export function ModelManager() {
                   <div className="text-xs text-[var(--color-text)] truncate" title={model.name}>
                     {model.name}
                   </div>
-                  <div className="text-[10px] text-[var(--color-text-muted)] opacity-60">
-                    {formatSize(model.size)}
-                  </div>
+                  <div className="text-[10px] text-[var(--color-text-muted)] opacity-60">{formatSize(model.size)}</div>
                 </div>
                 {isCurrent ? (
                   <span className="text-[10px] text-[var(--color-accent)] font-medium px-2 py-0.5 rounded-full bg-[var(--color-accent)]/10">

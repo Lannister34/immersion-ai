@@ -4,7 +4,7 @@ let csrfToken: string | null = null;
 
 export async function fetchCsrfToken(): Promise<string> {
   const res = await fetch('/csrf-token');
-  const data = await res.json() as { token: string };
+  const data = (await res.json()) as { token: string };
   csrfToken = data.token;
   return csrfToken;
 }
@@ -38,9 +38,11 @@ export async function apiPostForm(
   if (!res.ok) {
     let msg = `Ошибка сервера (${res.status})`;
     try {
-      const data = await res.json() as { error?: string };
+      const data = (await res.json()) as { error?: string };
       if (data?.error) msg = data.error;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     throw new Error(msg);
   }
 }
@@ -70,7 +72,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     if (!retry.ok) {
       let msg = `Ошибка сервера (${retry.status})`;
       try {
-        const data = await retry.json() as { error?: string };
+        const data = (await retry.json()) as { error?: string };
         if (data?.error) msg = data.error;
       } catch {
         const text = await retry.text().catch(() => '');
@@ -84,7 +86,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) {
     let msg = `Ошибка сервера (${res.status})`;
     try {
-      const data = await res.json() as { error?: string };
+      const data = (await res.json()) as { error?: string };
       if (data?.error) msg = data.error;
     } catch {
       const text = await res.text().catch(() => '');

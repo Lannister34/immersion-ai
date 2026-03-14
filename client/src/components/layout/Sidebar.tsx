@@ -1,6 +1,6 @@
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Users, BookOpen, Settings, Menu, MessageCircle, Zap, Server, FileText } from 'lucide-react';
 import { clsx } from 'clsx';
+import { BookOpen, FileText, Menu, MessageCircle, Server, Settings, Users, Zap } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores';
 
 interface NavItem {
@@ -39,9 +39,7 @@ export function Sidebar() {
         'flex flex-col bg-[var(--color-surface)] border-r border-[var(--color-border)] transition-all duration-200 flex-shrink-0',
         // On mobile: fixed overlay when open, hidden when collapsed
         'fixed md:relative z-30 h-full',
-        sidebarCollapsed
-          ? 'w-0 md:w-14 overflow-hidden md:overflow-visible'
-          : 'w-56 md:w-52',
+        sidebarCollapsed ? 'w-0 md:w-14 overflow-hidden md:overflow-visible' : 'w-56 md:w-52',
       )}
     >
       {/* Logo row */}
@@ -74,9 +72,7 @@ export function Sidebar() {
             )}
           >
             <span className="flex-shrink-0">{item.icon}</span>
-            {!sidebarCollapsed && (
-              <span className="whitespace-nowrap overflow-hidden">{item.label}</span>
-            )}
+            {!sidebarCollapsed && <span className="whitespace-nowrap overflow-hidden">{item.label}</span>}
           </button>
         ))}
       </nav>
@@ -84,14 +80,19 @@ export function Sidebar() {
       {/* Connection status at bottom — click to open API page */}
       <button
         onClick={() => handleNav('/server')}
-        title={sidebarCollapsed ? (connection.connected ? connection.model || 'Connected' : 'Нет подключения') : undefined}
+        title={
+          sidebarCollapsed ? (connection.connected ? connection.model || 'Connected' : 'Нет подключения') : undefined
+        }
         className={clsx(
           'border-t border-[var(--color-border)] px-3 py-3 flex items-center gap-2.5 w-full cursor-pointer transition-colors hover:bg-[var(--color-surface-2)]',
           sidebarCollapsed && 'justify-center',
         )}
       >
         <div className="relative flex-shrink-0">
-          <Zap size={14} className={connection.connected ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]/40'} />
+          <Zap
+            size={14}
+            className={connection.connected ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]/40'}
+          />
           <div
             className={clsx(
               'absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-[var(--color-surface)]',
@@ -101,10 +102,11 @@ export function Sidebar() {
         </div>
         {!sidebarCollapsed && (
           <div className="text-[11px] text-[var(--color-text-muted)] truncate leading-tight text-left">
-            {connection.connected
-              ? <span className="text-[var(--color-accent)]">{connection.model || 'Connected'}</span>
-              : 'Нет подключения'
-            }
+            {connection.connected ? (
+              <span className="text-[var(--color-accent)]">{connection.model || 'Connected'}</span>
+            ) : (
+              'Нет подключения'
+            )}
           </div>
         )}
       </button>

@@ -1,17 +1,13 @@
-import { useState, useEffect } from 'react';
-import { RefreshCw, Server, Globe } from 'lucide-react';
-import { getConnectionStatus } from '@/api';
-import { useAppStore } from '@/stores';
-import { Button } from '@/components/ui/Button';
-import { ModelManager } from '@/components/ModelManager';
 import { useQuery } from '@tanstack/react-query';
-import { getSettings } from '@/api';
+import { Globe, RefreshCw, Server } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getConnectionStatus, getSettings } from '@/api';
+import { ModelManager } from '@/components/ModelManager';
+import { Button } from '@/components/ui/Button';
+import { useAppStore } from '@/stores';
 
 export function ServerPage() {
-  const {
-    connection, setConnection,
-    backendMode, setBackendMode,
-  } = useAppStore();
+  const { connection, setConnection, backendMode, setBackendMode } = useAppStore();
 
   const [testing, setTesting] = useState(false);
 
@@ -33,8 +29,10 @@ export function ServerPage() {
       }
     };
     check();
-    return () => { cancelled = true; };
-  }, [backendMode]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+  }, [backendMode, setConnection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTestConnection = async () => {
     setTesting(true);
@@ -46,9 +44,8 @@ export function ServerPage() {
     }
   };
 
-  const textGenSettings = settings?.['textgenerationwebui'] as Record<string, unknown> | undefined;
-  const serverUrls = textGenSettings?.['server_urls'] as Record<string, string> | undefined;
-  const apiUrl = serverUrls?.['koboldcpp'] ?? 'http://127.0.0.1:5001';
+  const textGen = settings?.textgenerationwebui;
+  const apiUrl = textGen?.server_urls?.koboldcpp ?? 'http://127.0.0.1:5001';
 
   return (
     <div className="max-w-4xl mx-auto w-full flex flex-col gap-4 sm:gap-6 pb-8 flex-1 overflow-y-auto p-3 sm:p-5">
@@ -91,21 +88,15 @@ export function ServerPage() {
             <div className="flex items-center gap-3">
               <div
                 className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                  connection.connected ? 'bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]' : 'bg-[var(--color-text-muted)]'
+                  connection.connected
+                    ? 'bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]'
+                    : 'bg-[var(--color-text-muted)]'
                 }`}
               />
               <span className="text-sm text-[var(--color-text-muted)]">
-                {connection.connected
-                  ? `Подключено: ${connection.model}`
-                  : 'Не подключено'}
+                {connection.connected ? `Подключено: ${connection.model}` : 'Не подключено'}
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleTestConnection}
-                loading={testing}
-                className="ml-auto"
-              >
+              <Button variant="ghost" size="sm" onClick={handleTestConnection} loading={testing} className="ml-auto">
                 <RefreshCw size={13} />
                 Проверить
               </Button>

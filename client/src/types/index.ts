@@ -5,7 +5,7 @@ export interface Character {
   mes_example: string;
   tags: string[];
   avatar?: string; // filename like "Arina.png"
-  world?: string;  // lorebook name
+  world?: string; // lorebook name
   system_prompt?: string; // character-specific system prompt override
 }
 
@@ -113,6 +113,15 @@ export interface ChatSessionMeta {
   customSystemPrompt?: string | null;
 }
 
+export interface ChatMessage {
+  name: string;
+  is_user: boolean;
+  mes: string;
+  send_date: string;
+  extra?: Record<string, unknown>;
+  is_system?: boolean;
+}
+
 export interface GeneratedCharacter {
   name: string;
   description: string;
@@ -121,10 +130,149 @@ export interface GeneratedCharacter {
   tags: string[];
 }
 
+export interface AvatarPrompt {
+  positive: string;
+  negative: string;
+}
+
 export interface GeneratedLorebook {
   entries: Array<{
     key: string[];
     comment: string;
     content: string;
   }>;
+}
+
+// ── Chat API Types ──────────────────────────────────────────────────────────
+
+export interface ChatFileInfo {
+  file_name: string;
+  file_size: string;
+  chat_items: number;
+  mes: string;
+  last_mes: string;
+}
+
+export interface AllChatsItem {
+  characterAvatar: string;
+  characterName: string;
+  chatFile: string;
+  lastMessage: string;
+  lastDate: string;
+  messageCount: number;
+  fileSize: number;
+}
+
+// ── Generation Types ────────────────────────────────────────────────────────
+
+export interface ChatCompletionMessage {
+  role: string;
+  content: string;
+}
+
+export interface GenerateTextParams {
+  api_server: string;
+  prompt?: string;
+  messages?: ChatCompletionMessage[];
+  chat_template_kwargs?: Record<string, unknown>;
+  max_length: number;
+  max_context_length: number;
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  min_p?: number;
+  rep_pen?: number;
+  rep_pen_range?: number;
+  presence_penalty?: number;
+  stop_sequence?: string[];
+}
+
+export interface GeneratedScenario {
+  name: string;
+  content: string;
+  tags: string[];
+}
+
+// ── App Settings Types ──────────────────────────────────────────────────────
+
+export interface ServerUrls {
+  koboldcpp?: string;
+}
+
+export interface TextGenSettings {
+  api_server?: string;
+  server_urls?: ServerUrls;
+  streaming_kobold?: boolean;
+}
+
+export interface AppSettings {
+  textgenerationwebui?: TextGenSettings;
+}
+
+// ── Chat File Types ─────────────────────────────────────────────────────────
+
+export interface ChatMetadata {
+  activeScenarioName?: string;
+  customSamplerSettings?: Partial<SamplerSettings>;
+  customSystemPrompt?: string | null;
+}
+
+export interface ChatHeader {
+  chat_metadata: ChatMetadata;
+  user_name: string;
+  character_name: string;
+}
+
+export type ChatLine = ChatHeader | ChatMessage;
+
+// ── Chat Build Types ────────────────────────────────────────────────────────
+
+export interface ChatBuildResult {
+  prompt: string;
+  messages: ChatCompletionMessage[];
+}
+
+// ── Preset Types ────────────────────────────────────────────────────────────
+
+export interface TextGenPresetData {
+  name: string;
+  temp: number;
+  top_p: number;
+  top_k: number;
+  min_p: number;
+  rep_pen: number;
+  rep_pen_range: number;
+  [key: string]: unknown;
+}
+
+// ── LLM Server Types ───────────────────────────────────────────────────────
+
+export interface LlmStartConfig {
+  modelPath: string;
+  port: number;
+  gpuLayers: number;
+  contextSize: number;
+  flashAttention: boolean;
+  threads: number;
+}
+
+export interface EngineInfo {
+  found: boolean;
+  executablePath: string | null;
+  defaultModelsDir: string;
+}
+
+export interface LlmServerStatus {
+  status: 'idle' | 'starting' | 'running' | 'stopping' | 'error';
+  model: string | null;
+  modelPath: string | null;
+  error: string | null;
+  port: number;
+  pid: number | null;
+}
+
+export interface ModelFile {
+  name: string;
+  path: string;
+  size: number;
 }

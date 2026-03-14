@@ -1,38 +1,14 @@
+import type { AllChatsItem, ChatFileInfo, ChatLine } from '@/types';
 import { apiPost } from './client';
 
-export interface ChatFileInfo {
-  file_name: string;
-  file_size: string;
-  chat_items: number;
-  mes: string;
-  last_mes: string;
-}
-
-export interface AllChatsItem {
-  characterAvatar: string;
-  characterName: string;
-  chatFile: string;
-  lastMessage: string;
-  lastDate: string;
-  messageCount: number;
-  fileSize: number;
-}
-
-export async function getChatMessages(
-  avatarUrl: string,
-  chatId: string,
-): Promise<Record<string, unknown>[]> {
-  return apiPost<Record<string, unknown>[]>('/api/chats/get', {
+export async function getChatMessages(avatarUrl: string, chatId: string): Promise<ChatLine[]> {
+  return apiPost<ChatLine[]>('/api/chats/get', {
     avatar_url: avatarUrl,
     file_name: chatId,
   });
 }
 
-export async function saveChat(
-  avatarUrl: string,
-  chatId: string,
-  chat: Record<string, unknown>[],
-): Promise<void> {
+export async function saveChat(avatarUrl: string, chatId: string, chat: ChatLine[]): Promise<void> {
   await apiPost('/api/chats/save', {
     avatar_url: avatarUrl,
     file_name: chatId,
@@ -41,9 +17,7 @@ export async function saveChat(
   });
 }
 
-export async function getCharacterChats(
-  avatarUrl: string,
-): Promise<ChatFileInfo[]> {
+export async function getCharacterChats(avatarUrl: string): Promise<ChatFileInfo[]> {
   const result = await apiPost<ChatFileInfo[] | { error: boolean }>('/api/characters/chats', { avatar_url: avatarUrl });
   if (!Array.isArray(result)) return [];
   return result;
@@ -53,11 +27,7 @@ export async function getAllChats(): Promise<AllChatsItem[]> {
   return apiPost<AllChatsItem[]>('/api/chats/all', {});
 }
 
-export async function createNewChat(
-  avatarUrl: string,
-  characterName: string,
-  firstMessage: string,
-): Promise<string> {
+export async function createNewChat(avatarUrl: string, characterName: string, firstMessage: string): Promise<string> {
   const chatId = `${Date.now()}`;
   const header = { chat_metadata: {}, user_name: '', character_name: characterName };
   const firstMsg = firstMessage

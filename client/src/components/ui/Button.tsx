@@ -1,5 +1,5 @@
-import { type ButtonHTMLAttributes, forwardRef } from 'react';
 import { clsx } from 'clsx';
+import { type ButtonHTMLAttributes, forwardRef } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
@@ -12,7 +12,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary: 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white',
-  secondary: 'bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text)] border border-[var(--color-border)]',
+  secondary:
+    'bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text)] border border-[var(--color-border)]',
   ghost: 'hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]',
   danger: 'bg-[var(--color-danger)] hover:opacity-90 text-white',
 };

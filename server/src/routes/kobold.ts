@@ -1,5 +1,5 @@
-import { Router } from 'express';
 import { Readable } from 'node:stream';
+import { Router } from 'express';
 
 export const router = Router();
 
@@ -18,36 +18,36 @@ router.post('/status', async (req, res) => {
     apiServer = apiServer.replace('localhost', '127.0.0.1');
 
     // Try KoboldCpp-specific endpoints first
-    const [koboldUnitedResponse, koboldExtraResponse, koboldModelResponse] =
-      await Promise.all([
-        fetch(`${apiServer}/v1/info/version`)
-          .then((r) => (r.ok ? r.json() : { result: '0.0.0' }))
-          .catch(() => ({ result: '0.0.0' })),
+    const [koboldUnitedResponse, koboldExtraResponse, koboldModelResponse] = await Promise.all([
+      fetch(`${apiServer}/v1/info/version`)
+        .then((r) => (r.ok ? r.json() : { result: '0.0.0' }))
+        .catch(() => ({ result: '0.0.0' })),
 
-        fetch(`${apiServer}/extra/version`)
-          .then((r) => (r.ok ? r.json() : { version: '0.0' }))
-          .catch(() => ({ version: '0.0' })),
+      fetch(`${apiServer}/extra/version`)
+        .then((r) => (r.ok ? r.json() : { version: '0.0' }))
+        .catch(() => ({ version: '0.0' })),
 
-        fetch(`${apiServer}/v1/model`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-      ]);
+      fetch(`${apiServer}/v1/model`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ]);
 
     let modelName: string =
-      !koboldModelResponse ||
-      (koboldModelResponse as Record<string, string>).result === 'ReadOnly'
+      !koboldModelResponse || (koboldModelResponse as Record<string, string>).result === 'ReadOnly'
         ? ''
-        : (koboldModelResponse as Record<string, string>).result ?? '';
+        : ((koboldModelResponse as Record<string, string>).result ?? '');
 
     // Fallback: try OpenAI-compatible /v1/models (llama-server, vLLM, etc.)
     if (!modelName) {
       try {
         const modelsRes = await fetch(`${apiServer}/v1/models`);
         if (modelsRes.ok) {
-          const data = await modelsRes.json() as { models?: Array<{ model?: string }> };
+          const data = (await modelsRes.json()) as { models?: Array<{ model?: string }> };
           modelName = data.models?.[0]?.model ?? '';
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     const result = {
@@ -142,8 +142,12 @@ router.post('/generate-chat', async (req, res) => {
     const timeout = setTimeout(() => controller.abort(), 120_000);
 
     const bodyJson = JSON.stringify(settings);
-    console.log('[kobold/generate-chat] fetching %s (streaming=%s, msgCount=%d)',
-      url, req.body.streaming, (req.body.messages ?? []).length);
+    console.log(
+      '[kobold/generate-chat] fetching %s (streaming=%s, msgCount=%d)',
+      url,
+      req.body.streaming,
+      (req.body.messages ?? []).length,
+    );
 
     const response = await fetch(url, {
       method: 'POST',
@@ -161,12 +165,14 @@ router.post('/generate-chat', async (req, res) => {
       if (ct) res.setHeader('Content-Type', ct);
 
       if (response.body && res.socket) {
-        const nodeStream = Readable.fromWeb(
-          response.body as import('node:stream/web').ReadableStream,
-        );
+        const nodeStream = Readable.fromWeb(response.body as import('node:stream/web').ReadableStream);
         nodeStream.pipe(res);
-        nodeStream.on('error', () => { if (!res.writableEnded) res.end(); });
-        nodeStream.on('end', () => { if (!res.writableEnded) res.end(); });
+        nodeStream.on('error', () => {
+          if (!res.writableEnded) res.end();
+        });
+        nodeStream.on('end', () => {
+          if (!res.writableEnded) res.end();
+        });
       } else {
         res.end();
       }
@@ -178,7 +184,9 @@ router.post('/generate-chat', async (req, res) => {
       const data = await response.json();
       // Convert OpenAI chat completions response to our standard format
       // Thinking models (Qwen3.5, etc.) split output into reasoning_content + content
-      const choice = (data as Record<string, unknown[]>)?.choices?.[0] as Record<string, Record<string, string>> | undefined;
+      const choice = (data as Record<string, unknown[]>)?.choices?.[0] as
+        | Record<string, Record<string, string>>
+        | undefined;
       const reasoning = choice?.message?.reasoning_content ?? '';
       const msgContent = choice?.message?.content ?? '';
       const fullText = reasoning ? `<think>\n${reasoning}\n</think>\n\n${msgContent}` : msgContent;
@@ -250,18 +258,21 @@ router.post('/generate', async (req, res) => {
   }
 
   try {
-    const url = req.body.streaming
-      ? `${apiServer}/extra/generate/stream`
-      : `${apiServer}/v1/generate`;
+    const url = req.body.streaming ? `${apiServer}/extra/generate/stream` : `${apiServer}/v1/generate`;
 
     // Timeout so generation doesn't hang forever if model is not loaded
     const timeout = setTimeout(() => controller.abort(), 120_000);
 
     const bodyJson = JSON.stringify(settings);
-    console.log('[kobold/generate] fetching %s (streaming=%s, bodySize=%d, promptLen=%d, max_length=%s, max_ctx=%s)',
-      url, req.body.streaming, bodyJson.length,
+    console.log(
+      '[kobold/generate] fetching %s (streaming=%s, bodySize=%d, promptLen=%d, max_length=%s, max_ctx=%s)',
+      url,
+      req.body.streaming,
+      bodyJson.length,
       (req.body.prompt ?? '').length,
-      settings.max_length, settings.max_context_length);
+      settings.max_length,
+      settings.max_context_length,
+    );
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -279,9 +290,7 @@ router.post('/generate', async (req, res) => {
       if (ct) res.setHeader('Content-Type', ct);
 
       if (response.body && res.socket) {
-        const nodeStream = Readable.fromWeb(
-          response.body as import('node:stream/web').ReadableStream,
-        );
+        const nodeStream = Readable.fromWeb(response.body as import('node:stream/web').ReadableStream);
         nodeStream.pipe(res);
 
         nodeStream.on('error', () => {

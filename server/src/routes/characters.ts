@@ -1,6 +1,6 @@
-import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { Router } from 'express';
 import sanitize from 'sanitize-filename';
 import sharp from 'sharp';
 import writeFileAtomic from 'write-file-atomic';
@@ -34,8 +34,14 @@ async function ensurePng(buf: Buffer): Promise<Buffer> {
   // Check PNG magic bytes: 137 80 78 71 13 10 26 10
   const isPng =
     buf.length >= 8 &&
-    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
-    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a;
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a;
   if (isPng) return buf;
   return Buffer.from(await sharp(buf).png().toBuffer());
 }
@@ -147,9 +153,7 @@ function processCharacter(filename: string): CharacterListItem | null {
 // POST /api/characters/all
 router.post('/all', (_req, res) => {
   try {
-    const files = fs
-      .readdirSync(dirs.characters)
-      .filter((f) => f.endsWith('.png'));
+    const files = fs.readdirSync(dirs.characters).filter((f) => f.endsWith('.png'));
     const characters: CharacterListItem[] = [];
 
     for (const file of files) {
@@ -226,7 +230,9 @@ router.post('/create', async (req, res) => {
         imageBuffer = await ensurePng(imageBuffer);
       } catch (imgErr) {
         console.error('[characters/create] Image conversion failed:', imgErr);
-        return res.status(400).json({ error: 'Не удалось обработать изображение. Поддерживаются форматы: PNG, JPEG, WebP, GIF.' });
+        return res
+          .status(400)
+          .json({ error: 'Не удалось обработать изображение. Поддерживаются форматы: PNG, JPEG, WebP, GIF.' });
       }
     } else {
       imageBuffer = DEFAULT_AVATAR;
@@ -276,7 +282,9 @@ router.post('/edit', async (req, res) => {
         imageBuffer = await ensurePng(imageBuffer);
       } catch (imgErr) {
         console.error('[characters/edit] Image conversion failed:', imgErr);
-        return res.status(400).json({ error: 'Не удалось обработать изображение. Поддерживаются форматы: PNG, JPEG, WebP, GIF.' });
+        return res
+          .status(400)
+          .json({ error: 'Не удалось обработать изображение. Поддерживаются форматы: PNG, JPEG, WebP, GIF.' });
       }
     } else {
       imageBuffer = fs.readFileSync(filePath);
@@ -332,9 +340,7 @@ router.post('/chats', (req, res) => {
       return res.json({ error: true });
     }
 
-    const chatFiles = fs
-      .readdirSync(chatDir)
-      .filter((f) => f.endsWith('.jsonl'));
+    const chatFiles = fs.readdirSync(chatDir).filter((f) => f.endsWith('.jsonl'));
 
     const result: ChatFileInfo[] = [];
     for (const fileName of chatFiles) {
@@ -409,11 +415,23 @@ if (!fs.existsSync(MIGRATION_FLAG)) {
 
         let changed = false;
         // Clear top-level fields
-        if (char.scenario) { char.scenario = ''; changed = true; }
-        if (char.first_mes) { char.first_mes = ''; changed = true; }
+        if (char.scenario) {
+          char.scenario = '';
+          changed = true;
+        }
+        if (char.first_mes) {
+          char.first_mes = '';
+          changed = true;
+        }
         // Clear V2 data fields
-        if (char.data?.scenario) { char.data.scenario = ''; changed = true; }
-        if (char.data?.first_mes) { char.data.first_mes = ''; changed = true; }
+        if (char.data?.scenario) {
+          char.data.scenario = '';
+          changed = true;
+        }
+        if (char.data?.first_mes) {
+          char.data.first_mes = '';
+          changed = true;
+        }
 
         if (changed) {
           const output = writePng(buf, JSON.stringify(char));

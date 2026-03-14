@@ -1,15 +1,15 @@
-import { type ReactNode, useEffect, useRef, useCallback } from 'react';
-import { Sidebar } from './Sidebar';
-import { Header } from './Header';
-import { useAppStore } from '@/stores';
+import { type ReactNode, useCallback, useEffect, useRef } from 'react';
 import { getConnectionStatus } from '@/api';
+import { useAppStore } from '@/stores';
+import { Header } from './Header';
+import { Sidebar } from './Sidebar';
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
-const POLL_CONNECTED = 30_000;    // 30s when connected
-const POLL_DISCONNECTED = 3_000;  // 3s when disconnected — fast reconnect
+const POLL_CONNECTED = 30_000; // 30s when connected
+const POLL_DISCONNECTED = 3_000; // 3s when disconnected — fast reconnect
 
 export function AppLayout({ children }: AppLayoutProps) {
   const setConnection = useAppStore((s) => s.setConnection);
@@ -17,16 +17,19 @@ export function AppLayout({ children }: AppLayoutProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
-  const scheduleCheck = useCallback((delay: number) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      if (!mountedRef.current) return;
-      const status = await getConnectionStatus();
-      if (!mountedRef.current) return;
-      setConnection(status);
-      scheduleCheck(status.connected ? POLL_CONNECTED : POLL_DISCONNECTED);
-    }, delay);
-  }, [setConnection]);
+  const scheduleCheck = useCallback(
+    (delay: number) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(async () => {
+        if (!mountedRef.current) return;
+        const status = await getConnectionStatus();
+        if (!mountedRef.current) return;
+        setConnection(status);
+        scheduleCheck(status.connected ? POLL_CONNECTED : POLL_DISCONNECTED);
+      }, delay);
+    },
+    [setConnection],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -55,9 +58,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       )}
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <Header />
-        <main className="flex-1 overflow-hidden flex flex-col">
-          {children}
-        </main>
+        <main className="flex-1 overflow-hidden flex flex-col">{children}</main>
       </div>
     </div>
   );
