@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getUserSettings, saveUserSettings } from '@/api';
+import type { UiLanguage } from '@/i18n';
 import type { ChatSessionMeta, ConnectionStatus, SamplerPreset, SamplerSettings } from '@/types';
 
 interface AppState {
@@ -29,6 +30,9 @@ interface AppState {
 
   systemPromptTemplate: string;
   setSystemPromptTemplate: (template: string) => void;
+
+  uiLanguage: UiLanguage;
+  setUiLanguage: (lang: UiLanguage) => void;
 
   responseLanguage: 'ru' | 'en' | 'none';
   setResponseLanguage: (lang: 'ru' | 'en' | 'none') => void;
@@ -182,6 +186,7 @@ const PERSISTED_KEYS = [
   'activePresetId',
   'modelPresetMap',
   'systemPromptTemplate',
+  'uiLanguage',
   'responseLanguage',
   'streamingEnabled',
   'thinkingEnabled',
@@ -329,6 +334,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_RU,
   setSystemPromptTemplate: (template) => set({ systemPromptTemplate: template }),
+
+  uiLanguage: 'ru',
+  setUiLanguage: (lang) => {
+    set({ uiLanguage: lang });
+    // i18n.changeLanguage is called in App.tsx via subscription
+  },
 
   responseLanguage: 'ru',
   setResponseLanguage: (lang) => {
