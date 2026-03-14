@@ -1,17 +1,17 @@
-import type { AppSettings } from '@/types';
+import { getActiveConnectionPreset, useAppStore } from '@/stores';
 import { apiPost } from './client';
 
 export async function getConnectionStatus(): Promise<{ connected: boolean; model: string }> {
   try {
-    const settings = await apiPost<AppSettings>('/api/settings/get', {});
-    const textGen = settings?.textgenerationwebui;
-    const rawUrl = textGen?.server_urls?.koboldcpp ?? 'http://127.0.0.1:5001';
+    const state = useAppStore.getState();
+    const { backendMode, llmServerConfig } = state;
+    const preset = getActiveConnectionPreset(state);
 
-    const { backendMode } = await import('@/stores').then((m) => m.useAppStore.getState());
-    const apiServer = backendMode === 'builtin' ? rawUrl : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
+    const rawUrl = backendMode === 'builtin' ? `http://127.0.0.1:${llmServerConfig.port}` : preset.url;
 
     const data = await apiPost<{ model: string; koboldCppVersion: string }>('/api/backends/kobold/status', {
-      api_server: apiServer,
+      api_server: rawUrl,
+      api_key: preset.apiKey,
     });
     const model = data.model === 'no_connection' ? '' : data.model;
     return { connected: !!model, model: model || '' };
