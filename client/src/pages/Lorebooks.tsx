@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { deleteWorldInfo, generateLorebook, getWorldInfo, getWorlds, saveWorldInfo } from '@/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -39,6 +40,7 @@ interface LorebookWizardProps {
 type WizardStep = 'concept' | 'generating' | 'preview' | 'name' | 'saving';
 
 function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
+  const { t } = useTranslation();
   const connection = useAppStore((s) => s.connection);
   const [step, setStep] = useState<WizardStep>('concept');
   const [concept, setConcept] = useState('');
@@ -73,7 +75,7 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
         concept
           .slice(0, 30)
           .replace(/[^a-zA-Zа-яА-Я0-9\s]/g, '')
-          .trim() || 'Новый лорбук',
+          .trim() || t('lorebooks.defaultName'),
       );
       setStep('preview');
     } catch (err) {
@@ -134,7 +136,13 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
     });
   };
 
-  const STEPS = ['Концепт', 'Генерация', 'Просмотр', 'Имя', 'Готово'];
+  const STEPS = [
+    t('lorebooks.stepConcept'),
+    t('lorebooks.stepGeneration'),
+    t('lorebooks.stepPreview'),
+    t('lorebooks.stepName'),
+    t('lorebooks.stepDone'),
+  ];
   const stepIdx = { concept: 0, generating: 1, preview: 2, name: 3, saving: 4 }[step];
 
   return (
@@ -168,15 +176,15 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
       {step === 'concept' && (
         <div className="p-5 flex flex-col gap-4">
           <Textarea
-            label="Концепт мира"
-            placeholder="Например: Викторианский стимпанк, где магия работает через паровые механизмы..."
+            label={t('lorebooks.worldConceptLabel')}
+            placeholder={t('lorebooks.worldConceptPlaceholder')}
             value={concept}
             onChange={(e) => setConcept(e.target.value)}
             rows={4}
           />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm text-[var(--color-text-muted)] font-medium">
-              Количество записей: {entryCount}
+              {t('lorebooks.entryCountLabel', { count: entryCount })}
             </label>
             <input
               type="range"
@@ -198,10 +206,10 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
             <Button
               onClick={handleGenerate}
               disabled={!concept.trim() || !connection.connected}
-              title={!connection.connected ? 'Нет подключения к API' : undefined}
+              title={!connection.connected ? t('common.noApiConnection') : undefined}
             >
               <Sparkles size={15} />
-              Сгенерировать
+              {t('common.generate')}
             </Button>
           </div>
         </div>
@@ -211,7 +219,7 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
       {step === 'generating' && (
         <div className="p-10 flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-          <div className="text-sm text-[var(--color-text-muted)]">Генерируем лорбук...</div>
+          <div className="text-sm text-[var(--color-text-muted)]">{t('lorebooks.generating')}</div>
         </div>
       )}
 
@@ -219,7 +227,7 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
       {step === 'preview' && generated && (
         <div className="p-5 flex flex-col gap-4">
           <div className="text-xs text-[var(--color-text-muted)]">
-            {generated.entries.length} записей сгенерировано. Отредактируйте при необходимости.
+            {t('lorebooks.previewHint', { count: generated.entries.length })}
           </div>
           <div className="flex flex-col gap-3 max-h-96 overflow-y-auto">
             {generated.entries.map((entry, i) => (
@@ -247,10 +255,10 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
           <div className="flex justify-between">
             <Button variant="secondary" onClick={() => setStep('concept')}>
               <ArrowLeft size={15} />
-              Назад
+              {t('common.back')}
             </Button>
             <Button onClick={() => setStep('name')}>
-              Далее
+              {t('common.next')}
               <ArrowRight size={15} />
             </Button>
           </div>
@@ -261,10 +269,10 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
       {step === 'name' && (
         <div className="p-5 flex flex-col gap-4">
           <Input
-            label="Название лорбука"
+            label={t('lorebooks.nameLabel')}
             value={lorebookName}
             onChange={(e) => setLorebookName(e.target.value)}
-            placeholder="Название..."
+            placeholder={t('lorebooks.namePlaceholder')}
           />
           {error && (
             <div className="text-xs text-[var(--color-danger)] bg-[var(--color-danger)]/10 rounded-lg p-3">{error}</div>
@@ -272,11 +280,11 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
           <div className="flex justify-between">
             <Button variant="secondary" onClick={() => setStep('preview')}>
               <ArrowLeft size={15} />
-              Назад
+              {t('common.back')}
             </Button>
             <Button onClick={handleSave} loading={isSaving} disabled={!lorebookName.trim()}>
               <Check size={15} />
-              Сохранить
+              {t('common.save')}
             </Button>
           </div>
         </div>
@@ -296,6 +304,7 @@ function EntryItem({
   onToggle?: (uid: number, disabled: boolean) => void;
   onSave?: (uid: number, updates: Partial<WorldInfoEntry>) => void;
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
@@ -346,7 +355,7 @@ function EntryItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-[var(--color-text)] truncate">
-              {entry.comment || 'Без названия'}
+              {entry.comment || t('lorebooks.untitled')}
             </span>
             {entry.constant && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-accent)]/20 text-[var(--color-accent)] flex-shrink-0">
@@ -373,7 +382,7 @@ function EntryItem({
                   ? 'text-[var(--color-text-muted)] hover:text-[var(--color-accent)]'
                   : 'text-[var(--color-accent)] hover:text-[var(--color-text-muted)]',
               )}
-              title={entry.disable ? 'Включить' : 'Отключить'}
+              title={entry.disable ? t('lorebooks.enable') : t('lorebooks.disable')}
             >
               {entry.disable ? <ToggleLeft size={16} /> : <ToggleRight size={16} />}
             </button>
@@ -387,7 +396,7 @@ function EntryItem({
               {/* Edit mode */}
               <div>
                 <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">
-                  Название
+                  {t('lorebooks.entryNameLabel')}
                 </label>
                 <input
                   type="text"
@@ -398,7 +407,7 @@ function EntryItem({
               </div>
               <div>
                 <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">
-                  Ключи (через запятую)
+                  {t('lorebooks.keysLabel')}
                 </label>
                 <input
                   type="text"
@@ -409,7 +418,7 @@ function EntryItem({
               </div>
               <div>
                 <label className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide mb-1 block">
-                  Содержание
+                  {t('lorebooks.contentLabel')}
                 </label>
                 <textarea
                   value={editContent}
@@ -424,14 +433,14 @@ function EntryItem({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--color-primary)] text-white text-xs font-medium hover:bg-[var(--color-primary)]/80 transition-colors cursor-pointer"
                 >
                   <Save size={12} />
-                  Сохранить
+                  {t('common.save')}
                 </button>
                 <button
                   onClick={cancelEdit}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
                 >
                   <X size={12} />
-                  Отмена
+                  {t('common.cancel')}
                 </button>
               </div>
             </>
@@ -466,7 +475,7 @@ function EntryItem({
                   <button
                     onClick={startEdit}
                     className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors cursor-pointer flex-shrink-0"
-                    title="Редактировать"
+                    title={t('lorebooks.editTooltip')}
                   >
                     <Edit3 size={13} />
                   </button>
@@ -495,6 +504,7 @@ function EntryItem({
 // ── Lorebook Detail Panel ───────────────────────────────────────────────────────
 
 function LorebookDetail({ name }: { name: string }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
 
@@ -568,21 +578,21 @@ function LorebookDetail({ name }: { name: string }) {
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
             type="text"
-            placeholder="Поиск записей..."
+            placeholder={t('lorebooks.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg pl-8 pr-3 py-1.5 text-xs text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
           />
         </div>
         <div className="text-xs text-[var(--color-text-muted)] flex-shrink-0">
-          {activeCount}/{entries.length} активны
+          {t('lorebooks.activeCount', { active: activeCount, total: entries.length })}
         </div>
       </div>
 
       <div className="flex flex-col gap-2 overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="text-sm text-[var(--color-text-muted)] text-center py-8">
-            {search ? 'Записи не найдены' : 'Нет записей'}
+            {search ? t('lorebooks.searchEmpty') : t('lorebooks.noEntries')}
           </div>
         ) : (
           filtered.map((entry) => (
@@ -597,6 +607,7 @@ function LorebookDetail({ name }: { name: string }) {
 // ── Main Page ───────────────────────────────────────────────────────────────────
 
 export function LorebooksPage() {
+  const { t } = useTranslation();
   const [selectedWorld, setSelectedWorld] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -640,13 +651,13 @@ export function LorebooksPage() {
       >
         <Button onClick={() => setWizardOpen(true)} size="sm">
           <Plus size={14} />
-          Создать
+          {t('common.create')}
         </Button>
 
         {isLoading ? (
-          <div className="text-sm text-[var(--color-text-muted)]">Загрузка...</div>
+          <div className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>
         ) : worlds.length === 0 ? (
-          <div className="text-sm text-[var(--color-text-muted)]">Нет лорбуков</div>
+          <div className="text-sm text-[var(--color-text-muted)]">{t('lorebooks.empty')}</div>
         ) : (
           <div className="flex flex-col gap-1">
             {worlds.map((name) => (
@@ -672,7 +683,7 @@ export function LorebooksPage() {
                     setDeleteTarget(name);
                   }}
                   className="opacity-0 group-hover/lb:opacity-100 p-1 rounded hover:bg-[var(--color-danger)]/20 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-all cursor-pointer flex-shrink-0"
-                  title="Удалить лорбук"
+                  title={t('lorebooks.deleteTooltip')}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -691,7 +702,8 @@ export function LorebooksPage() {
               onClick={() => setSelectedWorld(null)}
               className="sm:hidden flex items-center gap-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors cursor-pointer"
             >
-              <ArrowLeft size={14} />К списку лорбуков
+              <ArrowLeft size={14} />
+              {t('lorebooks.backToList')}
             </button>
             <LorebookDetail name={selectedWorld} />
           </div>
@@ -699,7 +711,7 @@ export function LorebooksPage() {
           <div className="hidden sm:flex items-center justify-center h-full">
             <div className="text-center text-[var(--color-text-muted)]">
               <BookOpen size={48} className="mx-auto mb-3 opacity-30" />
-              <div className="text-sm">Выберите лорбук или создайте новый</div>
+              <div className="text-sm">{t('lorebooks.emptyState')}</div>
             </div>
           </div>
         )}
@@ -708,20 +720,19 @@ export function LorebooksPage() {
       <LorebookWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onComplete={handleWizardComplete} />
 
       {/* Delete confirmation modal */}
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Удаление лорбука" size="sm">
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('lorebooks.deleteTitle')} size="sm">
         <div className="flex flex-col gap-4 p-5">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-full bg-[var(--color-danger)]/15 flex-shrink-0">
               <AlertTriangle size={20} className="text-[var(--color-danger)]" />
             </div>
             <div className="text-sm text-[var(--color-text-muted)]">
-              Вы уверены, что хотите удалить лорбук <strong className="text-[var(--color-text)]">{deleteTarget}</strong>
-              ? Это действие необратимо.
+              {t('lorebooks.deleteConfirm', { name: deleteTarget })}
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
             <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? (
@@ -729,7 +740,7 @@ export function LorebooksPage() {
               ) : (
                 <Trash2 size={14} />
               )}
-              Удалить
+              {t('common.delete')}
             </Button>
           </div>
         </div>
