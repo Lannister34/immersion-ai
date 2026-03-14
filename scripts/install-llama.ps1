@@ -1,10 +1,5 @@
-param(
-    [Parameter(Mandatory)]
-    [ValidateSet('cuda', 'vulkan', 'cpu')]
-    [string]$Backend
-)
-
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $binDir = Join-Path $projectRoot 'bin'
@@ -16,7 +11,7 @@ $apiUrl = 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest'
 
 function Write-Step($msg) { Write-Host "  $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "  $msg" -ForegroundColor Green }
-function Write-Err($msg)  { Write-Host "  [ОШИБКА] $msg" -ForegroundColor Red }
+function Write-Err($msg)  { Write-Host "  $msg" -ForegroundColor Red }
 function Write-Dim($msg)  { Write-Host "  $msg" -ForegroundColor Gray }
 
 function Get-AssetsByPattern {
@@ -32,13 +27,13 @@ function Install-FromZip {
 
     Write-Step "Скачивание $Label..."
     Invoke-WebRequest -Uri $Url -OutFile $zipPath -UseBasicParsing
-    Write-Ok "Скачивание завершено."
+    Write-Ok 'Скачивание завершено.'
 
     Write-Step 'Распаковка...'
     Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
-    # Find llama-server.exe or just DLLs (for cudart archives)
-    $serverExe = Get-ChildItem -Path $extractPath -Recurse -Filter 'llama-server.exe' | Select-Object -First 1
+    $serverExe = Get-ChildItem -Path $extractPath -Recurse -Filter 'llama-server.exe' |
+        Select-Object -First 1
 
     if ($serverExe) {
         $sourceDir = $serverExe.DirectoryName
@@ -50,7 +45,7 @@ function Install-FromZip {
         Write-Ok "Скопировано: llama-server.exe + $($dlls.Count) DLL"
     }
     else {
-        # cudart archive — just copy all DLLs
+        # cudart archive: copy all DLLs
         $dlls = Get-ChildItem -Path $extractPath -Recurse -Filter '*.dll'
         foreach ($dll in $dlls) {
             Copy-Item -Path $dll.FullName -Destination $binDir -Force
@@ -59,10 +54,39 @@ function Install-FromZip {
     }
 }
 
+# ── Interactive menu ───────────────────────────────────────────────────────────
+
+Write-Host ''
+Write-Host '  ╔══════════════════════════════════════════════════╗' -ForegroundColor Magenta
+Write-Host '  ║   Immersion AI — Установка llama-server          ║' -ForegroundColor Magenta
+Write-Host '  ╚══════════════════════════════════════════════════╝' -ForegroundColor Magenta
+Write-Host ''
+Write-Host '  Выберите сборку llama-server:' -ForegroundColor White
+Write-Host ''
+Write-Host '    [1] CUDA (NVIDIA GPU)' -ForegroundColor Yellow
+Write-Host '    [2] Vulkan (AMD / Intel GPU)' -ForegroundColor Cyan
+Write-Host '    [3] CPU (без GPU ускорения)' -ForegroundColor Gray
+Write-Host ''
+
+$choice = Read-Host '  Ваш выбор (1-3)'
+
+switch ($choice) {
+    '1' { $Backend = 'cuda' }
+    '2' { $Backend = 'vulkan' }
+    '3' { $Backend = 'cpu' }
+    default {
+        Write-Err 'Неверный выбор. Введите 1, 2 или 3.'
+        exit 1
+    }
+}
+
+Write-Host ''
+Write-Step "Выбрано: $Backend"
+Write-Host ''
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 try {
-    # Ensure bin/ exists
     if (-not (Test-Path $binDir)) {
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     }
@@ -86,7 +110,7 @@ try {
 
     $assets = $release.assets
 
-    # ── Select main asset ──────────────────────────────────────────────────────
+    # ── Select asset ───────────────────────────────────────────────────────────
 
     $mainAsset = $null
     $cudartAsset = $null
@@ -157,7 +181,6 @@ try {
 
     # ── Download & install ─────────────────────────────────────────────────────
 
-    # Clean temp
     if (Test-Path $tempDir) { Remove-Item $tempDir -Recurse -Force }
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
@@ -176,10 +199,8 @@ try {
         exit 1
     }
 
-    # Save version
     Set-Content -Path $versionFile -Value $tag -NoNewline
 
-    # Cleanup
     Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 
     Write-Host ''
