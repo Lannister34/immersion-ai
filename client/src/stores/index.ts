@@ -390,7 +390,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'st-ui-settings',
-      version: 8,
+      version: 9,
       partialize: (state) => ({
         userName: state.userName,
         userPersona: state.userPersona,
@@ -481,6 +481,22 @@ export const useAppStore = create<AppState>()(
         }
         if (version < 8) {
           // v7→v8: activeScenarioName now available in ChatSessionMeta (no-op, optional field)
+        }
+        if (version < 9) {
+          // v8→v9: Fix _no_character_.png → _no_character_ and deduplicate
+          const sessions = (state.chatSessions ?? []) as Array<Record<string, unknown>>;
+          for (const s of sessions) {
+            if (s.characterAvatar === '_no_character_.png') {
+              s.characterAvatar = '_no_character_';
+              s.characterName = '';
+            }
+          }
+          const seen = new Map<string, Record<string, unknown>>();
+          for (const s of sessions) {
+            const key = `${s.characterAvatar}::${s.chatFile}`;
+            seen.set(key, s);
+          }
+          state.chatSessions = [...seen.values()];
         }
         return state as ReturnType<typeof Object.assign>;
       },
