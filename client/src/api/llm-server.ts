@@ -14,8 +14,8 @@ export async function getLlmServerStatus(): Promise<LlmServerStatus> {
   return res.json() as Promise<LlmServerStatus>;
 }
 
-export async function listModelFiles(modelsDir: string): Promise<ModelFile[]> {
-  const data = await apiPost<{ models: ModelFile[] }>('/api/llm-server/models', { modelsDir });
+export async function listModelFiles(modelsDirs: string[]): Promise<ModelFile[]> {
+  const data = await apiPost<{ models: ModelFile[] }>('/api/llm-server/models', { modelsDirs });
   return data.models;
 }
 

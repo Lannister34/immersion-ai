@@ -72,7 +72,7 @@ interface AppState {
 }
 
 export interface LlmServerConfig {
-  modelsDir: string;
+  modelsDirs: string[];
   port: number;
   gpuLayers: number;
   contextSize: number;
@@ -81,7 +81,7 @@ export interface LlmServerConfig {
 }
 
 const DEFAULT_LLM_SERVER_CONFIG: LlmServerConfig = {
-  modelsDir: '', // Will be set from server's defaultModelsDir on first load
+  modelsDirs: [], // Will be set from server's defaultModelsDir on first load
   port: 5001,
   gpuLayers: 999,
   contextSize: 8192,
@@ -467,8 +467,14 @@ export async function initSettingsFromServer(): Promise<void> {
       const serverCfg = serverData.llmServerConfig as Record<string, unknown> | undefined;
       if (serverCfg) {
         delete serverCfg.executablePath;
-        if (!serverCfg.modelsDir || serverCfg.modelsDir === 'D:\\Neuro\\llm') {
-          serverCfg.modelsDir = '';
+
+        // Migrate legacy modelsDir (string) → modelsDirs (string[])
+        if (typeof serverCfg.modelsDir === 'string') {
+          const dir = serverCfg.modelsDir as string;
+          if (!serverCfg.modelsDirs) {
+            serverCfg.modelsDirs = dir && dir !== 'D:\\Neuro\\llm' ? [dir] : [];
+          }
+          delete serverCfg.modelsDir;
         }
       }
 

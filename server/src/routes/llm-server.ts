@@ -49,55 +49,73 @@ router.get('/status', (_req, res) => {
   res.json(getState());
 });
 
-// POST /api/llm-server/models — list .gguf files in a directory
+// Scan a single directory for .gguf files (top-level + 1 level deep)
+function scanDirectory(modelsDir: string): Array<{ name: string; path: string; size: number }> {
+  if (!fs.existsSync(modelsDir)) return [];
+
+  const models: Array<{ name: string; path: string; size: number }> = [];
+  const entries = fs.readdirSync(modelsDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(modelsDir, entry.name);
+
+    if (entry.isFile() && entry.name.endsWith('.gguf')) {
+      const stat = fs.statSync(fullPath);
+      models.push({ name: entry.name, path: fullPath, size: stat.size });
+    }
+
+    // Scan one level deep (subdirectories)
+    if (entry.isDirectory()) {
+      try {
+        const subEntries = fs.readdirSync(fullPath, { withFileTypes: true });
+        for (const subEntry of subEntries) {
+          if (subEntry.isFile() && subEntry.name.endsWith('.gguf')) {
+            const subPath = path.join(fullPath, subEntry.name);
+            const stat = fs.statSync(subPath);
+            models.push({
+              name: `${entry.name}/${subEntry.name}`,
+              path: subPath,
+              size: stat.size,
+            });
+          }
+        }
+      } catch {
+        // Skip directories we can't read
+      }
+    }
+  }
+
+  return models;
+}
+
+// POST /api/llm-server/models — list .gguf files across multiple directories
 router.post('/models', async (req, res) => {
   try {
-    const modelsDir = req.body?.modelsDir as string;
-    if (!modelsDir) {
+    // Support both new (modelsDirs: string[]) and legacy (modelsDir: string)
+    const dirs: string[] = Array.isArray(req.body?.modelsDirs)
+      ? req.body.modelsDirs
+      : typeof req.body?.modelsDir === 'string' && req.body.modelsDir
+        ? [req.body.modelsDir]
+        : [];
+
+    if (dirs.length === 0) {
       return res.status(400).json({ models: [] });
     }
 
-    if (!fs.existsSync(modelsDir)) {
-      return res.json({ models: [] });
-    }
+    const allModels: Array<{ name: string; path: string; size: number }> = [];
+    const seenPaths = new Set<string>();
 
-    const models: Array<{ name: string; path: string; size: number }> = [];
-
-    // Scan top level
-    const entries = fs.readdirSync(modelsDir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(modelsDir, entry.name);
-
-      if (entry.isFile() && entry.name.endsWith('.gguf')) {
-        const stat = fs.statSync(fullPath);
-        models.push({ name: entry.name, path: fullPath, size: stat.size });
-      }
-
-      // Scan one level deep (subdirectories)
-      if (entry.isDirectory()) {
-        try {
-          const subEntries = fs.readdirSync(fullPath, { withFileTypes: true });
-          for (const subEntry of subEntries) {
-            if (subEntry.isFile() && subEntry.name.endsWith('.gguf')) {
-              const subPath = path.join(fullPath, subEntry.name);
-              const stat = fs.statSync(subPath);
-              models.push({
-                name: `${entry.name}/${subEntry.name}`,
-                path: subPath,
-                size: stat.size,
-              });
-            }
-          }
-        } catch {
-          // Skip directories we can't read
+    for (const dir of dirs) {
+      for (const model of scanDirectory(dir)) {
+        if (!seenPaths.has(model.path)) {
+          seenPaths.add(model.path);
+          allModels.push(model);
         }
       }
     }
 
-    // Sort by name
-    models.sort((a, b) => a.name.localeCompare(b.name));
-    res.json({ models });
+    allModels.sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ models: allModels });
   } catch (err) {
     console.error('[llm-server/models]', err);
     res.json({ models: [] });

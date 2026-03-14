@@ -1,15 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertCircle,
-  Download,
-  ExternalLink,
-  FolderOpen,
-  HardDrive,
-  Loader2,
-  Play,
-  Settings,
-  Square,
-} from 'lucide-react';
+import { AlertCircle, Download, ExternalLink, HardDrive, Loader2, Play, Plus, Settings, Square, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EngineInfo, LlmServerStatus, ModelFile } from '@/api';
@@ -45,12 +35,12 @@ export function ModelManager() {
     staleTime: 60_000,
   });
 
-  // Set default modelsDir from engine info on first load
+  // Set default modelsDirs from engine info on first load
   useEffect(() => {
-    if (engineInfo?.defaultModelsDir && !llmServerConfig.modelsDir) {
-      setLlmServerConfig({ modelsDir: engineInfo.defaultModelsDir });
+    if (engineInfo?.defaultModelsDir && llmServerConfig.modelsDirs.length === 0) {
+      setLlmServerConfig({ modelsDirs: [engineInfo.defaultModelsDir] });
     }
-  }, [engineInfo?.defaultModelsDir, llmServerConfig.modelsDir, setLlmServerConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [engineInfo?.defaultModelsDir, llmServerConfig.modelsDirs.length, setLlmServerConfig]);
 
   // Poll server status every 2s
   const { data: serverStatus } = useQuery<LlmServerStatus>({
@@ -61,14 +51,19 @@ export function ModelManager() {
 
   const status = serverStatus?.status ?? 'idle';
 
-  // Effective modelsDir (from config or engine default)
-  const effectiveModelsDir = llmServerConfig.modelsDir || engineInfo?.defaultModelsDir || '';
+  // Effective model directories (from config or engine default)
+  const effectiveModelsDirs =
+    llmServerConfig.modelsDirs.length > 0
+      ? llmServerConfig.modelsDirs
+      : engineInfo?.defaultModelsDir
+        ? [engineInfo.defaultModelsDir]
+        : [];
 
-  // List model files
+  // List model files from all directories
   const { data: modelFiles } = useQuery<ModelFile[]>({
-    queryKey: ['model-files', effectiveModelsDir],
-    queryFn: () => listModelFiles(effectiveModelsDir),
-    enabled: !!effectiveModelsDir,
+    queryKey: ['model-files', effectiveModelsDirs],
+    queryFn: () => listModelFiles(effectiveModelsDirs),
+    enabled: effectiveModelsDirs.length > 0,
     staleTime: 30_000,
   });
 
@@ -241,32 +236,45 @@ export function ModelManager() {
       {showSettings && (
         <div className="border border-[var(--color-border)] rounded-lg p-3 flex flex-col gap-3 bg-[var(--color-surface-2)]/50">
           <div>
-            <label className="text-xs text-[var(--color-text-muted)] mb-1 block">
-              {t('modelManager.modelsDirLabel')}
+            <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">
+              {t('modelManager.modelsDirsLabel')}
             </label>
-            <div className="flex gap-1.5">
-              <input
-                type="text"
-                value={llmServerConfig.modelsDir || engineInfo?.defaultModelsDir || ''}
-                onChange={(e) => setLlmServerConfig({ modelsDir: e.target.value })}
-                placeholder={engineInfo?.defaultModelsDir ?? 'models'}
-                className="flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] font-mono"
-              />
+            <div className="flex flex-wrap gap-1.5">
+              {effectiveModelsDirs.map((dir) => (
+                <span
+                  key={dir}
+                  className="inline-flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-2.5 py-1 text-xs text-[var(--color-text)] font-mono max-w-full"
+                >
+                  <span className="truncate">{dir}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = llmServerConfig.modelsDirs.filter((d) => d !== dir);
+                      setLlmServerConfig({ modelsDirs: updated });
+                    }}
+                    className="flex-shrink-0 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-colors cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
               <button
                 onClick={async () => {
                   setBrowsing(true);
                   try {
-                    const path = await browseFolder(effectiveModelsDir || undefined);
-                    if (path) setLlmServerConfig({ modelsDir: path });
+                    const selected = await browseFolder(effectiveModelsDirs[0] || undefined);
+                    if (selected && !llmServerConfig.modelsDirs.includes(selected)) {
+                      setLlmServerConfig({ modelsDirs: [...llmServerConfig.modelsDirs, selected] });
+                    }
                   } finally {
                     setBrowsing(false);
                   }
                 }}
                 disabled={browsing}
-                className="px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer disabled:opacity-50"
-                title={t('modelManager.browseFolderTooltip')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-md text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 transition-colors cursor-pointer disabled:opacity-50"
               >
-                {browsing ? <Loader2 size={13} className="animate-spin" /> : <FolderOpen size={13} />}
+                {browsing ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                {t('modelManager.addFolderButton')}
               </button>
             </div>
           </div>
