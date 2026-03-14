@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import * as api from '@/api';
 import { stripThinkBlocks } from '@/lib/messageFormatting';
-import { getActiveConnectionPreset, getEffectiveSamplerSettings, useAppStore } from '@/stores';
+import { getActiveProviderConfig, getEffectiveSamplerSettings, useAppStore } from '@/stores';
 import type { ChatMessage } from '@/types';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -147,8 +147,8 @@ export function useChatGeneration({
       const { messages: chatCompletionMessages } = buildChatDataRef.current(msgsForGeneration);
       const state = useAppStore.getState();
       const { thinkingEnabled, backendMode, llmServerConfig, streamingEnabled } = state;
-      const preset = getActiveConnectionPreset(state);
-      const apiServer = backendMode === 'builtin' ? `http://127.0.0.1:${llmServerConfig.port}` : preset.url;
+      const providerConfig = getActiveProviderConfig(state);
+      const apiServer = backendMode === 'builtin' ? `http://127.0.0.1:${llmServerConfig.port}` : providerConfig.url;
 
       abortRef.current = new AbortController();
       const samplers = getEffectiveSamplerSettings(useAppStore.getState(), chatFileRef.current ?? undefined);
@@ -156,7 +156,7 @@ export function useChatGeneration({
       const generatedText = await api.generateTextStream(
         {
           api_server: apiServer,
-          api_key: preset.apiKey,
+          api_key: providerConfig.apiKey,
           messages: chatCompletionMessages,
           chat_template_kwargs: { enable_thinking: thinkingEnabled },
           max_length: samplers.max_length,

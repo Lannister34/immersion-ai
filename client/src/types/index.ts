@@ -194,19 +194,34 @@ export interface GeneratedScenario {
   tags: string[];
 }
 
-// ── Connection Preset Types ─────────────────────────────────────────────────
+// ── Provider Types ──────────────────────────────────────────────────────────
 
 export enum ProviderType {
   KoboldCpp = 'koboldcpp',
+  Custom = 'custom',
   // future: OpenAI = 'openai', OpenRouter = 'openrouter', Ollama = 'ollama'
 }
 
-export interface ConnectionPreset {
-  id: string;
-  name: string;
-  provider: ProviderType;
+/** Per-provider connection configuration (URL, API key, etc.) */
+export interface ProviderConfig {
   url: string;
   apiKey?: string;
+}
+
+/** Describes a single field in the provider configuration form (from backend). */
+export interface ProviderFieldDef {
+  key: string;
+  type: 'text' | 'password';
+  required: boolean;
+  placeholder?: string;
+  defaultValue?: string;
+}
+
+/** Provider definition returned by GET /api/providers. */
+export interface ProviderDefinition {
+  type: string;
+  label: string;
+  fields: ProviderFieldDef[];
 }
 
 // ── App Settings Types ──────────────────────────────────────────────────────

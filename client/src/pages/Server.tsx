@@ -2,19 +2,19 @@ import { Globe, RefreshCw, Server } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getConnectionStatus } from '@/api';
-import { ConnectionPresets } from '@/components/ConnectionPresets';
+import { ConnectionConfig } from '@/components/ConnectionConfig';
 import { ModelManager } from '@/components/ModelManager';
 import { Button } from '@/components/ui/Button';
 import { useAppStore } from '@/stores';
 
 export function ServerPage() {
   const { t } = useTranslation();
-  const { connection, setConnection, backendMode, setBackendMode, activeConnectionPresetId } = useAppStore();
+  const { connection, setConnection, backendMode, setBackendMode, activeProvider, providerConfigs } = useAppStore();
 
   const [testing, setTesting] = useState(false);
 
-  // Auto-check connection on mount and when active preset changes (only for external mode)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-run when activeConnectionPresetId changes
+  // Auto-check connection on mount and when provider/config changes (only for external mode)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally re-run when activeProvider or providerConfigs change
   useEffect(() => {
     if (backendMode !== 'external') return;
     let cancelled = false;
@@ -30,7 +30,7 @@ export function ServerPage() {
     return () => {
       cancelled = true;
     };
-  }, [backendMode, activeConnectionPresetId, setConnection]);
+  }, [backendMode, activeProvider, providerConfigs, setConnection]);
 
   const handleTestConnection = useCallback(async () => {
     setTesting(true);
@@ -79,7 +79,7 @@ export function ServerPage() {
 
         {backendMode === 'external' && (
           <>
-            <ConnectionPresets />
+            <ConnectionConfig />
 
             <div className="flex items-center gap-3">
               <div

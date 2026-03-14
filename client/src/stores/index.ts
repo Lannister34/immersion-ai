@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { getUserSettings, saveUserSettings } from '@/api';
 import type { UiLanguage } from '@/i18n';
-import type { ChatSessionMeta, ConnectionPreset, ConnectionStatus, SamplerPreset, SamplerSettings } from '@/types';
+import type { ChatSessionMeta, ConnectionStatus, ProviderConfig, SamplerPreset, SamplerSettings } from '@/types';
 import { ProviderType } from '@/types';
 
 interface AppState {
@@ -50,13 +50,11 @@ interface AppState {
   removeChatSession: (characterAvatar: string, chatFile: string) => void;
   getChatSession: (characterAvatar: string, chatFile: string) => ChatSessionMeta | undefined;
 
-  // Connection presets (external providers)
-  connectionPresets: ConnectionPreset[];
-  activeConnectionPresetId: string;
-  addConnectionPreset: (preset: ConnectionPreset) => void;
-  updateConnectionPreset: (id: string, partial: Partial<Omit<ConnectionPreset, 'id'>>) => void;
-  deleteConnectionPreset: (id: string) => void;
-  setActiveConnectionPreset: (id: string) => void;
+  // Provider connection config (external providers)
+  activeProvider: ProviderType;
+  providerConfigs: Record<string, ProviderConfig>;
+  setActiveProvider: (provider: ProviderType) => void;
+  updateProviderConfig: (provider: ProviderType, partial: Partial<ProviderConfig>) => void;
 
   // LLM Server management
   backendMode: 'builtin' | 'external';
@@ -91,11 +89,8 @@ const DEFAULT_LLM_SERVER_CONFIG: LlmServerConfig = {
   threads: 0,
 };
 
-const DEFAULT_CONNECTION_PRESET: ConnectionPreset = {
-  id: 'default-koboldcpp',
-  name: 'KoboldCpp',
-  provider: ProviderType.KoboldCpp,
-  url: 'http://127.0.0.1:5001',
+const DEFAULT_PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
+  [ProviderType.KoboldCpp]: { url: 'http://127.0.0.1:5001' },
 };
 
 const DEFAULT_SAMPLER_SETTINGS: SamplerSettings = {
@@ -209,8 +204,8 @@ const PERSISTED_KEYS = [
   'chatSessions',
   'backendMode',
   'llmServerConfig',
-  'connectionPresets',
-  'activeConnectionPresetId',
+  'activeProvider',
+  'providerConfigs',
 ] as const;
 
 type PersistedKey = (typeof PERSISTED_KEYS)[number];
@@ -288,17 +283,17 @@ export function getEffectiveSamplerSettings(state: AppState, chatFile?: string):
 }
 
 /**
- * Resolve the active connection preset.
+ * Resolve the active provider's connection config.
  */
-export function getActiveConnectionPreset(state: AppState): ConnectionPreset {
-  return state.connectionPresets.find((p) => p.id === state.activeConnectionPresetId) ?? DEFAULT_CONNECTION_PRESET;
+export function getActiveProviderConfig(state: AppState): ProviderConfig {
+  return state.providerConfigs[state.activeProvider] ?? DEFAULT_PROVIDER_CONFIGS[ProviderType.KoboldCpp];
 }
 
 /**
  * Resolve the active connection URL (shortcut).
  */
 export function getActiveConnectionUrl(state: AppState): string {
-  return getActiveConnectionPreset(state).url;
+  return getActiveProviderConfig(state).url;
 }
 
 // ── Store ──────────────────────────────────────────────────────────────────
@@ -414,30 +409,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
   getChatSession: (characterAvatar, chatFile) =>
     get().chatSessions.find((c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile),
 
-  // Connection presets
-  connectionPresets: [DEFAULT_CONNECTION_PRESET],
-  activeConnectionPresetId: DEFAULT_CONNECTION_PRESET.id,
+  // Provider connection config
+  activeProvider: ProviderType.KoboldCpp,
+  providerConfigs: { ...DEFAULT_PROVIDER_CONFIGS },
 
-  addConnectionPreset: (preset) =>
+  setActiveProvider: (provider) => set({ activeProvider: provider }),
+
+  updateProviderConfig: (provider, partial) =>
     set((s) => ({
-      connectionPresets: [...s.connectionPresets, preset],
-      activeConnectionPresetId: preset.id,
+      providerConfigs: {
+        ...s.providerConfigs,
+        [provider]: { ...(s.providerConfigs[provider] ?? { url: '' }), ...partial },
+      },
     })),
-
-  updateConnectionPreset: (id, partial) =>
-    set((s) => ({
-      connectionPresets: s.connectionPresets.map((p) => (p.id === id ? { ...p, ...partial } : p)),
-    })),
-
-  deleteConnectionPreset: (id) =>
-    set((s) => {
-      if (s.connectionPresets.length <= 1) return s;
-      const filtered = s.connectionPresets.filter((p) => p.id !== id);
-      const newActiveId = s.activeConnectionPresetId === id ? filtered[0].id : s.activeConnectionPresetId;
-      return { connectionPresets: filtered, activeConnectionPresetId: newActiveId };
-    }),
-
-  setActiveConnectionPreset: (id) => set({ activeConnectionPresetId: id }),
 
   // LLM Server
   backendMode: 'builtin',
@@ -488,6 +472,26 @@ export async function initSettingsFromServer(): Promise<void> {
         }
       }
 
+      // Migrate legacy connectionPresets → activeProvider + providerConfigs
+      if ('connectionPresets' in serverData && !('providerConfigs' in serverData)) {
+        const presets = serverData.connectionPresets as Array<{
+          provider?: string;
+          url?: string;
+          apiKey?: string;
+          id?: string;
+        }>;
+        const activeId = serverData.activeConnectionPresetId as string | undefined;
+        const active = presets?.find((p) => p.id === activeId) ?? presets?.[0];
+        if (active?.url) {
+          serverData.activeProvider = active.provider ?? ProviderType.KoboldCpp;
+          serverData.providerConfigs = {
+            [active.provider ?? ProviderType.KoboldCpp]: { url: active.url, apiKey: active.apiKey },
+          };
+        }
+        delete serverData.connectionPresets;
+        delete serverData.activeConnectionPresetId;
+      }
+
       // Apply only known persisted keys from server
       const patch: Record<string, unknown> = {};
       for (const key of PERSISTED_KEYS) {
@@ -512,8 +516,8 @@ export async function initSettingsFromServer(): Promise<void> {
 
 export type { SamplerSettings };
 export {
-  DEFAULT_CONNECTION_PRESET,
   DEFAULT_PROMPTS,
+  DEFAULT_PROVIDER_CONFIGS,
   DEFAULT_SAMPLER_SETTINGS,
   DEFAULT_SYSTEM_PROMPT_EN,
   DEFAULT_SYSTEM_PROMPT_RU,

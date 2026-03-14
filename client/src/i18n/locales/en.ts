@@ -310,10 +310,11 @@ export const en = {
     disconnected: 'Not connected',
     checkConnection: 'Check',
     connectionTitle: 'Connection',
-    addConnection: 'Add connection',
-    newConnection: 'New connection',
-    presetUrl: 'API URL',
-    deletePresetConfirm: 'Delete connection "{{name}}"?',
+    providerLabel: 'Provider',
+    fieldUrl: 'API URL',
+    fieldApiKey: 'API Key',
+    provider_koboldcpp: 'KoboldCpp',
+    provider_custom: 'Custom',
   },
 
   // ── Model manager ──────────────────────────────────────────────────────────

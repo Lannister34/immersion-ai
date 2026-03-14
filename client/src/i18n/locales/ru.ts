@@ -311,10 +311,11 @@ export const ru = {
     disconnected: 'Не подключено',
     checkConnection: 'Проверить',
     connectionTitle: 'Подключение',
-    addConnection: 'Добавить подключение',
-    newConnection: 'Новое подключение',
-    presetUrl: 'API URL',
-    deletePresetConfirm: 'Удалить подключение «{{name}}»?',
+    providerLabel: 'Провайдер',
+    fieldUrl: 'API URL',
+    fieldApiKey: 'API Key',
+    provider_koboldcpp: 'KoboldCpp',
+    provider_custom: 'Пользовательский',
   },
 
   // ── Model manager ──────────────────────────────────────────────────────────

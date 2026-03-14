@@ -10,17 +10,29 @@ import { DATA_ROOT } from '../lib/paths.js';
 
 export const router = Router();
 
-/** Resolve active connection preset from user-settings.json */
+/** Resolve active provider config from user-settings.json */
 function getActivePreset(): { url: string; apiKey?: string } {
   try {
     const settingsPath = path.join(DATA_ROOT, 'user-settings.json');
     if (!fs.existsSync(settingsPath)) return { url: 'http://127.0.0.1:5001' };
     const data = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    const presets = Array.isArray(data.connectionPresets) ? data.connectionPresets : [];
-    const activeId: string = data.activeConnectionPresetId ?? '';
-    const preset = presets.find((p: { id: string }) => p.id === activeId);
-    if (!preset?.url) return { url: 'http://127.0.0.1:5001' };
-    return { url: preset.url.replace(/\/api$/, ''), apiKey: preset.apiKey };
+
+    // New format: activeProvider + providerConfigs
+    if (data.providerConfigs && data.activeProvider) {
+      const config = data.providerConfigs[data.activeProvider] as { url?: string; apiKey?: string } | undefined;
+      if (config?.url) return { url: config.url.replace(/\/api$/, ''), apiKey: config.apiKey };
+    }
+
+    // Legacy format: connectionPresets + activeConnectionPresetId
+    if (Array.isArray(data.connectionPresets)) {
+      const activeId: string = data.activeConnectionPresetId ?? '';
+      const preset = data.connectionPresets.find((p: { id: string }) => p.id === activeId) as
+        | { url?: string; apiKey?: string }
+        | undefined;
+      if (preset?.url) return { url: preset.url.replace(/\/api$/, ''), apiKey: preset.apiKey };
+    }
+
+    return { url: 'http://127.0.0.1:5001' };
   } catch {
     return { url: 'http://127.0.0.1:5001' };
   }
