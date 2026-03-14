@@ -1,9 +1,70 @@
 import { Check, MessageCircle, Pencil, Trash2 } from 'lucide-react';
+import type { JSX } from 'react';
 import { memo, useCallback, useRef, useState } from 'react';
 import { formatRelativeDate } from '@/lib/dateFormatting';
 import { hideOnImageError } from '@/lib/imageUtils';
 import { useAppStore } from '@/stores';
 import type { ChatSessionMeta } from '@/types';
+
+interface TitleEditProps {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  onBlur: () => void;
+  onSaveMouseDown: (e: React.MouseEvent) => void;
+  onClick: (e: React.MouseEvent) => void;
+}
+
+function TitleEdit({
+  inputRef,
+  value,
+  onChange,
+  onKeyDown,
+  onBlur,
+  onSaveMouseDown,
+  onClick,
+}: TitleEditProps): JSX.Element {
+  return (
+    <div className="flex items-center gap-1 flex-1 min-w-0" onClick={onClick}>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        onBlur={onBlur}
+        placeholder="Название чата..."
+        className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-primary)] rounded px-1.5 py-0.5 text-sm text-[var(--color-text)] outline-none min-w-0"
+      />
+      <button
+        onMouseDown={onSaveMouseDown}
+        className="p-0.5 rounded hover:bg-[var(--color-primary)]/20 text-[var(--color-primary)] cursor-pointer flex-shrink-0"
+      >
+        <Check size={12} />
+      </button>
+    </div>
+  );
+}
+
+interface TitleDisplayProps {
+  title: string;
+  onStartEditing: (e: React.MouseEvent) => void;
+}
+
+function TitleDisplay({ title, onStartEditing }: TitleDisplayProps): JSX.Element {
+  return (
+    <div className="flex items-center gap-1 min-w-0">
+      <span className="text-sm font-medium text-[var(--color-text)] truncate">{title}</span>
+      <button
+        onClick={onStartEditing}
+        className="opacity-0 group-hover/chat:opacity-100 p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-opacity cursor-pointer flex-shrink-0"
+        title="Переименовать"
+      >
+        <Pencil size={10} />
+      </button>
+    </div>
+  );
+}
 
 interface ChatListItemProps {
   session: ChatSessionMeta;
@@ -104,34 +165,17 @@ export const ChatListItem = memo(function ChatListItem({ session, onOpenChat, on
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-2">
           {editing ? (
-            <div className="flex items-center gap-1 flex-1 min-w-0" onClick={stopPropagation}>
-              <input
-                ref={inputRef}
-                value={editValue}
-                onChange={handleEditValueChange}
-                onKeyDown={handleKeyDown}
-                onBlur={saveTitle}
-                placeholder="Название чата..."
-                className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-primary)] rounded px-1.5 py-0.5 text-sm text-[var(--color-text)] outline-none min-w-0"
-              />
-              <button
-                onMouseDown={handleSaveMouseDown}
-                className="p-0.5 rounded hover:bg-[var(--color-primary)]/20 text-[var(--color-primary)] cursor-pointer flex-shrink-0"
-              >
-                <Check size={12} />
-              </button>
-            </div>
+            <TitleEdit
+              inputRef={inputRef}
+              value={editValue}
+              onChange={handleEditValueChange}
+              onKeyDown={handleKeyDown}
+              onBlur={saveTitle}
+              onSaveMouseDown={handleSaveMouseDown}
+              onClick={stopPropagation}
+            />
           ) : (
-            <div className="flex items-center gap-1 min-w-0">
-              <span className="text-sm font-medium text-[var(--color-text)] truncate">{displayTitle}</span>
-              <button
-                onClick={startEditing}
-                className="opacity-0 group-hover/chat:opacity-100 p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-opacity cursor-pointer flex-shrink-0"
-                title="Переименовать"
-              >
-                <Pencil size={10} />
-              </button>
-            </div>
+            <TitleDisplay title={displayTitle} onStartEditing={startEditing} />
           )}
           <div className="flex items-center gap-1 flex-shrink-0">
             <span className="text-[11px] text-[var(--color-text-muted)]">

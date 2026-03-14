@@ -42,21 +42,25 @@ export function ChatList({ onOpenChat, onNewChat }: ChatListProps): JSX.Element 
         </Button>
       </div>
 
-      {loadingChats ? (
+      {loadingChats && (
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-[var(--color-text-muted)]">
             <div className="w-8 h-8 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
             <span className="text-sm">Загрузка чатов...</span>
           </div>
         </div>
-      ) : sortedSessions.length === 0 ? (
+      )}
+
+      {!loadingChats && sortedSessions.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-[var(--color-text-muted)]">
             <MessageCircle size={48} className="mx-auto mb-3 opacity-30" />
             <div className="text-sm">{search ? 'Чаты не найдены' : 'Нет чатов. Начните новый!'}</div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {!loadingChats && sortedSessions.length > 0 && (
         <div className="flex flex-col gap-0.5 overflow-y-auto pb-4">
           {sortedSessions.map((session) => (
             <ChatListItem
