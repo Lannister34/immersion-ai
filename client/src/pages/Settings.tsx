@@ -1,6 +1,8 @@
 import { Check, FileText, Info, Link, Pencil, Plus, RotateCcw, Save, Sliders, Trash2, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
+import type { UiLanguage } from '@/i18n';
 import { DEFAULT_SAMPLER_SETTINGS, getDefaultSystemPrompt, syncToServerNow, useAppStore } from '@/stores';
 import type { ContextTrimStrategy, SamplerPreset, SamplerSettings } from '@/types';
 
@@ -66,6 +68,7 @@ function SamplerSlider({
 }
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const {
     connection,
     userName,
@@ -89,6 +92,8 @@ export function SettingsPage() {
     setStreamingEnabled,
     thinkingEnabled,
     setThinkingEnabled,
+    uiLanguage,
+    setUiLanguage,
   } = useAppStore();
   const [localUserName, setLocalUserName] = useState(userName);
   const [localPersona, setLocalPersona] = useState(userPersona);
@@ -163,7 +168,7 @@ export function SettingsPage() {
     const id = `preset-${Date.now()}`;
     const newPreset: SamplerPreset = {
       id,
-      name: `Пресет ${samplerPresets.length + 1}`,
+      name: t('settings.newPresetName', { number: samplerPresets.length + 1 }),
       ...DEFAULT_SAMPLER_SETTINGS,
     };
     addPreset(newPreset);
@@ -193,33 +198,40 @@ export function SettingsPage() {
     knownModels.add(connection.model);
   }
 
+  const uiLangOptions: { value: UiLanguage; label: string }[] = [
+    { value: 'ru', label: 'RU' },
+    { value: 'en', label: 'EN' },
+  ];
+
   return (
     <div className="max-w-4xl mx-auto w-full flex flex-col gap-4 sm:gap-6 pb-8 flex-1 overflow-y-auto p-3 sm:p-5">
       {/* User Persona section */}
       <section className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <User size={15} className="text-[var(--color-primary)]" />
-          <h2 className="text-sm font-semibold text-[var(--color-text)]">Персона пользователя</h2>
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">{t('settings.userPersonaTitle')}</h2>
         </div>
 
         <div>
-          <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">Имя</label>
+          <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">{t('settings.nameLabel')}</label>
           <input
             type="text"
             value={localUserName}
             onChange={(e) => setLocalUserName(e.target.value)}
             className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] transition-colors"
-            placeholder="Ваше имя..."
+            placeholder={t('settings.namePlaceholder')}
           />
         </div>
 
         <div>
-          <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">Описание персоны</label>
+          <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">
+            {t('settings.personaDescriptionLabel')}
+          </label>
           <textarea
             value={localPersona}
             onChange={(e) => setLocalPersona(e.target.value)}
             className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] transition-colors resize-none min-h-24"
-            placeholder="Описание вашего персонажа для RP (возраст, внешность, характер)..."
+            placeholder={t('settings.personaDescriptionPlaceholder')}
             rows={4}
           />
         </div>
@@ -227,10 +239,10 @@ export function SettingsPage() {
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={handleSavePersona}>
             <Save size={13} />
-            Сохранить
+            {t('common.save')}
           </Button>
           {savedSection === 'persona' && (
-            <span className="text-xs text-[var(--color-accent)] animate-pulse">Сохранено!</span>
+            <span className="text-xs text-[var(--color-accent)] animate-pulse">{t('common.saved')}</span>
           )}
         </div>
       </section>
@@ -239,11 +251,11 @@ export function SettingsPage() {
       <section className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <FileText size={15} className="text-[var(--color-primary)]" />
-          <h2 className="text-sm font-semibold text-[var(--color-text)]">Системный промпт</h2>
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">{t('settings.systemPromptTitle')}</h2>
         </div>
 
         <div className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-2)] rounded-lg px-3 py-2">
-          Переменные: <code className="text-[var(--color-primary)]">{'{{char}}'}</code>,{' '}
+          {t('settings.variablesLabel')} <code className="text-[var(--color-primary)]">{'{{char}}'}</code>,{' '}
           <code className="text-[var(--color-primary)]">{'{{user}}'}</code>,{' '}
           <code className="text-[var(--color-primary)]">{'{{description}}'}</code>,{' '}
           <code className="text-[var(--color-primary)]">{'{{personality}}'}</code>,{' '}
@@ -261,28 +273,50 @@ export function SettingsPage() {
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={handleSavePrompt}>
             <Save size={13} />
-            Сохранить
+            {t('common.save')}
           </Button>
           <Button size="sm" variant="ghost" onClick={handleResetPrompt}>
             <RotateCcw size={13} />
-            Сбросить
+            {t('common.reset')}
           </Button>
           {savedSection === 'prompt' && (
-            <span className="text-xs text-[var(--color-accent)] animate-pulse">Сохранено!</span>
+            <span className="text-xs text-[var(--color-accent)] animate-pulse">{t('common.saved')}</span>
           )}
         </div>
 
+        {/* UI Language */}
         <div className="border-t border-[var(--color-border)] pt-4 flex flex-col gap-2">
-          <label className="text-xs font-medium text-[var(--color-text-muted)]">Язык ответов модели</label>
-          <p className="text-[10px] text-[var(--color-text-muted)] opacity-60">
-            Добавляет напоминание о языке перед каждым ответом модели
-          </p>
+          <label className="text-xs font-medium text-[var(--color-text-muted)]">{t('settings.uiLanguage')}</label>
+          <p className="text-[10px] text-[var(--color-text-muted)] opacity-60">{t('settings.uiLanguageHint')}</p>
+          <div className="flex items-center gap-1 bg-[var(--color-surface-2)] rounded-lg p-0.5 w-fit">
+            {uiLangOptions.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setUiLanguage(value)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  uiLanguage === value
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Response Language */}
+        <div className="border-t border-[var(--color-border)] pt-4 flex flex-col gap-2">
+          <label className="text-xs font-medium text-[var(--color-text-muted)]">
+            {t('settings.responseLanguageLabel')}
+          </label>
+          <p className="text-[10px] text-[var(--color-text-muted)] opacity-60">{t('settings.responseLanguageHint')}</p>
           <div className="flex items-center gap-1 bg-[var(--color-surface-2)] rounded-lg p-0.5 w-fit">
             {(
               [
                 ['ru', 'RU'],
                 ['en', 'EN'],
-                ['none', 'Авто'],
+                ['none', t('settings.responseLanguageAuto')],
               ] as const
             ).map(([val, label]) => (
               <button
@@ -302,9 +336,9 @@ export function SettingsPage() {
 
         <div className="border-t border-[var(--color-border)] pt-4 flex items-center justify-between">
           <div>
-            <label className="text-xs font-medium text-[var(--color-text-muted)]">Потоковый вывод</label>
+            <label className="text-xs font-medium text-[var(--color-text-muted)]">{t('settings.streamingLabel')}</label>
             <p className="text-[10px] text-[var(--color-text-muted)] opacity-60 mt-0.5">
-              Показывать текст по мере генерации (стриминг)
+              {t('settings.streamingHint')}
             </p>
           </div>
           <button
@@ -325,10 +359,8 @@ export function SettingsPage() {
 
         <div className="border-t border-[var(--color-border)] pt-4 flex items-center justify-between">
           <div>
-            <label className="text-xs font-medium text-[var(--color-text-muted)]">Режим размышлений (Thinking)</label>
-            <p className="text-[10px] text-[var(--color-text-muted)] opacity-60 mt-0.5">
-              Разрешить модели размышлять в &lt;think&gt; блоках (Qwen3, QwQ и др.)
-            </p>
+            <label className="text-xs font-medium text-[var(--color-text-muted)]">{t('settings.thinkingLabel')}</label>
+            <p className="text-[10px] text-[var(--color-text-muted)] opacity-60 mt-0.5">{t('settings.thinkingHint')}</p>
           </div>
           <button
             onClick={() => setThinkingEnabled(!thinkingEnabled)}
@@ -352,7 +384,7 @@ export function SettingsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sliders size={15} className="text-[var(--color-primary)]" />
-            <h2 className="text-sm font-semibold text-[var(--color-text)]">Пресеты сэмплера</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)]">{t('settings.samplerPresetsTitle')}</h2>
           </div>
         </div>
 
@@ -370,7 +402,7 @@ export function SettingsPage() {
             ))}
           </select>
 
-          <Button size="sm" variant="ghost" onClick={handleCreatePreset} title="Создать пресет">
+          <Button size="sm" variant="ghost" onClick={handleCreatePreset} title={t('settings.createPresetTooltip')}>
             <Plus size={13} />
           </Button>
 
@@ -400,7 +432,7 @@ export function SettingsPage() {
               </button>
             </div>
           ) : (
-            <Button size="sm" variant="ghost" onClick={startRename} title="Переименовать">
+            <Button size="sm" variant="ghost" onClick={startRename} title={t('common.rename')}>
               <Pencil size={13} />
             </Button>
           )}
@@ -410,19 +442,19 @@ export function SettingsPage() {
             variant="ghost"
             onClick={handleDeletePreset}
             disabled={samplerPresets.length <= 1}
-            title="Удалить пресет"
+            title={t('settings.deletePresetTooltip')}
           >
             <Trash2 size={13} />
           </Button>
 
           <div className="h-4 w-px bg-[var(--color-border)]" />
 
-          <Button size="sm" variant="ghost" onClick={handleResetPreset} title="Сбросить значения">
+          <Button size="sm" variant="ghost" onClick={handleResetPreset} title={t('settings.resetValuesTooltip')}>
             <RotateCcw size={13} />
-            По умолчанию
+            {t('settings.resetToDefaults')}
           </Button>
           {savedSection === 'samplers' && (
-            <span className="text-xs text-[var(--color-accent)] animate-pulse">Сброшено!</span>
+            <span className="text-xs text-[var(--color-accent)] animate-pulse">{t('common.resetDone')}</span>
           )}
         </div>
 
@@ -430,109 +462,115 @@ export function SettingsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SamplerSlider
             label="Temperature"
-            tooltip="Креативность ответов. Низкие значения (0.1–0.5) — предсказуемый текст, высокие (0.8–1.5) — разнообразный и неожиданный. Слишком высокие значения могут давать бессвязный текст."
+            tooltip={t('samplers.temperatureTooltip')}
             value={activePreset.temperature}
             onChange={(v) => handleSamplerChange('temperature', v)}
             min={0.1}
             max={2.0}
             step={0.05}
-            hint="Творческость. 0.7–1.2 для RP"
+            hint={t('samplers.temperatureHint')}
           />
           <SamplerSlider
             label="Min P"
-            tooltip="Отсекает токены, вероятность которых ниже заданной доли от самого вероятного. Например, 0.05 = убрать всё, что менее 5% от лучшего варианта. Хорошо убирает мусор, сохраняя разнообразие."
+            tooltip={t('samplers.minPTooltip')}
             value={activePreset.min_p}
             onChange={(v) => handleSamplerChange('min_p', v)}
             min={0}
             max={0.5}
             step={0.01}
-            hint="Минимальная вероятность токена. 0.02–0.1"
+            hint={t('samplers.minPHint')}
           />
           <SamplerSlider
             label="Top P"
-            tooltip="Nucleus sampling — выбирает из наименьшего набора токенов, чья суммарная вероятность ≥ значения. 1.0 = все токены, 0.9 = верхние 90% вероятности. Чем ниже, тем консервативнее."
+            tooltip={t('samplers.topPTooltip')}
             value={activePreset.top_p}
             onChange={(v) => handleSamplerChange('top_p', v)}
             min={0}
             max={1}
             step={0.05}
-            hint="Ядро сэмплирования. 1 = выкл."
+            hint={t('samplers.topPHint')}
           />
           <SamplerSlider
             label="Top K"
-            tooltip="Ограничивает выбор только K самыми вероятными токенами. 0 = без ограничения, 40 = только топ-40 вариантов. Грубый фильтр, лучше использовать Min P."
+            tooltip={t('samplers.topKTooltip')}
             value={activePreset.top_k}
             onChange={(v) => handleSamplerChange('top_k', v)}
             min={0}
             max={200}
             step={1}
-            hint="Кол-во кандидатов. 0 = выкл."
+            hint={t('samplers.topKHint')}
           />
           <SamplerSlider
             label="Rep. Penalty"
-            tooltip="Штраф за повторение токенов. 1.0 = выключено, 1.05–1.10 = мягкий штраф, >1.15 = агрессивный (может ломать текст). Помогает избежать зацикливания на одних и тех же фразах."
+            tooltip={t('samplers.repPenTooltip')}
             value={activePreset.rep_pen}
             onChange={(v) => handleSamplerChange('rep_pen', v)}
             min={1}
             max={1.5}
             step={0.01}
-            hint="Штраф за повторы. 1.02–1.1"
+            hint={t('samplers.repPenHint')}
           />
           <SamplerSlider
             label="Rep. Pen. Range"
-            tooltip="Сколько последних токенов учитывать для штрафа за повторение. 0 = отключено, 2048 = последние ~2048 токенов (включая предыдущие сообщения в контексте)."
+            tooltip={t('samplers.repPenRangeTooltip')}
             value={activePreset.rep_pen_range}
             onChange={(v) => handleSamplerChange('rep_pen_range', v)}
             min={0}
             max={8192}
             step={128}
-            hint="Окно проверки повторов"
+            hint={t('samplers.repPenRangeHint')}
           />
           <SamplerSlider
             label="Presence Penalty"
-            tooltip="Штраф за присутствие токена в предыдущем тексте. В отличие от Rep. Penalty, штрафует одинаково вне зависимости от количества повторений. 0 = выключено, 0.1–0.5 = мягкий, >1.0 = агрессивный."
+            tooltip={t('samplers.presencePenaltyTooltip')}
             value={activePreset.presence_penalty}
             onChange={(v) => handleSamplerChange('presence_penalty', v)}
             min={0}
             max={2}
             step={0.05}
-            hint="Штраф за присутствие. 0–0.5"
+            hint={t('samplers.presencePenaltyHint')}
           />
           <SamplerSlider
             label="Max Tokens"
-            tooltip="Максимальная длина ответа модели в токенах. 1 токен ≈ 3–4 символа. 256 = короткий ответ, 512–1024 = развёрнутый. Для моделей с thinking (Qwen3) рекомендуется 4096–32768, т.к. размышления тоже расходуют токены."
+            tooltip={t('samplers.maxTokensTooltip')}
             value={activePreset.max_length}
             onChange={(v) => handleSamplerChange('max_length', v)}
             min={64}
             max={32768}
             step={64}
-            hint="Макс. длина ответа"
+            hint={t('samplers.maxTokensHint')}
           />
           <SamplerSlider
             label="Context Size"
-            tooltip="Размер контекстного окна в токенах — сколько текста (системный промпт + история чата) модель «видит». Зависит от модели: 4096, 8192, 16K и т.д. Больше = больше памяти, но медленнее."
+            tooltip={t('samplers.contextSizeTooltip')}
             value={activePreset.max_context_length}
             onChange={(v) => handleSamplerChange('max_context_length', v)}
             min={2048}
             max={131072}
             step={1024}
-            hint="Размер контекста модели"
+            hint={t('samplers.contextSizeHint')}
           />
 
           {/* Context trim strategy */}
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <div className="flex items-center gap-2">
-              <label className="text-xs text-[var(--color-text-muted)]">Обрезка контекста</label>
-              <span className="text-[9px] text-[var(--color-text-muted)] opacity-50">Что удалять при заполнении</span>
+              <label className="text-xs text-[var(--color-text-muted)]">{t('samplers.contextTrimLabel')}</label>
+              <span className="text-[9px] text-[var(--color-text-muted)] opacity-50">
+                {t('samplers.contextTrimHintShort')}
+              </span>
             </div>
             <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)] w-fit">
               {[
                 {
                   key: 'trim_start' as ContextTrimStrategy,
-                  label: 'Начало',
-                  hint: 'Старые сообщения удаляются первыми',
+                  label: t('samplers.trimStart'),
+                  hint: t('samplers.trimStartHint'),
                 },
-                { key: 'trim_middle' as ContextTrimStrategy, label: 'Середина', hint: 'Начало и конец сохраняются' },
+                {
+                  key: 'trim_middle' as ContextTrimStrategy,
+                  label: t('samplers.trimMiddle'),
+                  hint: t('samplers.trimMiddleHint'),
+                },
               ].map((opt) => (
                 <button
                   key={opt.key}
@@ -557,11 +595,9 @@ export function SettingsPage() {
         <section className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-5 flex flex-col gap-4">
           <div className="flex items-center gap-2">
             <Link size={15} className="text-[var(--color-primary)]" />
-            <h2 className="text-sm font-semibold text-[var(--color-text)]">Привязка пресетов к моделям</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text)]">{t('settings.modelPresetMappingTitle')}</h2>
           </div>
-          <div className="text-xs text-[var(--color-text-muted)]">
-            При подключении модели автоматически выбирается привязанный пресет.
-          </div>
+          <div className="text-xs text-[var(--color-text-muted)]">{t('settings.modelPresetMappingHint')}</div>
           <div className="flex flex-col gap-2">
             {[...knownModels].map((model) => (
               <div key={model} className="flex items-center gap-3">
@@ -573,7 +609,7 @@ export function SettingsPage() {
                   onChange={(e) => setModelPreset(model, e.target.value || null)}
                   className="w-40 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] cursor-pointer"
                 >
-                  <option value="">Не задан</option>
+                  <option value="">{t('settings.presetNotSet')}</option>
                   {samplerPresets.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -590,16 +626,16 @@ export function SettingsPage() {
       <section className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-5 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <Info size={15} className="text-[var(--color-primary)]" />
-          <h2 className="text-sm font-semibold text-[var(--color-text)]">О приложении</h2>
+          <h2 className="text-sm font-semibold text-[var(--color-text)]">{t('settings.aboutTitle')}</h2>
         </div>
         <div className="text-xs text-[var(--color-text-muted)] flex flex-col gap-1.5">
-          <div>Immersion AI — современный интерфейс для RP</div>
+          <div>{t('settings.aboutDescription')}</div>
           <div>
-            Бэкенд:{' '}
+            {t('settings.aboutBackend')}{' '}
             <span className="font-mono bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded">http://localhost:8000</span>
           </div>
-          <div>Фронтенд: React 18 + TypeScript + Vite + Tailwind</div>
-          <div>Стейт: Zustand + TanStack Query</div>
+          <div>{t('settings.aboutFrontend')}</div>
+          <div>{t('settings.aboutState')}</div>
         </div>
       </section>
     </div>
