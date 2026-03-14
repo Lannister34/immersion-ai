@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { ArrowLeft, ArrowRight, RefreshCw, Check, Sparkles, X, Upload } from 'lucide-react';
-import { Modal } from '@/components/ui/Modal';
+import { ArrowLeft, ArrowRight, Check, RefreshCw, Sparkles, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createCharacter, generateAvatarPrompt, generateCharacter, regenerateCharacterField } from '@/api';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
-import { generateCharacter, regenerateCharacterField, generateAvatarPrompt, createCharacter } from '@/api';
 import { useAppStore } from '@/stores';
 import type { GeneratedCharacter } from '@/types';
 
@@ -25,8 +25,8 @@ function StepIndicator({ current, steps }: { current: number; steps: string[] })
               i < current
                 ? 'bg-[var(--color-accent)] text-white'
                 : i === current
-                ? 'bg-[var(--color-primary)] text-white'
-                : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
+                  ? 'bg-[var(--color-primary)] text-white'
+                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
             }`}
           >
             {i < current ? <Check size={12} /> : i + 1}
@@ -38,9 +38,7 @@ function StepIndicator({ current, steps }: { current: number; steps: string[] })
           >
             {label}
           </span>
-          {i < steps.length - 1 && (
-            <div className="w-8 h-px bg-[var(--color-border)] flex-shrink-0" />
-          )}
+          {i < steps.length - 1 && <div className="w-8 h-px bg-[var(--color-border)] flex-shrink-0" />}
         </div>
       ))}
     </div>
@@ -98,9 +96,10 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
       setCharacter(result);
       setStep('preview');
     } catch (err) {
-      const msg = err instanceof TypeError && err.message === 'Failed to fetch'
-        ? 'Не удалось подключиться к серверу. Проверьте, что бэкенд запущен.'
-        : `Ошибка генерации: ${err instanceof Error ? err.message : String(err)}`;
+      const msg =
+        err instanceof TypeError && err.message === 'Failed to fetch'
+          ? 'Не удалось подключиться к серверу. Проверьте, что бэкенд запущен.'
+          : `Ошибка генерации: ${err instanceof Error ? err.message : String(err)}`;
       setGenerationError(msg);
       setStep('concept');
     }
@@ -111,7 +110,9 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
     setRegeneratingField(field);
     try {
       const value = await regenerateCharacterField(field, character, concept, language);
-      setCharacter((prev) => prev ? { ...prev, [field]: field === 'tags' ? value.split(',').map((t) => t.trim()) : value } : prev);
+      setCharacter((prev) =>
+        prev ? { ...prev, [field]: field === 'tags' ? value.split(',').map((t) => t.trim()) : value } : prev,
+      );
     } catch {
       // ignore
     } finally {
@@ -133,12 +134,15 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
     }
   };
 
-  const setAvatarFromFile = useCallback((file: File) => {
-    if (!file.type.startsWith('image/')) return;
-    setAvatarFile(file);
-    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-    setAvatarPreview(URL.createObjectURL(file));
-  }, [avatarPreview]);
+  const setAvatarFromFile = useCallback(
+    (file: File) => {
+      if (!file.type.startsWith('image/')) return;
+      setAvatarFile(file);
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+      setAvatarPreview(URL.createObjectURL(file));
+    },
+    [avatarPreview],
+  );
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -165,7 +169,10 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
     e.preventDefault();
     e.stopPropagation();
     dragCounter.current--;
-    if (dragCounter.current <= 0) { setIsDragging(false); dragCounter.current = 0; }
+    if (dragCounter.current <= 0) {
+      setIsDragging(false);
+      dragCounter.current = 0;
+    }
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -173,14 +180,17 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    dragCounter.current = 0;
-    const file = e.dataTransfer?.files?.[0];
-    if (file?.type.startsWith('image/')) setAvatarFromFile(file);
-  }, [setAvatarFromFile]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      dragCounter.current = 0;
+      const file = e.dataTransfer?.files?.[0];
+      if (file?.type.startsWith('image/')) setAvatarFromFile(file);
+    },
+    [setAvatarFromFile],
+  );
 
   // Ctrl+V paste handler (active during avatar step)
   useEffect(() => {
@@ -191,7 +201,10 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
       for (const item of items) {
         if (item.type.startsWith('image/')) {
           const file = item.getAsFile();
-          if (file) { setAvatarFromFile(file); break; }
+          if (file) {
+            setAvatarFromFile(file);
+            break;
+          }
         }
       }
     };
@@ -215,7 +228,7 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
   };
 
   const updateField = (field: keyof GeneratedCharacter, value: string | string[]) => {
-    setCharacter((prev) => prev ? { ...prev, [field]: value } : prev);
+    setCharacter((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
   return (
@@ -226,9 +239,7 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
       {step === 'concept' && (
         <div className="p-5 flex flex-col gap-4">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-text)] mb-1">
-              Опишите персонажа
-            </h3>
+            <h3 className="text-sm font-semibold text-[var(--color-text)] mb-1">Опишите персонажа</h3>
             <p className="text-xs text-[var(--color-text-muted)]">
               Пару предложений достаточно. LLM создаст полную карточку персонажа.
             </p>
@@ -268,7 +279,11 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
                 EN
               </button>
             </div>
-            <Button onClick={handleGenerate} disabled={!concept.trim() || !connection.connected} title={!connection.connected ? 'Нет подключения к API' : undefined}>
+            <Button
+              onClick={handleGenerate}
+              disabled={!concept.trim() || !connection.connected}
+              title={!connection.connected ? 'Нет подключения к API' : undefined}
+            >
               <Sparkles size={15} />
               Сгенерировать
             </Button>
@@ -385,15 +400,8 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
               </p>
 
               <label className="cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarFileChange}
-                />
-                <div
-                  className="rounded-lg font-medium transition-all duration-150 cursor-pointer flex items-center gap-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text)] border border-[var(--color-border)] px-3 py-1.5 text-sm w-full"
-                >
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFileChange} />
+                <div className="rounded-lg font-medium transition-all duration-150 cursor-pointer flex items-center gap-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text)] border border-[var(--color-border)] px-3 py-1.5 text-sm w-full">
                   <Upload size={14} />
                   Загрузить изображение
                 </div>
@@ -456,9 +464,7 @@ export function CharacterWizard({ open, onClose, onComplete }: CharacterWizardPr
             />
             <div className="flex flex-col gap-1.5">
               <div className="font-semibold text-[var(--color-text)]">{character.name}</div>
-              <div className="text-xs text-[var(--color-text-muted)] line-clamp-3">
-                {character.description}
-              </div>
+              <div className="text-xs text-[var(--color-text-muted)] line-clamp-3">{character.description}</div>
               {character.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1">
                   {character.tags.map((t) => (

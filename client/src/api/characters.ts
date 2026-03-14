@@ -13,10 +13,7 @@ export async function getCharacterByAvatar(avatar: string): Promise<Character | 
   }
 }
 
-export async function createCharacter(
-  character: Omit<Character, 'avatar'>,
-  avatarFile?: File,
-): Promise<void> {
+export async function createCharacter(character: Omit<Character, 'avatar'>, avatarFile?: File): Promise<void> {
   await apiPostForm('/api/characters/create', {
     ch_name: character.name,
     description: character.description,
@@ -46,10 +43,7 @@ export async function editCharacter(
   });
 }
 
-export async function deleteCharacter(
-  avatarUrl: string,
-  deleteChats = true,
-): Promise<void> {
+export async function deleteCharacter(avatarUrl: string, deleteChats = true): Promise<void> {
   await apiPost('/api/characters/delete', {
     avatar_url: avatarUrl,
     delete_chats: deleteChats,

@@ -1,19 +1,47 @@
-import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Plus, FileText, Search, ArrowLeft, Trash2, AlertTriangle, Save, Tag,
-  Sparkles, Loader2, User, BookOpen,
-} from 'lucide-react';
 import { clsx } from 'clsx';
-import { getScenarios, getScenario, createScenario, saveScenario, deleteScenario, generateScenario, getCharacters, getWorlds, getWorldInfo } from '@/api';
-import { useAppStore } from '@/stores';
-import type { Scenario } from '@/types';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BookOpen,
+  FileText,
+  Loader2,
+  Plus,
+  Save,
+  Search,
+  Sparkles,
+  Tag,
+  Trash2,
+  User,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  createScenario,
+  deleteScenario,
+  generateScenario,
+  getCharacters,
+  getScenario,
+  getScenarios,
+  getWorldInfo,
+  getWorlds,
+  saveScenario,
+} from '@/api';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { useAppStore } from '@/stores';
+import type { Scenario } from '@/types';
 
 // ── Scenario Detail (right panel) ───────────────────────────────────────────
 
-function ScenarioDetail({ name, onDeleted, onRenamed }: { name: string; onDeleted: () => void; onRenamed: (newName: string) => void }) {
+function ScenarioDetail({
+  name,
+  onDeleted,
+  onRenamed,
+}: {
+  name: string;
+  onDeleted: () => void;
+  onRenamed: (newName: string) => void;
+}) {
   const connection = useAppStore((s) => s.connection);
   const userName = useAppStore((s) => s.userName);
   const userPersona = useAppStore((s) => s.userPersona);
@@ -132,26 +160,20 @@ function ScenarioDetail({ name, onDeleted, onRenamed }: { name: string; onDelete
             <FileText size={16} className="text-[var(--color-primary)] flex-shrink-0" />
             <input
               value={editName}
-              onChange={(e) => { setEditName(e.target.value); setDirty(true); }}
+              onChange={(e) => {
+                setEditName(e.target.value);
+                setDirty(true);
+              }}
               className="text-base font-semibold text-[var(--color-text)] bg-transparent border-b border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] outline-none transition-colors w-full min-w-0"
               placeholder="Название сценария"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => setDeleteOpen(true)}
-            >
+            <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
               <Trash2 size={13} />
               Удалить
             </Button>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saving}
-              loading={saving}
-            >
+            <Button size="sm" onClick={handleSave} disabled={saving} loading={saving}>
               <Save size={13} />
               Сохранить
             </Button>
@@ -170,24 +192,22 @@ function ScenarioDetail({ name, onDeleted, onRenamed }: { name: string; onDelete
               className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 disabled:opacity-50 transition-colors cursor-pointer"
               title="Сгенерировать контент на основе описания"
             >
-              {generatingField === 'content' ? (
-                <Loader2 size={11} className="animate-spin" />
-              ) : (
-                <Sparkles size={11} />
-              )}
+              {generatingField === 'content' ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
               {generatingField === 'content' ? 'Генерация...' : 'Сгенерировать'}
             </button>
           </div>
           <textarea
             value={editContent}
-            onChange={(e) => { setEditContent(e.target.value); setDirty(true); setRegenError(''); }}
+            onChange={(e) => {
+              setEditContent(e.target.value);
+              setDirty(true);
+              setRegenError('');
+            }}
             placeholder="Полный текст сценария, который будет подставлен в промпт через {{scenario}}..."
             rows={14}
             className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-y leading-relaxed"
           />
-          {regenError && (
-            <div className="text-xs text-[var(--color-danger)]">{regenError}</div>
-          )}
+          {regenError && <div className="text-xs text-[var(--color-danger)]">{regenError}</div>}
         </div>
 
         {/* Tags */}
@@ -203,17 +223,16 @@ function ScenarioDetail({ name, onDeleted, onRenamed }: { name: string; onDelete
               className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 disabled:opacity-50 transition-colors cursor-pointer"
               title="Сгенерировать теги на основе описания"
             >
-              {generatingField === 'tags' ? (
-                <Loader2 size={11} className="animate-spin" />
-              ) : (
-                <Sparkles size={11} />
-              )}
+              {generatingField === 'tags' ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
               {generatingField === 'tags' ? 'Генерация...' : 'Сгенерировать'}
             </button>
           </div>
           <input
             value={editTags}
-            onChange={(e) => { setEditTags(e.target.value); setDirty(true); }}
+            onChange={(e) => {
+              setEditTags(e.target.value);
+              setDirty(true);
+            }}
             placeholder="романтика, повседневность, фэнтези..."
             className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
           />
@@ -235,12 +254,14 @@ function ScenarioDetail({ name, onDeleted, onRenamed }: { name: string; onDelete
               <AlertTriangle size={20} className="text-[var(--color-danger)]" />
             </div>
             <div className="text-sm text-[var(--color-text-muted)]">
-              Вы уверены, что хотите удалить сценарий <strong className="text-[var(--color-text)]">{scenario.name}</strong>?
-              Это действие необратимо.
+              Вы уверены, что хотите удалить сценарий{' '}
+              <strong className="text-[var(--color-text)]">{scenario.name}</strong>? Это действие необратимо.
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
-            <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>Отмена</Button>
+            <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>
+              Отмена
+            </Button>
             <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -311,7 +332,10 @@ function CreateScenarioModal({
     setPreview(null);
   };
 
-  const handleClose = () => { reset(); onClose(); };
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -336,9 +360,7 @@ function CreateScenarioModal({
     setError('');
     try {
       // Build optional character context
-      const selectedChar = selectedCharAvatar
-        ? characters.find((c) => c.avatar === selectedCharAvatar)
-        : undefined;
+      const selectedChar = selectedCharAvatar ? characters.find((c) => c.avatar === selectedCharAvatar) : undefined;
       const charContext = selectedChar
         ? { name: selectedChar.name, description: selectedChar.description, personality: selectedChar.personality }
         : undefined;
@@ -374,7 +396,10 @@ function CreateScenarioModal({
       await createScenario({
         name: scenarioName,
         content: preview.content,
-        tags: preview.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        tags: preview.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
         concept: concept.trim(),
       });
       reset();
@@ -388,7 +413,12 @@ function CreateScenarioModal({
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title={preview ? 'Сгенерированный сценарий' : 'Новый сценарий'} size={preview ? 'md' : 'sm'}>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={preview ? 'Сгенерированный сценарий' : 'Новый сценарий'}
+      size={preview ? 'md' : 'sm'}
+    >
       <div className="flex flex-col gap-4 p-5">
         {/* Mode toggle */}
         <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)]">
@@ -422,24 +452,26 @@ function CreateScenarioModal({
         </div>
 
         {mode === 'manual' ? (
-          <>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">Название</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Встреча в библиотеке..."
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                autoFocus
-                className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
-              />
-            </div>
-          </>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+              Название
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Встреча в библиотеке..."
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              autoFocus
+              className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
+            />
+          </div>
         ) : preview ? (
           /* Generated preview — review and edit before saving */
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">Название</label>
+              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                Название
+              </label>
               <input
                 value={preview.name}
                 onChange={(e) => setPreview({ ...preview, name: e.target.value })}
@@ -447,7 +479,9 @@ function CreateScenarioModal({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">Контент</label>
+              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                Контент
+              </label>
               <textarea
                 value={preview.content}
                 onChange={(e) => setPreview({ ...preview, content: e.target.value })}
@@ -472,7 +506,9 @@ function CreateScenarioModal({
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">Концепция</label>
+              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                Концепция
+              </label>
               <textarea
                 value={concept}
                 onChange={(e) => setConcept(e.target.value)}
@@ -497,7 +533,9 @@ function CreateScenarioModal({
                 >
                   <option value="">Не выбран</option>
                   {characters.map((c) => (
-                    <option key={c.avatar} value={c.avatar}>{c.name}</option>
+                    <option key={c.avatar} value={c.avatar}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -513,7 +551,9 @@ function CreateScenarioModal({
                 >
                   <option value="">Не выбран</option>
                   {worlds.map((w) => (
-                    <option key={w} value={w}>{w}</option>
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -526,11 +566,11 @@ function CreateScenarioModal({
           </div>
         )}
 
-        {error && (
-          <div className="text-xs text-[var(--color-danger)]">{error}</div>
-        )}
+        {error && <div className="text-xs text-[var(--color-danger)]">{error}</div>}
         <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
-          <Button variant="secondary" onClick={handleClose}>Отмена</Button>
+          <Button variant="secondary" onClick={handleClose}>
+            Отмена
+          </Button>
           {mode === 'manual' ? (
             <Button onClick={handleCreate} disabled={!name.trim() || creating} loading={creating}>
               <Plus size={14} />
@@ -540,14 +580,13 @@ function CreateScenarioModal({
             <>
               <Button
                 variant="secondary"
-                onClick={() => { setPreview(null); handleGenerate(); }}
+                onClick={() => {
+                  setPreview(null);
+                  handleGenerate();
+                }}
                 disabled={generating}
               >
-                {generating ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Sparkles size={14} />
-                )}
+                {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                 Перегенерировать
               </Button>
               <Button onClick={handleSaveGenerated} disabled={creating} loading={creating}>
@@ -556,12 +595,12 @@ function CreateScenarioModal({
               </Button>
             </>
           ) : (
-            <Button onClick={handleGenerate} disabled={!concept.trim() || generating || !connection.connected} title={!connection.connected ? 'Нет подключения к API' : undefined}>
-              {generating ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Sparkles size={14} />
-              )}
+            <Button
+              onClick={handleGenerate}
+              disabled={!concept.trim() || generating || !connection.connected}
+              title={!connection.connected ? 'Нет подключения к API' : undefined}
+            >
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
               {generating ? 'Генерация...' : 'Сгенерировать'}
             </Button>
           )}
@@ -601,10 +640,12 @@ export function ScenariosPage() {
   return (
     <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-0 overflow-y-auto p-3 sm:p-5">
       {/* Sidebar list */}
-      <div className={clsx(
-        'flex-shrink-0 flex flex-col gap-3',
-        selectedScenario ? 'hidden sm:flex sm:w-56' : 'w-full sm:w-56',
-      )}>
+      <div
+        className={clsx(
+          'flex-shrink-0 flex flex-col gap-3',
+          selectedScenario ? 'hidden sm:flex sm:w-56' : 'w-full sm:w-56',
+        )}
+      >
         <Button onClick={() => setCreateOpen(true)} size="sm">
           <Plus size={14} />
           Создать
@@ -651,7 +692,10 @@ export function ScenariosPage() {
                 {s.tags.length > 0 && (
                   <div className="flex gap-1 pl-[21px] flex-wrap">
                     {s.tags.slice(0, 3).map((tag) => (
-                      <span key={tag} className="text-[8px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-2)] text-[var(--color-text-muted)]">
+                      <span
+                        key={tag}
+                        className="text-[8px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-2)] text-[var(--color-text-muted)]"
+                      >
                         {tag}
                       </span>
                     ))}
@@ -672,8 +716,7 @@ export function ScenariosPage() {
               onClick={() => setSelectedScenario(null)}
               className="sm:hidden flex items-center gap-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors cursor-pointer"
             >
-              <ArrowLeft size={14} />
-              К списку сценариев
+              <ArrowLeft size={14} />К списку сценариев
             </button>
             <ScenarioDetail
               name={selectedScenario}
@@ -692,11 +735,7 @@ export function ScenariosPage() {
       </div>
 
       {/* Create modal */}
-      <CreateScenarioModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={handleCreated}
-      />
+      <CreateScenarioModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
     </div>
   );
 }

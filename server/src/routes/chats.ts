@@ -1,6 +1,6 @@
-import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { Router } from 'express';
 import writeFileAtomic from 'write-file-atomic';
 import { dirs } from '../lib/paths.js';
 
@@ -17,9 +17,7 @@ router.post('/get', async (req, res) => {
     if (!avatar_url || !file_name) return res.sendStatus(400);
 
     const charName = path.parse(avatar_url).name;
-    const chatFileName = file_name.endsWith('.jsonl')
-      ? file_name
-      : `${file_name}.jsonl`;
+    const chatFileName = file_name.endsWith('.jsonl') ? file_name : `${file_name}.jsonl`;
     const filePath = path.join(dirs.chats, charName, chatFileName);
 
     try {
@@ -65,9 +63,7 @@ router.post('/save', (req, res) => {
       fs.mkdirSync(chatDir, { recursive: true });
     }
 
-    const chatFileName = file_name.endsWith('.jsonl')
-      ? file_name
-      : `${file_name}.jsonl`;
+    const chatFileName = file_name.endsWith('.jsonl') ? file_name : `${file_name}.jsonl`;
     const filePath = path.join(chatDir, chatFileName);
 
     // Serialize each message as a JSON line
@@ -95,7 +91,7 @@ router.post('/all', async (_req, res) => {
     // Also read character dir to map charName → avatar filename
     let charFiles: string[];
     try {
-      charFiles = (await fs.promises.readdir(dirs.characters)).filter(f => f.endsWith('.png'));
+      charFiles = (await fs.promises.readdir(dirs.characters)).filter((f) => f.endsWith('.png'));
     } catch {
       charFiles = [];
     }
@@ -115,66 +111,78 @@ router.post('/all', async (_req, res) => {
       fileSize: number;
     }> = [];
 
-    await Promise.all(charDirs.map(async (charName) => {
-      const charDir = path.join(chatsRoot, charName);
-      let dirStat;
-      try {
-        dirStat = await fs.promises.stat(charDir);
-      } catch { return; }
-      if (!dirStat.isDirectory()) return;
-
-      const avatar = avatarMap.get(charName) ?? `${charName}.png`;
-      let chatFiles: string[];
-      try {
-        chatFiles = (await fs.promises.readdir(charDir)).filter(f => f.endsWith('.jsonl'));
-      } catch { return; }
-
-      await Promise.all(chatFiles.map(async (fileName) => {
+    await Promise.all(
+      charDirs.map(async (charName) => {
+        const charDir = path.join(chatsRoot, charName);
+        let dirStat: import('fs').Stats;
         try {
-          const filePath = path.join(charDir, fileName);
-          const fileBuf = await fs.promises.readFile(filePath);
-          const fileSize = fileBuf.length;
-          if (fileSize === 0) return;
+          dirStat = await fs.promises.stat(charDir);
+        } catch {
+          return;
+        }
+        if (!dirStat.isDirectory()) return;
 
-          // Count actual newlines for real message count
-          let lineCount = 0;
-          for (let i = 0; i < fileSize; i++) {
-            if (fileBuf[i] === 0x0A) lineCount++;
-          }
-          // If file doesn't end with \n, the last line still counts
-          if (fileBuf[fileSize - 1] !== 0x0A) lineCount++;
-          // First line is chat_metadata → messages = lines - 1
-          const messageCount = Math.max(0, lineCount - 1);
+        const avatar = avatarMap.get(charName) ?? `${charName}.png`;
+        let chatFiles: string[];
+        try {
+          chatFiles = (await fs.promises.readdir(charDir)).filter((f) => f.endsWith('.jsonl'));
+        } catch {
+          return;
+        }
 
-          // Tail-read for last message from already-loaded buffer
-          const tailStart = Math.max(0, fileSize - TAIL_BYTES);
-          const tail = fileBuf.subarray(tailStart).toString('utf-8');
-          const tailLines = tail.split('\n').filter(Boolean);
-
-          let lastMes = '';
-          let lastTimestamp = '';
-          for (let i = tailLines.length - 1; i >= 0; i--) {
+        await Promise.all(
+          chatFiles.map(async (fileName) => {
             try {
-              const parsed = JSON.parse(tailLines[i]);
-              if ('chat_metadata' in parsed) continue;
-              if (parsed.mes && !lastMes) lastMes = parsed.mes;
-              if (parsed.send_date && !lastTimestamp) lastTimestamp = parsed.send_date;
-              if (lastMes && lastTimestamp) break;
-            } catch { /* partial line at start of tail */ }
-          }
+              const filePath = path.join(charDir, fileName);
+              const fileBuf = await fs.promises.readFile(filePath);
+              const fileSize = fileBuf.length;
+              if (fileSize === 0) return;
 
-          results.push({
-            characterAvatar: avatar,
-            characterName: charName,
-            chatFile: path.parse(fileName).name,
-            lastMessage: lastMes.slice(0, 120),
-            lastDate: lastTimestamp || String(Date.now()),
-            messageCount,
-            fileSize,
-          });
-        } catch { /* skip */ }
-      }));
-    }));
+              // Count actual newlines for real message count
+              let lineCount = 0;
+              for (let i = 0; i < fileSize; i++) {
+                if (fileBuf[i] === 0x0a) lineCount++;
+              }
+              // If file doesn't end with \n, the last line still counts
+              if (fileBuf[fileSize - 1] !== 0x0a) lineCount++;
+              // First line is chat_metadata → messages = lines - 1
+              const messageCount = Math.max(0, lineCount - 1);
+
+              // Tail-read for last message from already-loaded buffer
+              const tailStart = Math.max(0, fileSize - TAIL_BYTES);
+              const tail = fileBuf.subarray(tailStart).toString('utf-8');
+              const tailLines = tail.split('\n').filter(Boolean);
+
+              let lastMes = '';
+              let lastTimestamp = '';
+              for (let i = tailLines.length - 1; i >= 0; i--) {
+                try {
+                  const parsed = JSON.parse(tailLines[i]);
+                  if ('chat_metadata' in parsed) continue;
+                  if (parsed.mes && !lastMes) lastMes = parsed.mes;
+                  if (parsed.send_date && !lastTimestamp) lastTimestamp = parsed.send_date;
+                  if (lastMes && lastTimestamp) break;
+                } catch {
+                  /* partial line at start of tail */
+                }
+              }
+
+              results.push({
+                characterAvatar: avatar,
+                characterName: charName,
+                chatFile: path.parse(fileName).name,
+                lastMessage: lastMes.slice(0, 120),
+                lastDate: lastTimestamp || String(Date.now()),
+                messageCount,
+                fileSize,
+              });
+            } catch {
+              /* skip */
+            }
+          }),
+        );
+      }),
+    );
 
     res.json(results);
   } catch (err) {
@@ -190,9 +198,7 @@ router.post('/delete', (req, res) => {
     if (!avatar_url || !file_name) return res.sendStatus(400);
 
     const charName = path.parse(avatar_url).name;
-    const chatFileName = file_name.endsWith('.jsonl')
-      ? file_name
-      : `${file_name}.jsonl`;
+    const chatFileName = file_name.endsWith('.jsonl') ? file_name : `${file_name}.jsonl`;
 
     if (!safeFilename(chatFileName)) {
       return res.status(400).json({ error: 'Invalid file name' });

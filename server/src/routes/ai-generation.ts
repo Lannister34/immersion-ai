@@ -3,9 +3,9 @@
  * Uses KoboldCpp for text generation.
  */
 
-import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { Router } from 'express';
 import { DATA_ROOT } from '../lib/paths.js';
 
 export const router = Router();
@@ -17,9 +17,7 @@ function getApiServer(): string {
     if (!fs.existsSync(settingsPath)) return 'http://127.0.0.1:5001';
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     const url =
-      settings?.textgenerationwebui?.server_urls?.koboldcpp ??
-      settings?.api_server ??
-      'http://127.0.0.1:5001';
+      settings?.textgenerationwebui?.server_urls?.koboldcpp ?? settings?.api_server ?? 'http://127.0.0.1:5001';
     return url.replace(/\/api$/, '');
   } catch {
     return 'http://127.0.0.1:5001';
@@ -62,8 +60,10 @@ async function callLlm(
       signal: AbortSignal.timeout(120000),
     });
   } catch (fetchErr) {
-    if (fetchErr instanceof DOMException && fetchErr.name === 'TimeoutError' ||
-        fetchErr instanceof Error && fetchErr.name === 'TimeoutError') {
+    if (
+      (fetchErr instanceof DOMException && fetchErr.name === 'TimeoutError') ||
+      (fetchErr instanceof Error && fetchErr.name === 'TimeoutError')
+    ) {
       throw new Error('Превышено время ожидания ответа от LLM (2 мин). Попробуйте уменьшить длину запроса.');
     }
     if (fetchErr instanceof TypeError) {
@@ -91,16 +91,16 @@ function extractJson(text: string): unknown {
   const codeBlock = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const jsonStr = codeBlock ? codeBlock[1] : text;
   const firstBrace = jsonStr.search(/[{[]/);
-  const lastBrace = Math.max(
-    jsonStr.lastIndexOf('}'),
-    jsonStr.lastIndexOf(']'),
-  );
-  if (firstBrace === -1 || lastBrace === -1)
-    throw new Error('No JSON found in response');
+  const lastBrace = Math.max(jsonStr.lastIndexOf('}'), jsonStr.lastIndexOf(']'));
+  if (firstBrace === -1 || lastBrace === -1) throw new Error('No JSON found in response');
   const raw = jsonStr.slice(firstBrace, lastBrace + 1);
 
   // 1) Try parsing as-is
-  try { return JSON.parse(raw); } catch { /* proceed to repair */ }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    /* proceed to repair */
+  }
 
   // 2) Repair: escape unescaped control chars and fix invalid escapes inside string values.
   //    Walk through chars, track when we're inside a JSON string.
@@ -111,7 +111,7 @@ function extractJson(text: string): unknown {
     const ch = raw[i];
     if (escaped) {
       // Valid JSON escapes: " \ / b f n r t u
-      if ('"\\\/bfnrtu'.includes(ch)) {
+      if ('"\\/bfnrtu'.includes(ch)) {
         repaired += ch;
       } else {
         // Invalid escape like \* \. \' — drop the backslash, keep char
@@ -140,7 +140,11 @@ function extractJson(text: string): unknown {
   // Remove trailing commas before } or ]
   repaired = repaired.replace(/,\s*([}\]])/g, '$1');
 
-  try { return JSON.parse(repaired); } catch { /* proceed to fallback */ }
+  try {
+    return JSON.parse(repaired);
+  } catch {
+    /* proceed to fallback */
+  }
 
   // 3) Last resort: extract fields via regex
   try {
@@ -150,15 +154,15 @@ function extractJson(text: string): unknown {
       return m ? m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\') : '';
     };
     const tagsMatch = repaired.match(/"tags"\s*:\s*\[([^\]]*)\]/);
-    const tags = tagsMatch
-      ? (tagsMatch[1].match(/"((?:[^"\\]|\\.)*)"/g) || []).map(s => s.slice(1, -1))
-      : [];
+    const tags = tagsMatch ? (tagsMatch[1].match(/"((?:[^"\\]|\\.)*)"/g) || []).map((s) => s.slice(1, -1)) : [];
     return {
       name: extract('name'),
       content: extract('content'),
       tags,
     };
-  } catch { /* give up */ }
+  } catch {
+    /* give up */
+  }
 
   throw new Error('Failed to parse JSON from LLM response');
 }
@@ -182,11 +186,7 @@ function nameToRegex(name: string): RegExp {
 }
 
 /** Replace real character/user names with {{char}}/{{user}} placeholders */
-function replaceNamesWithPlaceholders(
-  text: string,
-  charName?: string,
-  userName?: string,
-): string {
+function replaceNamesWithPlaceholders(text: string, charName?: string, userName?: string): string {
   if (charName) text = text.replace(nameToRegex(charName), '{{char}}');
   if (userName) text = text.replace(nameToRegex(userName), '{{user}}');
   return text;
@@ -197,11 +197,10 @@ function replaceNamesWithPlaceholders(
 router.post('/character', async (req, res) => {
   try {
     const { concept, language } = req.body;
-    if (!concept?.trim())
-      return res.status(400).json({ error: 'concept is required' });
+    if (!concept?.trim()) return res.status(400).json({ error: 'concept is required' });
 
     const apiServer = getApiServer();
-    const lang = language === 'en' ? 'English' : 'Russian';
+    const _lang = language === 'en' ? 'English' : 'Russian';
 
     const isRu = language !== 'en';
     const systemPrompt = isRu
@@ -239,13 +238,7 @@ Write in English. Be specific but brief.`;
     const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 2048 });
     const character = extractJson(raw) as Record<string, unknown>;
 
-    const required = [
-      'name',
-      'description',
-      'personality',
-      'mes_example',
-      'tags',
-    ];
+    const required = ['name', 'description', 'personality', 'mes_example', 'tags'];
     for (const field of required) {
       if (!character[field]) character[field] = '';
     }
@@ -283,12 +276,10 @@ const FIELD_INSTRUCTIONS: Record<string, { en: string; ru: string }> = {
 router.post('/character-field', async (req, res) => {
   try {
     const { field, character, concept, language } = req.body;
-    if (!field || !character)
-      return res.status(400).json({ error: 'field and character are required' });
+    if (!field || !character) return res.status(400).json({ error: 'field and character are required' });
 
     const fieldInstr = FIELD_INSTRUCTIONS[field];
-    if (!fieldInstr)
-      return res.status(400).json({ error: `Unknown field: ${field}` });
+    if (!fieldInstr) return res.status(400).json({ error: `Unknown field: ${field}` });
 
     const apiServer = getApiServer();
     const isRu = language !== 'en';
@@ -334,8 +325,7 @@ Write in English. Keep it consistent with the rest of the character card. Return
 router.post('/character-avatar-prompt', async (req, res) => {
   try {
     const { characterData } = req.body;
-    if (!characterData)
-      return res.status(400).json({ error: 'characterData is required' });
+    if (!characterData) return res.status(400).json({ error: 'characterData is required' });
 
     const apiServer = getApiServer();
 
@@ -372,8 +362,7 @@ Return JSON:
 router.post('/chat-title', async (req, res) => {
   try {
     const { messages, characterName } = req.body;
-    if (!messages?.length)
-      return res.status(400).json({ error: 'messages are required' });
+    if (!messages?.length) return res.status(400).json({ error: 'messages are required' });
 
     const apiServer = getApiServer();
 
@@ -382,10 +371,7 @@ router.post('/chat-title', async (req, res) => {
 
     const chatSnippet = messages
       .slice(0, 6)
-      .map(
-        (m: { name: string; mes?: string }) =>
-          `${m.name}: ${m.mes?.slice(0, 150) ?? ''}`,
-      )
+      .map((m: { name: string; mes?: string }) => `${m.name}: ${m.mes?.slice(0, 150) ?? ''}`)
       .join('\n');
 
     const userPrompt = `Generate a short title (2-5 words) for this roleplay conversation with character "${characterName}":\n\n${chatSnippet}\n\nTitle:`;
@@ -411,8 +397,7 @@ router.post('/chat-title', async (req, res) => {
 router.post('/lorebook', async (req, res) => {
   try {
     const { concept, entryCount = 8, language } = req.body;
-    if (!concept?.trim())
-      return res.status(400).json({ error: 'concept is required' });
+    if (!concept?.trim()) return res.status(400).json({ error: 'concept is required' });
 
     const apiServer = getApiServer();
     const count = Math.min(Math.max(Number(entryCount) || 8, 3), 20);
@@ -455,11 +440,7 @@ Each entry should cover a distinct aspect of the world. Cover: locations, factio
     const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 3000 });
     const result = extractJson(raw) as Record<string, unknown>;
 
-    const entries = Array.isArray(result?.entries)
-      ? result.entries
-      : Array.isArray(result)
-        ? result
-        : [];
+    const entries = Array.isArray(result?.entries) ? result.entries : Array.isArray(result) ? result : [];
 
     const normalized = (entries as Array<Record<string, unknown>>).map((e) => ({
       key: Array.isArray(e.key) ? e.key : [String(e.key ?? '')],
@@ -537,16 +518,15 @@ Only include fields that have data. Be concise — total output under 300 tokens
 router.post('/scenario', async (req, res) => {
   try {
     const { concept, language, character, lorebookEntries, user } = req.body;
-    if (!concept?.trim())
-      return res.status(400).json({ error: 'concept is required' });
+    if (!concept?.trim()) return res.status(400).json({ error: 'concept is required' });
 
     const apiServer = getApiServer();
     const isRu = language !== 'en';
 
     // ── Step 1: Summarize character + world into a brief (if data provided) ──
     const hasCharData = character && (character.description || character.personality);
-    const hasLoreContent = Array.isArray(lorebookEntries) &&
-      lorebookEntries.some((e: { content?: string }) => e.content?.trim());
+    const hasLoreContent =
+      Array.isArray(lorebookEntries) && lorebookEntries.some((e: { content?: string }) => e.content?.trim());
     const needsSummary = hasCharData || hasLoreContent;
 
     let brief: Record<string, unknown> | null = null;
@@ -600,7 +580,7 @@ ${JSON.stringify(brief, null, 2)}
 ${JSON.stringify(brief, null, 2)}
 Character name (for {{char}} substitution): ${character?.name ?? 'N/A'}`;
     } else {
-      if (character && character.name) {
+      if (character?.name) {
         contextBlock += isRu
           ? `\n\nИнформация о персонаже (только для контекста — пиши {{char}} в тексте, НИКОГДА "${character.name}"):
 - Имя: ${character.name}
@@ -614,8 +594,10 @@ Character name (for {{char}} substitution): ${character?.name ?? 'N/A'}`;
 
       if (Array.isArray(lorebookEntries) && lorebookEntries.length > 0) {
         const entries = lorebookEntries
-          .map((e: { comment?: string; keys?: string[] }) =>
-            `- ${e.comment || '(unnamed)'}: [${(e.keys || []).join(', ')}]`)
+          .map(
+            (e: { comment?: string; keys?: string[] }) =>
+              `- ${e.comment || '(unnamed)'}: [${(e.keys || []).join(', ')}]`,
+          )
           .join('\n');
         contextBlock += isRu
           ? `\n\nЗаписи лорбука (используй для соответствия миру):\n${entries}`
@@ -624,12 +606,12 @@ Character name (for {{char}} substitution): ${character?.name ?? 'N/A'}`;
     }
 
     const genderHint = isRu
-      ? (user?.name
-          ? `Определи грамматический род {{user}} по имени игрока "${user.name}". `
-          : 'По умолчанию используй мужской грамматический род для {{user}}. ')
-      : (user?.name
-          ? `Determine {{user}}'s grammatical gender from the player name "${user.name}". `
-          : 'Default to masculine grammatical gender for {{user}}. ');
+      ? user?.name
+        ? `Определи грамматический род {{user}} по имени игрока "${user.name}". `
+        : 'По умолчанию используй мужской грамматический род для {{user}}. '
+      : user?.name
+        ? `Determine {{user}}'s grammatical gender from the player name "${user.name}". `
+        : 'Default to masculine grammatical gender for {{user}}. ';
 
     const userPrompt = isRu
       ? `Создай детальный ролевой сценарий на основе концепции: ${concept}
@@ -678,9 +660,7 @@ RULES:
     const charName = character?.name?.trim();
     const userName = user?.name?.trim();
     if (charName || userName) {
-      scenario.content = replaceNamesWithPlaceholders(
-        String(scenario.content || ''), charName, userName,
-      );
+      scenario.content = replaceNamesWithPlaceholders(String(scenario.content || ''), charName, userName);
     }
 
     res.json(scenario);
@@ -696,19 +676,18 @@ RULES:
 router.post('/first-message', async (req, res) => {
   try {
     const { character, scenario, user, language } = req.body;
-    if (!character?.name)
-      return res.status(400).json({ error: 'character with name is required' });
+    if (!character?.name) return res.status(400).json({ error: 'character with name is required' });
 
     const apiServer = getApiServer();
     const isRu = language !== 'en';
 
     const genderHint = isRu
-      ? (user?.name
-          ? `Определи грамматический род {{user}} по имени игрока "${user.name}". `
-          : 'По умолчанию используй мужской грамматический род для {{user}}. ')
-      : (user?.name
-          ? `Determine {{user}}'s grammatical gender from the player name "${user.name}". `
-          : 'Default to masculine grammatical gender for {{user}}. ');
+      ? user?.name
+        ? `Определи грамматический род {{user}} по имени игрока "${user.name}". `
+        : 'По умолчанию используй мужской грамматический род для {{user}}. '
+      : user?.name
+        ? `Determine {{user}}'s grammatical gender from the player name "${user.name}". `
+        : 'Default to masculine grammatical gender for {{user}}. ';
 
     const systemPrompt = isRu
       ? `Ты — помощник для ролевых игр. Сгенерируй вступительное сообщение от лица {{char}} для начала ролевой сцены.
@@ -724,7 +703,8 @@ Return ONLY the message text, no JSON, no field names, no extra formatting.`;
     if (character.description) contextBlock += `\n${isRu ? 'Описание' : 'Description'}: ${character.description}`;
     if (character.personality) contextBlock += `\n${isRu ? 'Характер' : 'Personality'}: ${character.personality}`;
     if (scenario) contextBlock += `\n\n${isRu ? 'Сценарий' : 'Scenario'}:\n${scenario}`;
-    if (user?.name) contextBlock += `\n\n${isRu ? 'Имя игрока (пиши {{user}} в тексте)' : 'Player name (write {{user}} in output)'}: ${user.name}`;
+    if (user?.name)
+      contextBlock += `\n\n${isRu ? 'Имя игрока (пиши {{user}} в тексте)' : 'Player name (write {{user}} in output)'}: ${user.name}`;
     if (user?.persona) contextBlock += `\n${isRu ? 'Персона игрока' : 'Player persona'}: ${user.persona}`;
 
     const userPrompt = isRu

@@ -6,7 +6,7 @@ export async function getUserSettings(): Promise<Record<string, unknown> | null>
   try {
     const res = await fetch('/api/user-settings');
     if (!res.ok) return null;
-    const json = await res.json() as { ok: boolean; data: Record<string, unknown> | null };
+    const json = (await res.json()) as { ok: boolean; data: Record<string, unknown> | null };
     return json.data ?? null;
   } catch {
     return null;
@@ -60,9 +60,10 @@ export async function getTextGenPresetsWithData(): Promise<TextGenPresetData[]> 
   const names = data.textgenerationwebui_preset_names ?? [];
   const contents = data.textgenerationwebui_presets ?? [];
   return names.map((name, i) => {
-    const parsed = typeof contents[i] === 'string'
-      ? JSON.parse(contents[i]) as TextGenPresetData
-      : (contents[i] as unknown as TextGenPresetData);
+    const parsed =
+      typeof contents[i] === 'string'
+        ? (JSON.parse(contents[i]) as TextGenPresetData)
+        : (contents[i] as unknown as TextGenPresetData);
     return { ...parsed, name };
   });
 }

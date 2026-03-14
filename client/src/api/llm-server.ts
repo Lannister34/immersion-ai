@@ -50,7 +50,7 @@ export async function listModelFiles(modelsDir: string): Promise<ModelFile[]> {
 
 export async function getLlmServerLogs(): Promise<string[]> {
   const res = await fetch('/api/llm-server/logs');
-  const data = await res.json() as { lines: string[] };
+  const data = (await res.json()) as { lines: string[] };
   return data.lines;
 }
 

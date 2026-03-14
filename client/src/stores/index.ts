@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ConnectionStatus, ChatSessionMeta, SamplerSettings, SamplerPreset } from '@/types';
 import { getUserSettings, saveUserSettings } from '@/api';
+import type { ChatSessionMeta, ConnectionStatus, SamplerPreset, SamplerSettings } from '@/types';
 
 interface AppState {
   connection: ConnectionStatus;
@@ -71,7 +71,7 @@ export interface LlmServerConfig {
 }
 
 const DEFAULT_LLM_SERVER_CONFIG: LlmServerConfig = {
-  modelsDir: '',  // Will be set from server's defaultModelsDir on first load
+  modelsDir: '', // Will be set from server's defaultModelsDir on first load
   port: 5001,
   gpuLayers: 999,
   contextSize: 8192,
@@ -177,14 +177,21 @@ const DEFAULT_PROMPTS = [DEFAULT_SYSTEM_PROMPT_EN, DEFAULT_SYSTEM_PROMPT_RU, LEG
 // ── Fields to persist (both localStorage and server) ───────────────────────
 
 const PERSISTED_KEYS = [
-  'userName', 'userPersona',
-  'samplerPresets', 'activePresetId', 'modelPresetMap',
-  'systemPromptTemplate', 'responseLanguage', 'streamingEnabled',
-  'thinkingEnabled', 'chatSessions',
-  'backendMode', 'llmServerConfig',
+  'userName',
+  'userPersona',
+  'samplerPresets',
+  'activePresetId',
+  'modelPresetMap',
+  'systemPromptTemplate',
+  'responseLanguage',
+  'streamingEnabled',
+  'thinkingEnabled',
+  'chatSessions',
+  'backendMode',
+  'llmServerConfig',
 ] as const;
 
-type PersistedKey = typeof PERSISTED_KEYS[number];
+type PersistedKey = (typeof PERSISTED_KEYS)[number];
 
 function extractPersisted(state: AppState): Record<PersistedKey, unknown> {
   const result: Record<string, unknown> = {};
@@ -203,9 +210,7 @@ function scheduleSyncToServer() {
   syncTimer = setTimeout(() => {
     const state = useAppStore.getState();
     const data = extractPersisted(state);
-    saveUserSettings(data).catch((err) =>
-      console.warn('Failed to sync settings to server:', err),
-    );
+    saveUserSettings(data).catch((err) => console.warn('Failed to sync settings to server:', err));
   }, 1000); // debounce 1s
 }
 
@@ -283,21 +288,16 @@ export const useAppStore = create<AppState>()(
       activePresetId: 'default',
       modelPresetMap: {},
 
-      addPreset: (preset) =>
-        set((s) => ({ samplerPresets: [...s.samplerPresets, preset] })),
+      addPreset: (preset) => set((s) => ({ samplerPresets: [...s.samplerPresets, preset] })),
 
       updatePreset: (id, partial) =>
         set((s) => ({
-          samplerPresets: s.samplerPresets.map((p) =>
-            p.id === id ? { ...p, ...partial } : p,
-          ),
+          samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, ...partial } : p)),
         })),
 
       renamePreset: (id, name) =>
         set((s) => ({
-          samplerPresets: s.samplerPresets.map((p) =>
-            p.id === id ? { ...p, name } : p,
-          ),
+          samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, name } : p)),
         })),
 
       deletePreset: (id) =>
@@ -360,9 +360,7 @@ export const useAppStore = create<AppState>()(
           const sessions = [...s.chatSessions];
           if (existing >= 0) {
             // Filter out undefined values so they don't overwrite existing data (e.g. title)
-            const cleaned = Object.fromEntries(
-              Object.entries(meta).filter(([, v]) => v !== undefined),
-            );
+            const cleaned = Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined));
             sessions[existing] = { ...sessions[existing], ...cleaned };
           } else {
             sessions.push(meta);
@@ -376,17 +374,14 @@ export const useAppStore = create<AppState>()(
           ),
         })),
       getChatSession: (characterAvatar, chatFile) =>
-        get().chatSessions.find(
-          (c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile,
-        ),
+        get().chatSessions.find((c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile),
 
       // LLM Server
       backendMode: 'builtin',
       setBackendMode: (mode) => set({ backendMode: mode }),
 
       llmServerConfig: { ...DEFAULT_LLM_SERVER_CONFIG },
-      setLlmServerConfig: (partial) =>
-        set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } })),
+      setLlmServerConfig: (partial) => set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } })),
 
       llmServerStatus: 'idle',
       setLlmServerStatus: (status) => set({ llmServerStatus: status }),
@@ -548,5 +543,11 @@ export async function initSettingsFromServer(): Promise<void> {
   useAppStore.setState({ _serverSynced: true });
 }
 
-export { DEFAULT_SYSTEM_PROMPT_EN, DEFAULT_SYSTEM_PROMPT_RU, getDefaultSystemPrompt, DEFAULT_PROMPTS, DEFAULT_SAMPLER_SETTINGS };
 export type { SamplerSettings };
+export {
+  DEFAULT_PROMPTS,
+  DEFAULT_SAMPLER_SETTINGS,
+  DEFAULT_SYSTEM_PROMPT_EN,
+  DEFAULT_SYSTEM_PROMPT_RU,
+  getDefaultSystemPrompt,
+};

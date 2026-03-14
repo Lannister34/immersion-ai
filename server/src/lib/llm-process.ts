@@ -1,4 +1,4 @@
-import { spawn, ChildProcess, execSync } from 'node:child_process';
+import { type ChildProcess, execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -102,7 +102,9 @@ function readPidFile(): PidFileData | null {
 function removePidFile(): void {
   try {
     if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Check if a process with given PID is alive (Windows + Unix) */
@@ -169,11 +171,16 @@ export async function start(config: LlmStartConfig): Promise<void> {
 
   // Build CLI arguments
   const args: string[] = [
-    '-m', config.modelPath,
-    '-ngl', String(config.gpuLayers),
-    '-c', String(config.contextSize),
-    '--host', '127.0.0.1',
-    '--port', String(config.port),
+    '-m',
+    config.modelPath,
+    '-ngl',
+    String(config.gpuLayers),
+    '-c',
+    String(config.contextSize),
+    '--host',
+    '127.0.0.1',
+    '--port',
+    String(config.port),
   ];
 
   if (config.flashAttention) {
@@ -250,14 +257,17 @@ export async function start(config: LlmStartConfig): Promise<void> {
     startHealthPoll(config.port);
 
     // Set 5-minute timeout
-    startTimeout = setTimeout(() => {
-      if (state.status === 'starting') {
-        console.error('[llm-process] start timeout (5 min), killing');
-        state.error = 'Startup timeout (5 minutes)';
-        killProcess();
-        state.status = 'error';
-      }
-    }, 5 * 60 * 1000);
+    startTimeout = setTimeout(
+      () => {
+        if (state.status === 'starting') {
+          console.error('[llm-process] start timeout (5 min), killing');
+          state.error = 'Startup timeout (5 minutes)';
+          killProcess();
+          state.status = 'error';
+        }
+      },
+      5 * 60 * 1000,
+    );
   } catch (err) {
     state.status = 'error';
     state.error = (err as Error).message;
@@ -297,7 +307,7 @@ function startHealthPoll(port: number) {
         signal: AbortSignal.timeout(2000),
       });
       if (res.ok) {
-        const data = await res.json() as Record<string, unknown>;
+        const data = (await res.json()) as Record<string, unknown>;
         if (data.status === 'ok') {
           console.log('[llm-process] health OK — server is running');
           state.status = 'running';
@@ -334,7 +344,7 @@ async function tryReconnect(): Promise<void> {
       signal: AbortSignal.timeout(3000),
     });
     if (res.ok) {
-      const data = await res.json() as Record<string, unknown>;
+      const data = (await res.json()) as Record<string, unknown>;
       if (data.status === 'ok') {
         console.log('[llm-process] reconnected to existing llama-server (pid=%d)', saved.pid);
         state.status = 'running';
@@ -361,14 +371,17 @@ async function tryReconnect(): Promise<void> {
   startHealthPoll(saved.port);
 
   // Timeout: if still not healthy after 5 min, give up
-  startTimeout = setTimeout(() => {
-    if (state.status === 'starting') {
-      console.error('[llm-process] reconnect timeout (5 min), giving up');
-      state.status = 'error';
-      state.error = 'Reconnect timeout — server not responding';
-      cleanupTimers();
-    }
-  }, 5 * 60 * 1000);
+  startTimeout = setTimeout(
+    () => {
+      if (state.status === 'starting') {
+        console.error('[llm-process] reconnect timeout (5 min), giving up');
+        state.status = 'error';
+        state.error = 'Reconnect timeout — server not responding';
+        cleanupTimers();
+      }
+    },
+    5 * 60 * 1000,
+  );
 }
 
 // Run reconnect on module load
@@ -429,7 +442,7 @@ async function killByPid(pid: number): Promise<void> {
     } else {
       process.kill(pid, 'SIGTERM');
       // Wait a bit, then force-kill if still alive
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 3000));
       if (isProcessAlive(pid)) {
         process.kill(pid, 'SIGKILL');
       }

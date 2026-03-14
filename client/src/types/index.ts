@@ -5,7 +5,7 @@ export interface Character {
   mes_example: string;
   tags: string[];
   avatar?: string; // filename like "Arina.png"
-  world?: string;  // lorebook name
+  world?: string; // lorebook name
   system_prompt?: string; // character-specific system prompt override
 }
 

@@ -1,8 +1,8 @@
-import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { start, stop, getState, getLogs, getEngineInfo } from '../lib/llm-process.js';
+import { Router } from 'express';
 import type { LlmStartConfig } from '../lib/llm-process.js';
+import { getEngineInfo, getLogs, getState, start, stop } from '../lib/llm-process.js';
 
 export const router = Router();
 
@@ -147,7 +147,9 @@ router.post('/browse-file', async (req, res) => {
       `$f.Filter = '${filter.replace(/'/g, "''")}'`,
       initialDir ? `$f.InitialDirectory = '${initialDir.replace(/'/g, "''")}'` : '',
       `if ($f.ShowDialog() -eq 'OK') { $f.FileName } else { '' }`,
-    ].filter(Boolean).join('; ');
+    ]
+      .filter(Boolean)
+      .join('; ');
 
     const result = execSync(`powershell -NoProfile -Command "${psScript}"`, {
       encoding: 'utf-8',

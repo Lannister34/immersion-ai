@@ -13,6 +13,12 @@
     "restart": "pm2 restart ecosystem.config.cjs",
     "logs": "pm2 logs",
     "build": "cd client && npm run build",
+    "lint": "biome check ./client/src ./server/src",
+    "lint:fix": "biome check --write ./client/src ./server/src",
+    "format": "biome format --write ./client/src ./server/src",
     "install:all": "cd server && npm install && cd ../client && npm install"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.7"
   }
 }

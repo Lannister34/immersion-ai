@@ -1,6 +1,6 @@
-import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { Router } from 'express';
 import sanitize from 'sanitize-filename';
 import writeFileAtomic from 'write-file-atomic';
 import { dirs } from '../lib/paths.js';
@@ -10,9 +10,7 @@ export const router = Router();
 // POST /api/scenarios/list
 router.post('/list', (_req, res) => {
   try {
-    const files = fs
-      .readdirSync(dirs.scenarios)
-      .filter((f) => f.endsWith('.json'));
+    const files = fs.readdirSync(dirs.scenarios).filter((f) => f.endsWith('.json'));
 
     const result = files.map((f) => {
       try {

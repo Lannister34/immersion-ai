@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { User, Save, Sliders, FileText, RotateCcw, Info, Plus, Trash2, Pencil, Check, X, Link } from 'lucide-react';
-import { useAppStore, getDefaultSystemPrompt, DEFAULT_SAMPLER_SETTINGS, syncToServerNow } from '@/stores';
-import type { SamplerSettings, SamplerPreset, ContextTrimStrategy } from '@/types';
+import { Check, FileText, Info, Link, Pencil, Plus, RotateCcw, Save, Sliders, Trash2, User, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { DEFAULT_SAMPLER_SETTINGS, getDefaultSystemPrompt, syncToServerNow, useAppStore } from '@/stores';
+import type { ContextTrimStrategy, SamplerPreset, SamplerSettings } from '@/types';
 
 function SamplerSlider({
   label,
@@ -68,15 +68,27 @@ function SamplerSlider({
 export function SettingsPage() {
   const {
     connection,
-    userName, setUserName,
-    userPersona, setUserPersona,
-    samplerPresets, activePresetId,
-    addPreset, updatePreset, renamePreset, deletePreset, setActivePreset,
-    modelPresetMap, setModelPreset,
-    systemPromptTemplate, setSystemPromptTemplate,
-    responseLanguage, setResponseLanguage,
-    streamingEnabled, setStreamingEnabled,
-    thinkingEnabled, setThinkingEnabled,
+    userName,
+    setUserName,
+    userPersona,
+    setUserPersona,
+    samplerPresets,
+    activePresetId,
+    addPreset,
+    updatePreset,
+    renamePreset,
+    deletePreset,
+    setActivePreset,
+    modelPresetMap,
+    setModelPreset,
+    systemPromptTemplate,
+    setSystemPromptTemplate,
+    responseLanguage,
+    setResponseLanguage,
+    streamingEnabled,
+    setStreamingEnabled,
+    thinkingEnabled,
+    setThinkingEnabled,
   } = useAppStore();
   const [localUserName, setLocalUserName] = useState(userName);
   const [localPersona, setLocalPersona] = useState(userPersona);
@@ -86,9 +98,15 @@ export function SettingsPage() {
   const [renameValue, setRenameValue] = useState('');
 
   // Sync local state when store changes (e.g., after initSettingsFromServer loads from server)
-  useEffect(() => { setLocalUserName(userName); }, [userName]);
-  useEffect(() => { setLocalPersona(userPersona); }, [userPersona]);
-  useEffect(() => { setLocalPrompt(systemPromptTemplate); }, [systemPromptTemplate]);
+  useEffect(() => {
+    setLocalUserName(userName);
+  }, [userName]);
+  useEffect(() => {
+    setLocalPersona(userPersona);
+  }, [userPersona]);
+  useEffect(() => {
+    setLocalPrompt(systemPromptTemplate);
+  }, [systemPromptTemplate]);
 
   const activePreset = samplerPresets.find((p) => p.id === activePresetId) ?? samplerPresets[0];
 
@@ -126,7 +144,9 @@ export function SettingsPage() {
     setSystemPromptTemplate(defaultPrompt);
     try {
       await syncToServerNow();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     showSaved('prompt');
   };
 
@@ -223,7 +243,12 @@ export function SettingsPage() {
         </div>
 
         <div className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-2)] rounded-lg px-3 py-2">
-          Переменные: <code className="text-[var(--color-primary)]">{'{{char}}'}</code>, <code className="text-[var(--color-primary)]">{'{{user}}'}</code>, <code className="text-[var(--color-primary)]">{'{{description}}'}</code>, <code className="text-[var(--color-primary)]">{'{{personality}}'}</code>, <code className="text-[var(--color-primary)]">{'{{scenario}}'}</code>, <code className="text-[var(--color-primary)]">{'{{userPersona}}'}</code>
+          Переменные: <code className="text-[var(--color-primary)]">{'{{char}}'}</code>,{' '}
+          <code className="text-[var(--color-primary)]">{'{{user}}'}</code>,{' '}
+          <code className="text-[var(--color-primary)]">{'{{description}}'}</code>,{' '}
+          <code className="text-[var(--color-primary)]">{'{{personality}}'}</code>,{' '}
+          <code className="text-[var(--color-primary)]">{'{{scenario}}'}</code>,{' '}
+          <code className="text-[var(--color-primary)]">{'{{userPersona}}'}</code>
         </div>
 
         <textarea
@@ -253,7 +278,13 @@ export function SettingsPage() {
             Добавляет напоминание о языке перед каждым ответом модели
           </p>
           <div className="flex items-center gap-1 bg-[var(--color-surface-2)] rounded-lg p-0.5 w-fit">
-            {([['ru', 'RU'], ['en', 'EN'], ['none', 'Авто']] as const).map(([val, label]) => (
+            {(
+              [
+                ['ru', 'RU'],
+                ['en', 'EN'],
+                ['none', 'Авто'],
+              ] as const
+            ).map(([val, label]) => (
               <button
                 key={val}
                 onClick={() => setResponseLanguage(val)}
@@ -279,7 +310,9 @@ export function SettingsPage() {
           <button
             onClick={() => setStreamingEnabled(!streamingEnabled)}
             className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${
-              streamingEnabled ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface-2)] border border-[var(--color-border)]'
+              streamingEnabled
+                ? 'bg-[var(--color-primary)]'
+                : 'bg-[var(--color-surface-2)] border border-[var(--color-border)]'
             }`}
           >
             <div
@@ -300,7 +333,9 @@ export function SettingsPage() {
           <button
             onClick={() => setThinkingEnabled(!thinkingEnabled)}
             className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${
-              thinkingEnabled ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface-2)] border border-[var(--color-border)]'
+              thinkingEnabled
+                ? 'bg-[var(--color-primary)]'
+                : 'bg-[var(--color-surface-2)] border border-[var(--color-border)]'
             }`}
           >
             <div
@@ -329,7 +364,9 @@ export function SettingsPage() {
             className="flex-1 min-w-[160px] bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] cursor-pointer"
           >
             {samplerPresets.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
             ))}
           </select>
 
@@ -342,14 +379,23 @@ export function SettingsPage() {
               <input
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setRenamingPresetId(null); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename();
+                  if (e.key === 'Escape') setRenamingPresetId(null);
+                }}
                 autoFocus
                 className="w-32 bg-[var(--color-surface-2)] border border-[var(--color-primary)] rounded px-2 py-1 text-xs text-[var(--color-text)] outline-none"
               />
-              <button onClick={commitRename} className="p-1 rounded hover:bg-[var(--color-primary)]/20 text-[var(--color-primary)] cursor-pointer">
+              <button
+                onClick={commitRename}
+                className="p-1 rounded hover:bg-[var(--color-primary)]/20 text-[var(--color-primary)] cursor-pointer"
+              >
                 <Check size={12} />
               </button>
-              <button onClick={() => setRenamingPresetId(null)} className="p-1 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] cursor-pointer">
+              <button
+                onClick={() => setRenamingPresetId(null)}
+                className="p-1 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] cursor-pointer"
+              >
                 <X size={12} />
               </button>
             </div>
@@ -480,10 +526,14 @@ export function SettingsPage() {
               <span className="text-[9px] text-[var(--color-text-muted)] opacity-50">Что удалять при заполнении</span>
             </div>
             <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)] w-fit">
-              {([
-                { key: 'trim_start' as ContextTrimStrategy, label: 'Начало', hint: 'Старые сообщения удаляются первыми' },
+              {[
+                {
+                  key: 'trim_start' as ContextTrimStrategy,
+                  label: 'Начало',
+                  hint: 'Старые сообщения удаляются первыми',
+                },
                 { key: 'trim_middle' as ContextTrimStrategy, label: 'Середина', hint: 'Начало и конец сохраняются' },
-              ]).map((opt) => (
+              ].map((opt) => (
                 <button
                   key={opt.key}
                   onClick={() => handleSamplerChange('context_trim_strategy', opt.key)}
@@ -525,7 +575,9 @@ export function SettingsPage() {
                 >
                   <option value="">Не задан</option>
                   {samplerPresets.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -542,7 +594,10 @@ export function SettingsPage() {
         </div>
         <div className="text-xs text-[var(--color-text-muted)] flex flex-col gap-1.5">
           <div>Immersion AI — современный интерфейс для RP</div>
-          <div>Бэкенд: <span className="font-mono bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded">http://localhost:8000</span></div>
+          <div>
+            Бэкенд:{' '}
+            <span className="font-mono bg-[var(--color-surface-2)] px-1.5 py-0.5 rounded">http://localhost:8000</span>
+          </div>
           <div>Фронтенд: React 18 + TypeScript + Vite + Tailwind</div>
           <div>Стейт: Zustand (persist) + TanStack Query</div>
         </div>

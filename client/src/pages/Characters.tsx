@@ -1,20 +1,51 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Plus, Search, User, MessageCircle, MessageSquareDashed, SortAsc, SortDesc, Tag, X, Clock,
-  History, Pencil, Trash2, Save, AlertTriangle, Sparkles, FileText, Upload, ChevronDown, BookOpen, Loader2,
-  LayoutGrid, List, ChevronRight,
-} from 'lucide-react';
 import { clsx } from 'clsx';
-import { getCharacters, getCharacterChats, createNewChat, editCharacter, deleteCharacter, createCharacter, getWorlds, getScenarios, getScenario, generateFirstMessage } from '@/api';
+import {
+  AlertTriangle,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  FileText,
+  History,
+  LayoutGrid,
+  List,
+  Loader2,
+  MessageCircle,
+  MessageSquareDashed,
+  Pencil,
+  Plus,
+  Save,
+  Search,
+  SortAsc,
+  SortDesc,
+  Sparkles,
+  Tag,
+  Trash2,
+  Upload,
+  User,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ChatFileInfo } from '@/api';
-import type { Character } from '@/types';
-import { useAppStore } from '@/stores';
+import {
+  createCharacter,
+  createNewChat,
+  deleteCharacter,
+  editCharacter,
+  generateFirstMessage,
+  getCharacterChats,
+  getCharacters,
+  getScenario,
+  getScenarios,
+  getWorlds,
+} from '@/api';
 import { Button } from '@/components/ui/Button';
-import { CharacterWizard } from '@/components/wizard/CharacterWizard';
 import { Modal } from '@/components/ui/Modal';
-
+import { CharacterWizard } from '@/components/wizard/CharacterWizard';
+import { useAppStore } from '@/stores';
+import type { Character } from '@/types';
 
 type SortField = 'name' | 'tags';
 type SortDir = 'asc' | 'desc';
@@ -45,7 +76,9 @@ function CharacterCard({
   onStartChat: (c: Character) => void;
   onViewDetails: (c: Character) => void;
 }) {
-  const avatarUrl = character.avatar ? `/characters/${character.avatar}${avatarVersion ? `?v=${avatarVersion}` : ''}` : null;
+  const avatarUrl = character.avatar
+    ? `/characters/${character.avatar}${avatarVersion ? `?v=${avatarVersion}` : ''}`
+    : null;
 
   return (
     <div
@@ -77,7 +110,10 @@ function CharacterCard({
         )}
         {/* Quick chat button on hover */}
         <button
-          onClick={(e) => { e.stopPropagation(); onStartChat(character); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onStartChat(character);
+          }}
           className="absolute bottom-2 right-2 z-[5] bg-[var(--color-primary)] rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--color-primary)]/80 shadow-lg cursor-pointer"
           title="Начать чат"
         >
@@ -89,9 +125,7 @@ function CharacterCard({
       <div className="p-3">
         <div className="font-medium text-sm text-[var(--color-text)] truncate">{character.name}</div>
         {character.description && (
-          <div className="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2">
-            {character.description}
-          </div>
+          <div className="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2">{character.description}</div>
         )}
         {character.tags && character.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
@@ -104,9 +138,7 @@ function CharacterCard({
               </span>
             ))}
             {character.tags.length > 3 && (
-              <span className="text-xs px-1.5 py-0.5 text-[var(--color-text-muted)]">
-                +{character.tags.length - 3}
-              </span>
+              <span className="text-xs px-1.5 py-0.5 text-[var(--color-text-muted)]">+{character.tags.length - 3}</span>
             )}
           </div>
         )}
@@ -128,9 +160,16 @@ function CharacterListItem({
   onStartChat: (c: Character) => void;
   onViewDetails: (c: Character) => void;
 }) {
-  const avatarUrl = character.avatar ? `/characters/${character.avatar}${avatarVersion ? `?v=${avatarVersion}` : ''}` : null;
+  const avatarUrl = character.avatar
+    ? `/characters/${character.avatar}${avatarVersion ? `?v=${avatarVersion}` : ''}`
+    : null;
   const initials = character.name
-    ? character.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+    ? character.name
+        .split(/\s+/)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
     : '?';
 
   return (
@@ -145,7 +184,9 @@ function CharacterListItem({
             src={avatarUrl}
             alt={character.name}
             className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
           />
         ) : (
           <span className="text-xs font-semibold text-[var(--color-text-muted)]">{initials}</span>
@@ -156,9 +197,7 @@ function CharacterListItem({
       <div className="flex-1 min-w-0">
         <div className="font-medium text-sm text-[var(--color-text)] truncate">{character.name}</div>
         {character.description && (
-          <div className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">
-            {character.description}
-          </div>
+          <div className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">{character.description}</div>
         )}
       </div>
 
@@ -166,7 +205,10 @@ function CharacterListItem({
       {character.tags && character.tags.length > 0 && (
         <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
           {character.tags.slice(0, 2).map((tag) => (
-            <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--color-surface-2)] text-[var(--color-text-muted)]">
+            <span
+              key={tag}
+              className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--color-surface-2)] text-[var(--color-text-muted)]"
+            >
               {tag}
             </span>
           ))}
@@ -185,7 +227,10 @@ function CharacterListItem({
           </div>
         )}
         <button
-          onClick={(e) => { e.stopPropagation(); onStartChat(character); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onStartChat(character);
+          }}
           className="p-1.5 rounded-full bg-[var(--color-primary)] opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[var(--color-primary)]/80 cursor-pointer"
           title="Начать чат"
         >
@@ -201,9 +246,9 @@ function formatChatDate(chatId: string): string {
   try {
     // Try numeric timestamp first (e.g. "1738000000000")
     const ts = parseInt(chatId, 10);
-    if (!isNaN(ts) && String(ts) === chatId) {
+    if (!Number.isNaN(ts) && String(ts) === chatId) {
       const d = new Date(ts);
-      if (!isNaN(d.getTime())) {
+      if (!Number.isNaN(d.getTime())) {
         return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
       }
     }
@@ -213,7 +258,7 @@ function formatChatDate(chatId: string): string {
     if (dateMatch) {
       const [, date, h, m, s] = dateMatch;
       const d = new Date(`${date}T${h}:${m}:${s}`);
-      if (!isNaN(d.getTime())) {
+      if (!Number.isNaN(d.getTime())) {
         return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
       }
     }
@@ -288,12 +333,15 @@ function DeleteConfirmModal({
             <AlertTriangle size={20} className="text-[var(--color-danger)]" />
           </div>
           <div className="text-sm text-[var(--color-text-muted)]">
-            Вы уверены, что хотите удалить персонажа <strong className="text-[var(--color-text)]">{characterName}</strong>?
-            Все чаты с этим персонажем также будут удалены. Это действие необратимо.
+            Вы уверены, что хотите удалить персонажа{' '}
+            <strong className="text-[var(--color-text)]">{characterName}</strong>? Все чаты с этим персонажем также
+            будут удалены. Это действие необратимо.
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
-          <Button variant="secondary" onClick={onClose} disabled={isDeleting}>Отмена</Button>
+          <Button variant="secondary" onClick={onClose} disabled={isDeleting}>
+            Отмена
+          </Button>
           <Button variant="danger" onClick={onConfirm} disabled={isDeleting}>
             {isDeleting ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -425,7 +473,9 @@ function CharacterDetailModal({
 
   if (!character) return null;
 
-  const avatarUrl = character.avatar ? `/characters/${character.avatar}${avatarVersion ? `?v=${avatarVersion}` : ''}` : null;
+  const avatarUrl = character.avatar
+    ? `/characters/${character.avatar}${avatarVersion ? `?v=${avatarVersion}` : ''}`
+    : null;
 
   return (
     <>
@@ -433,11 +483,11 @@ function CharacterDetailModal({
         <div className="flex flex-col gap-0">
           {/* Tabs */}
           <div className="flex border-b border-[var(--color-border)] px-5">
-            {([
+            {[
               { id: 'info' as const, label: 'Информация', icon: null },
               { id: 'edit' as const, label: 'Редактировать', icon: <Pencil size={12} /> },
               { id: 'chats' as const, label: 'История чатов', icon: <History size={12} /> },
-            ]).map((t) => (
+            ].map((t) => (
               <button
                 key={t.id}
                 onClick={() => handleTabClick(t.id)}
@@ -496,7 +546,9 @@ function CharacterDetailModal({
               {/* Description */}
               {character.description && (
                 <div>
-                  <h3 className="text-xs font-semibold text-[var(--color-text)] mb-1.5 uppercase tracking-wide">Описание</h3>
+                  <h3 className="text-xs font-semibold text-[var(--color-text)] mb-1.5 uppercase tracking-wide">
+                    Описание
+                  </h3>
                   <div className="text-sm text-[var(--color-text-muted)] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
                     {character.description}
                   </div>
@@ -510,8 +562,15 @@ function CharacterDetailModal({
                   Удалить
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="secondary" onClick={onClose}>Закрыть</Button>
-                  <Button onClick={() => { onStartChat(character); onClose(); }}>
+                  <Button variant="secondary" onClick={onClose}>
+                    Закрыть
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      onStartChat(character);
+                      onClose();
+                    }}
+                  >
                     <MessageCircle size={14} />
                     Начать чат
                   </Button>
@@ -549,14 +608,45 @@ function CharacterDetailModal({
                   </label>
                 </div>
 
-                <EditField label="Имя" value={editData.name ?? ''} onChange={(v) => updateEditField('name', v)} placeholder="Имя персонажа" />
-                <EditField label="Описание" value={editData.description ?? ''} onChange={(v) => updateEditField('description', v)} multiline placeholder="Описание персонажа, внешность, история..." />
-                <EditField label="Характер" value={editData.personality ?? ''} onChange={(v) => updateEditField('personality', v)} multiline placeholder="Черты характера, стиль речи..." />
-                <EditField label="Примеры диалогов" value={editData.mes_example ?? ''} onChange={(v) => updateEditField('mes_example', v)} multiline placeholder="<START>\n{{user}}: Привет!\n{{char}}: ..." />
+                <EditField
+                  label="Имя"
+                  value={editData.name ?? ''}
+                  onChange={(v) => updateEditField('name', v)}
+                  placeholder="Имя персонажа"
+                />
+                <EditField
+                  label="Описание"
+                  value={editData.description ?? ''}
+                  onChange={(v) => updateEditField('description', v)}
+                  multiline
+                  placeholder="Описание персонажа, внешность, история..."
+                />
+                <EditField
+                  label="Характер"
+                  value={editData.personality ?? ''}
+                  onChange={(v) => updateEditField('personality', v)}
+                  multiline
+                  placeholder="Черты характера, стиль речи..."
+                />
+                <EditField
+                  label="Примеры диалогов"
+                  value={editData.mes_example ?? ''}
+                  onChange={(v) => updateEditField('mes_example', v)}
+                  multiline
+                  placeholder="<START>\n{{user}}: Привет!\n{{char}}: ..."
+                />
                 <EditField
                   label="Теги (через запятую)"
                   value={(editData.tags ?? []).join(', ')}
-                  onChange={(v) => setEditData((prev) => ({ ...prev, tags: v.split(',').map((t) => t.trim()).filter(Boolean) }))}
+                  onChange={(v) =>
+                    setEditData((prev) => ({
+                      ...prev,
+                      tags: v
+                        .split(',')
+                        .map((t) => t.trim())
+                        .filter(Boolean),
+                    }))
+                  }
                   placeholder="романтика, фэнтези, комедия"
                 />
 
@@ -573,7 +663,9 @@ function CharacterDetailModal({
                   >
                     <option value="">Без лорбука</option>
                     {worlds.map((w) => (
-                      <option key={w} value={w}>{w}</option>
+                      <option key={w} value={w}>
+                        {w}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -586,7 +678,9 @@ function CharacterDetailModal({
               </div>
 
               <div className="flex justify-end gap-2 p-4 border-t border-[var(--color-border)] bg-[var(--color-background)] flex-shrink-0">
-                <Button variant="secondary" onClick={() => setTab('info')}>Отмена</Button>
+                <Button variant="secondary" onClick={() => setTab('info')}>
+                  Отмена
+                </Button>
                 <Button onClick={handleSave} disabled={saving}>
                   {saving ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -604,12 +698,12 @@ function CharacterDetailModal({
                   <div className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : chats.length === 0 ? (
-                <div className="text-center text-[var(--color-text-muted)] py-8 text-sm">
-                  Нет сохранённых чатов
-                </div>
+                <div className="text-center text-[var(--color-text-muted)] py-8 text-sm">Нет сохранённых чатов</div>
               ) : (
                 <>
-                  <div className="text-xs text-[var(--color-text-muted)]">{chats.length} {chats.length === 1 ? 'чат' : chats.length < 5 ? 'чата' : 'чатов'}</div>
+                  <div className="text-xs text-[var(--color-text-muted)]">
+                    {chats.length} {chats.length === 1 ? 'чат' : chats.length < 5 ? 'чата' : 'чатов'}
+                  </div>
                   <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
                     {chats.map((chat) => (
                       <button
@@ -628,12 +722,8 @@ function CharacterDetailModal({
                             <span className="text-xs font-medium text-[var(--color-text)]">
                               {formatChatDate(chat.file_name)}
                             </span>
-                            <span className="text-[10px] text-[var(--color-text-muted)]">
-                              {chat.chat_items} сообщ.
-                            </span>
-                            <span className="text-[10px] text-[var(--color-text-muted)]">
-                              {chat.file_size}
-                            </span>
+                            <span className="text-[10px] text-[var(--color-text-muted)]">{chat.chat_items} сообщ.</span>
+                            <span className="text-[10px] text-[var(--color-text-muted)]">{chat.file_size}</span>
                           </div>
                           {chat.mes && (
                             <div className="text-xs text-[var(--color-text-muted)] mt-1 line-clamp-2">
@@ -648,8 +738,15 @@ function CharacterDetailModal({
               )}
 
               <div className="flex justify-between pt-2 border-t border-[var(--color-border)]">
-                <Button variant="secondary" onClick={onClose}>Закрыть</Button>
-                <Button onClick={() => { onStartChat(character); onClose(); }}>
+                <Button variant="secondary" onClick={onClose}>
+                  Закрыть
+                </Button>
+                <Button
+                  onClick={() => {
+                    onStartChat(character);
+                    onClose();
+                  }}
+                >
                   <Plus size={14} />
                   Новый чат
                 </Button>
@@ -711,7 +808,10 @@ function ManualCharacterModal({
     setError('');
   };
 
-  const handleClose = () => { reset(); onClose(); };
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -721,7 +821,10 @@ function ManualCharacterModal({
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { setError('Укажите имя персонажа'); return; }
+    if (!form.name.trim()) {
+      setError('Укажите имя персонажа');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -732,7 +835,10 @@ function ManualCharacterModal({
           personality: form.personality,
           mes_example: form.mes_example,
           system_prompt: form.system_prompt,
-          tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+          tags: form.tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean),
           world: form.world || undefined,
         },
         avatarFile ?? undefined,
@@ -772,11 +878,40 @@ function ManualCharacterModal({
             </label>
           </div>
 
-          <EditField label="Имя" value={form.name} onChange={(v) => updateField('name', v)} placeholder="Имя персонажа" />
-          <EditField label="Описание" value={form.description} onChange={(v) => updateField('description', v)} multiline placeholder="Описание персонажа, внешность, история..." />
-          <EditField label="Характер" value={form.personality} onChange={(v) => updateField('personality', v)} multiline placeholder="Черты характера, стиль речи..." />
-          <EditField label="Примеры диалогов" value={form.mes_example} onChange={(v) => updateField('mes_example', v)} multiline placeholder="<START>\n{{user}}: Привет!\n{{char}}: ..." />
-          <EditField label="Системный промпт" value={form.system_prompt} onChange={(v) => updateField('system_prompt', v)} multiline placeholder="Переопределить системный промпт для этого персонажа (необязательно)" />
+          <EditField
+            label="Имя"
+            value={form.name}
+            onChange={(v) => updateField('name', v)}
+            placeholder="Имя персонажа"
+          />
+          <EditField
+            label="Описание"
+            value={form.description}
+            onChange={(v) => updateField('description', v)}
+            multiline
+            placeholder="Описание персонажа, внешность, история..."
+          />
+          <EditField
+            label="Характер"
+            value={form.personality}
+            onChange={(v) => updateField('personality', v)}
+            multiline
+            placeholder="Черты характера, стиль речи..."
+          />
+          <EditField
+            label="Примеры диалогов"
+            value={form.mes_example}
+            onChange={(v) => updateField('mes_example', v)}
+            multiline
+            placeholder="<START>\n{{user}}: Привет!\n{{char}}: ..."
+          />
+          <EditField
+            label="Системный промпт"
+            value={form.system_prompt}
+            onChange={(v) => updateField('system_prompt', v)}
+            multiline
+            placeholder="Переопределить системный промпт для этого персонажа (необязательно)"
+          />
           <EditField
             label="Теги (через запятую)"
             value={form.tags}
@@ -797,20 +932,22 @@ function ManualCharacterModal({
             >
               <option value="">Без лорбука</option>
               {worlds.map((w) => (
-                <option key={w} value={w}>{w}</option>
+                <option key={w} value={w}>
+                  {w}
+                </option>
               ))}
             </select>
           </div>
 
           {error && (
-            <div className="text-xs text-[var(--color-danger)] bg-[var(--color-danger)]/10 rounded-lg p-3">
-              {error}
-            </div>
+            <div className="text-xs text-[var(--color-danger)] bg-[var(--color-danger)]/10 rounded-lg p-3">{error}</div>
           )}
         </div>
 
         <div className="flex justify-end gap-2 p-4 border-t border-[var(--color-border)] bg-[var(--color-background)] flex-shrink-0">
-          <Button variant="secondary" onClick={handleClose}>Отмена</Button>
+          <Button variant="secondary" onClick={handleClose}>
+            Отмена
+          </Button>
           <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
             {saving ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -928,7 +1065,9 @@ function StartChatModal({
         try {
           const s = await getScenario(form.activeScenarioName);
           scenarioContent = s.content;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       const userCtx = userName ? { name: userName, persona: userPersona || undefined } : undefined;
@@ -979,7 +1118,9 @@ function StartChatModal({
           {/* First message with generate button */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-[var(--color-text)] uppercase tracking-wide">Первое сообщение</label>
+              <label className="text-xs font-semibold text-[var(--color-text)] uppercase tracking-wide">
+                Первое сообщение
+              </label>
               <div className="flex items-center gap-2">
                 {connection.connected && !isEmptyChar && (
                   <button
@@ -988,11 +1129,7 @@ function StartChatModal({
                     className="flex items-center gap-1 text-[10px] text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 disabled:opacity-50 transition-colors cursor-pointer"
                     title="Сгенерировать первое сообщение"
                   >
-                    {generatingFirstMes ? (
-                      <Loader2 size={10} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={10} />
-                    )}
+                    {generatingFirstMes ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                     {generatingFirstMes ? 'Генерация...' : 'Сгенерировать'}
                   </button>
                 )}
@@ -1034,7 +1171,9 @@ function StartChatModal({
               >
                 <option value="">Без сценария</option>
                 {scenarios.map((s) => (
-                  <option key={s.name} value={s.name}>{s.name}</option>
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
                 ))}
               </select>
               <div className="text-[10px] text-[var(--color-text-muted)] opacity-60">
@@ -1045,7 +1184,9 @@ function StartChatModal({
         </div>
 
         <div className="flex justify-end gap-2 p-4 border-t border-[var(--color-border)] bg-[var(--color-background)] flex-shrink-0">
-          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+          <Button variant="secondary" onClick={onClose}>
+            Отмена
+          </Button>
           <Button onClick={() => onConfirm(form)}>
             <MessageCircle size={14} />
             Начать чат
@@ -1075,7 +1216,11 @@ export function CharactersPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: characters = [], isLoading, error } = useQuery({
+  const {
+    data: characters = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['characters'],
     queryFn: getCharacters,
   });
@@ -1100,7 +1245,9 @@ export function CharactersPage() {
       if (!cancelled) setChatCounts(counts);
     };
     fetchCounts();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [characters]);
 
   // Collect all unique tags
@@ -1116,8 +1263,10 @@ export function CharactersPage() {
 
   // Filter and sort
   const filtered = useMemo(() => {
-    let result = characters.filter((c) => {
-      const matchesSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
+    const result = characters.filter((c) => {
+      const matchesSearch =
+        !search ||
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.description?.toLowerCase().includes(search.toLowerCase());
       const matchesTag = !selectedTag || (c.tags ?? []).includes(selectedTag);
       return matchesSearch && matchesTag;
@@ -1163,8 +1312,10 @@ export function CharactersPage() {
       // Build character overrides — only store fields that differ from the card
       const charOverrides: Partial<Character> = {};
       if (!isEmptyChar) {
-        if (overrides.description !== (startChatChar.description ?? '')) charOverrides.description = overrides.description;
-        if (overrides.personality !== (startChatChar.personality ?? '')) charOverrides.personality = overrides.personality;
+        if (overrides.description !== (startChatChar.description ?? ''))
+          charOverrides.description = overrides.description;
+        if (overrides.personality !== (startChatChar.personality ?? ''))
+          charOverrides.personality = overrides.personality;
       }
 
       useAppStore.getState().upsertChatSession({
@@ -1203,10 +1354,7 @@ export function CharactersPage() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <div className="flex-1 relative">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
-            />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
             <input
               type="text"
               placeholder="Поиск персонажей..."
@@ -1245,14 +1393,20 @@ export function CharactersPage() {
                 <div className="fixed inset-0 z-20" onClick={() => setCreateMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg z-30 overflow-hidden min-w-[180px]">
                   <button
-                    onClick={() => { setCreateMenuOpen(false); setWizardOpen(true); }}
+                    onClick={() => {
+                      setCreateMenuOpen(false);
+                      setWizardOpen(true);
+                    }}
                     className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
                   >
                     <Sparkles size={14} className="text-[var(--color-primary)]" />
                     AI генерация
                   </button>
                   <button
-                    onClick={() => { setCreateMenuOpen(false); setManualCreateOpen(true); }}
+                    onClick={() => {
+                      setCreateMenuOpen(false);
+                      setManualCreateOpen(true);
+                    }}
                     className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
                   >
                     <FileText size={14} className="text-[var(--color-accent)]" />
@@ -1275,7 +1429,9 @@ export function CharactersPage() {
               <Tag size={12} />
               <span>Теги ({allTags.length})</span>
               {selectedTag && (
-                <span className="px-1.5 py-0.5 rounded-full bg-[var(--color-primary)] text-white text-[10px]">{selectedTag}</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-[var(--color-primary)] text-white text-[10px]">
+                  {selectedTag}
+                </span>
               )}
             </button>
             {tagsExpanded && (
@@ -1312,7 +1468,12 @@ export function CharactersPage() {
       {/* Character count */}
       <div className="text-xs text-[var(--color-text-muted)]">
         {filtered.length} из {characters.length} персонажей
-        {selectedTag && <span> · тег: <span className="text-[var(--color-primary)]">{selectedTag}</span></span>}
+        {selectedTag && (
+          <span>
+            {' '}
+            · тег: <span className="text-[var(--color-primary)]">{selectedTag}</span>
+          </span>
+        )}
       </div>
 
       {/* Content */}
@@ -1325,67 +1486,69 @@ export function CharactersPage() {
         </div>
       ) : error ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-sm text-[var(--color-danger)]">
-            Ошибка загрузки: {String(error)}
-          </div>
+          <div className="text-sm text-[var(--color-danger)]">Ошибка загрузки: {String(error)}</div>
         </div>
       ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 overflow-y-auto pb-4">
-            {/* "Without character" card — always first */}
-            <div
-              onClick={handleStartEmptyChat}
-              className="bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl overflow-hidden hover:border-[var(--color-primary)]/50 transition-colors group cursor-pointer relative"
-            >
-              <div className="aspect-[3/4] bg-[var(--color-surface-2)] relative overflow-hidden flex items-center justify-center">
-                <MessageSquareDashed size={48} className="text-[var(--color-border)] group-hover:text-[var(--color-primary)]/40 transition-colors" />
-              </div>
-              <div className="p-3">
-                <div className="font-medium text-sm text-[var(--color-text-muted)]">Без персонажа</div>
-                <div className="text-xs text-[var(--color-text-muted)] mt-1 opacity-60">
-                  Свободный чат без контекста
-                </div>
-              </div>
-            </div>
-
-            {filtered.map((character) => (
-              <CharacterCard
-                key={character.avatar ?? character.name}
-                character={character}
-                chatCount={character.avatar ? chatCounts[character.avatar] : undefined}
-                avatarVersion={avatarVersion}
-                onStartChat={handleStartChat}
-                onViewDetails={setDetailChar}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 overflow-y-auto pb-4">
+          {/* "Without character" card — always first */}
+          <div
+            onClick={handleStartEmptyChat}
+            className="bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl overflow-hidden hover:border-[var(--color-primary)]/50 transition-colors group cursor-pointer relative"
+          >
+            <div className="aspect-[3/4] bg-[var(--color-surface-2)] relative overflow-hidden flex items-center justify-center">
+              <MessageSquareDashed
+                size={48}
+                className="text-[var(--color-border)] group-hover:text-[var(--color-primary)]/40 transition-colors"
               />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1.5 overflow-y-auto pb-4">
-            {/* "Without character" list item — always first */}
-            <div
-              onClick={handleStartEmptyChat}
-              className="flex items-center gap-3 px-3 py-2.5 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)]/50 transition-colors group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-full bg-[var(--color-surface-2)] flex-shrink-0 flex items-center justify-center">
-                <MessageSquareDashed size={18} className="text-[var(--color-border)] group-hover:text-[var(--color-primary)]/40 transition-colors" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-[var(--color-text-muted)]">Без персонажа</div>
-                <div className="text-xs text-[var(--color-text-muted)] opacity-60">Свободный чат без контекста</div>
-              </div>
             </div>
-
-            {filtered.map((character) => (
-              <CharacterListItem
-                key={character.avatar ?? character.name}
-                character={character}
-                chatCount={character.avatar ? chatCounts[character.avatar] : undefined}
-                avatarVersion={avatarVersion}
-                onStartChat={handleStartChat}
-                onViewDetails={setDetailChar}
-              />
-            ))}
+            <div className="p-3">
+              <div className="font-medium text-sm text-[var(--color-text-muted)]">Без персонажа</div>
+              <div className="text-xs text-[var(--color-text-muted)] mt-1 opacity-60">Свободный чат без контекста</div>
+            </div>
           </div>
-        )}
+
+          {filtered.map((character) => (
+            <CharacterCard
+              key={character.avatar ?? character.name}
+              character={character}
+              chatCount={character.avatar ? chatCounts[character.avatar] : undefined}
+              avatarVersion={avatarVersion}
+              onStartChat={handleStartChat}
+              onViewDetails={setDetailChar}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5 overflow-y-auto pb-4">
+          {/* "Without character" list item — always first */}
+          <div
+            onClick={handleStartEmptyChat}
+            className="flex items-center gap-3 px-3 py-2.5 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)]/50 transition-colors group cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-full bg-[var(--color-surface-2)] flex-shrink-0 flex items-center justify-center">
+              <MessageSquareDashed
+                size={18}
+                className="text-[var(--color-border)] group-hover:text-[var(--color-primary)]/40 transition-colors"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm text-[var(--color-text-muted)]">Без персонажа</div>
+              <div className="text-xs text-[var(--color-text-muted)] opacity-60">Свободный чат без контекста</div>
+            </div>
+          </div>
+
+          {filtered.map((character) => (
+            <CharacterListItem
+              key={character.avatar ?? character.name}
+              character={character}
+              chatCount={character.avatar ? chatCounts[character.avatar] : undefined}
+              avatarVersion={avatarVersion}
+              onStartChat={handleStartChat}
+              onViewDetails={setDetailChar}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Character detail modal */}
       <CharacterDetailModal
@@ -1407,11 +1570,7 @@ export function CharactersPage() {
       />
 
       {/* Wizard modal */}
-      <CharacterWizard
-        open={wizardOpen}
-        onClose={() => setWizardOpen(false)}
-        onComplete={handleWizardComplete}
-      />
+      <CharacterWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onComplete={handleWizardComplete} />
 
       {/* Manual create modal */}
       <ManualCharacterModal

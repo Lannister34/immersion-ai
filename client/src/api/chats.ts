@@ -18,21 +18,14 @@ export interface AllChatsItem {
   fileSize: number;
 }
 
-export async function getChatMessages(
-  avatarUrl: string,
-  chatId: string,
-): Promise<Record<string, unknown>[]> {
+export async function getChatMessages(avatarUrl: string, chatId: string): Promise<Record<string, unknown>[]> {
   return apiPost<Record<string, unknown>[]>('/api/chats/get', {
     avatar_url: avatarUrl,
     file_name: chatId,
   });
 }
 
-export async function saveChat(
-  avatarUrl: string,
-  chatId: string,
-  chat: Record<string, unknown>[],
-): Promise<void> {
+export async function saveChat(avatarUrl: string, chatId: string, chat: Record<string, unknown>[]): Promise<void> {
   await apiPost('/api/chats/save', {
     avatar_url: avatarUrl,
     file_name: chatId,
@@ -41,9 +34,7 @@ export async function saveChat(
   });
 }
 
-export async function getCharacterChats(
-  avatarUrl: string,
-): Promise<ChatFileInfo[]> {
+export async function getCharacterChats(avatarUrl: string): Promise<ChatFileInfo[]> {
   const result = await apiPost<ChatFileInfo[] | { error: boolean }>('/api/characters/chats', { avatar_url: avatarUrl });
   if (!Array.isArray(result)) return [];
   return result;
@@ -53,11 +44,7 @@ export async function getAllChats(): Promise<AllChatsItem[]> {
   return apiPost<AllChatsItem[]>('/api/chats/all', {});
 }
 
-export async function createNewChat(
-  avatarUrl: string,
-  characterName: string,
-  firstMessage: string,
-): Promise<string> {
+export async function createNewChat(avatarUrl: string, characterName: string, firstMessage: string): Promise<string> {
   const chatId = `${Date.now()}`;
   const header = { chat_metadata: {}, user_name: '', character_name: characterName };
   const firstMsg = firstMessage

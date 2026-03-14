@@ -1,22 +1,21 @@
-import express from 'express';
-import cors from 'cors';
-import cookieSession from 'cookie-session';
-import multer from 'multer';
-import path from 'node:path';
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { ensureDataDirs, dirs, CLIENT_DIST, DATA_ROOT } from './lib/paths.js';
-import { router as settingsRouter } from './routes/settings.js';
+import cookieSession from 'cookie-session';
+import cors from 'cors';
+import express from 'express';
+import multer from 'multer';
+import { setupGracefulShutdown } from './lib/llm-process.js';
+import { CLIENT_DIST, DATA_ROOT, dirs, ensureDataDirs } from './lib/paths.js';
+import { router as aiGenerationRouter } from './routes/ai-generation.js';
 import { router as charactersRouter } from './routes/characters.js';
 import { router as chatsRouter } from './routes/chats.js';
-import { router as worldinfoRouter } from './routes/worldinfo.js';
 import { router as koboldRouter } from './routes/kobold.js';
-import { router as aiGenerationRouter } from './routes/ai-generation.js';
-import { router as scenariosRouter } from './routes/scenarios.js';
-import { router as userSettingsRouter } from './routes/user-settings.js';
 import { router as llmServerRouter } from './routes/llm-server.js';
-import { setupGracefulShutdown } from './lib/llm-process.js';
+import { router as scenariosRouter } from './routes/scenarios.js';
+import { router as settingsRouter } from './routes/settings.js';
+import { router as userSettingsRouter } from './routes/user-settings.js';
+import { router as worldinfoRouter } from './routes/worldinfo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

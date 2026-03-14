@@ -1,16 +1,46 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Send, RotateCcw, ArrowLeft, Loader2, Square, Trash2,
-  MessageCircle, Search, Pencil, Check, AlertTriangle,
-  Sliders, X, RotateCcw as Reset, Plus, Menu, FileText, Cpu, ChevronRight,
-} from 'lucide-react';
 import { clsx } from 'clsx';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Cpu,
+  FileText,
+  Loader2,
+  Menu,
+  MessageCircle,
+  Pencil,
+  Plus,
+  RotateCcw as Reset,
+  RotateCcw,
+  Search,
+  Send,
+  Sliders,
+  Square,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import * as api from '@/api';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { useAppStore, getEffectiveSamplerSettings, getBasePreset, DEFAULT_PROMPTS, getDefaultSystemPrompt } from '@/stores';
-import * as api from '@/api';
-import type { Character, WorldInfo, WorldInfoEntry, ChatSessionMeta, SamplerSettings, ContextTrimStrategy, Scenario } from '@/types';
+import {
+  DEFAULT_PROMPTS,
+  getBasePreset,
+  getDefaultSystemPrompt,
+  getEffectiveSamplerSettings,
+  useAppStore,
+} from '@/stores';
+import type {
+  Character,
+  ChatSessionMeta,
+  ContextTrimStrategy,
+  SamplerSettings,
+  Scenario,
+  WorldInfo,
+  WorldInfoEntry,
+} from '@/types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -24,10 +54,7 @@ interface ChatMessage {
 }
 
 function formatMarkdown(text: string, applyColors = false): string {
-  let html = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   if (applyColors) {
@@ -42,10 +69,10 @@ function formatMarkdown(text: string, applyColors = false): string {
  *  Russian pattern: «Dialogue, — narration. — More dialogue.»
  *  Transitions happen at: punctuation [,!?.…] followed by space+em-dash+space */
 function colorizeDialogueSegments(text: string): string {
-  const bright = (s: string) => s ? `<span class='dlg'>${s}</span>` : '';
+  const bright = (s: string) => (s ? `<span class='dlg'>${s}</span>` : '');
   const transitionRegex = /[,!?.…]\s*—\s/g;
   const splits: number[] = [];
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = transitionRegex.exec(text)) !== null) {
     splits.push(m.index + 1); // split after the punctuation mark
   }
@@ -67,7 +94,7 @@ function colorizeDialogueSegments(text: string): string {
 
 /** Highlight dialogue segments in bright color within muted-base assistant text */
 function highlightDialogue(html: string): string {
-  const bright = (s: string) => s ? `<span class='dlg'>${s}</span>` : '';
+  const bright = (s: string) => (s ? `<span class='dlg'>${s}</span>` : '');
 
   // 1. «Guillemet» blocks — parse internal dialogue/narration alternation
   html = html.replace(/«([^»]+)»/g, (_m, inner: string) => {
@@ -153,7 +180,7 @@ function formatMessageContent(text: string, isStreaming = false): string {
 function formatTime(dateStr: string): string {
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
+    if (Number.isNaN(d.getTime())) return '';
     return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   } catch {
     return '';
@@ -163,7 +190,7 @@ function formatTime(dateStr: string): string {
 function formatRelativeDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
+    if (Number.isNaN(d.getTime())) return '';
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -194,13 +221,14 @@ function ContextIndicator({ promptLength, maxContext }: { promptLength: number; 
   const percent = Math.round(ratio * 100);
   const isOverflow = ratio > 1;
 
-  const formatTokens = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+  const formatTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
-  const barColor = isOverflow || percent > 90
-    ? 'bg-[var(--color-danger)]'
-    : percent > 70
-      ? 'bg-yellow-500'
-      : 'bg-[var(--color-primary)]';
+  const barColor =
+    isOverflow || percent > 90
+      ? 'bg-[var(--color-danger)]'
+      : percent > 70
+        ? 'bg-yellow-500'
+        : 'bg-[var(--color-primary)]';
 
   return (
     <span
@@ -208,9 +236,14 @@ function ContextIndicator({ promptLength, maxContext }: { promptLength: number; 
       title={`Контекст: ~${estimatedTokens} / ${maxContext} токенов (${percent}%)${isOverflow ? ' — старые сообщения обрезаны' : ''}`}
     >
       <span className="w-14 h-1.5 rounded-full bg-[var(--color-surface-2)] overflow-hidden inline-block align-middle">
-        <span className={`block h-full rounded-full ${barColor} transition-all duration-300`} style={{ width: `${Math.min(percent, 100)}%` }} />
+        <span
+          className={`block h-full rounded-full ${barColor} transition-all duration-300`}
+          style={{ width: `${Math.min(percent, 100)}%` }}
+        />
       </span>
-      <span className={isOverflow ? 'text-[var(--color-danger)]' : ''}>{formatTokens(estimatedTokens)}/{formatTokens(maxContext)}</span>
+      <span className={isOverflow ? 'text-[var(--color-danger)]' : ''}>
+        {formatTokens(estimatedTokens)}/{formatTokens(maxContext)}
+      </span>
     </span>
   );
 }
@@ -233,11 +266,7 @@ function GenerationTimer({ isGenerating }: { isGenerating: boolean }) {
 
   if (!isGenerating) return null;
 
-  return (
-    <span className="text-[10px] text-[var(--color-text-muted)]/60 tabular-nums">
-      {seconds}с
-    </span>
-  );
+  return <span className="text-[10px] text-[var(--color-text-muted)]/60 tabular-nums">{seconds}с</span>;
 }
 
 // ── Message Bubble ──────────────────────────────────────────────────────────
@@ -320,7 +349,7 @@ const MessageBubble = memo(function MessageBubble({
       editRef.current.focus({ preventScroll: true });
       // Auto-size to full content height (no cap — chat container handles scrolling)
       editRef.current.style.height = 'auto';
-      editRef.current.style.height = editRef.current.scrollHeight + 'px';
+      editRef.current.style.height = `${editRef.current.scrollHeight}px`;
       editRef.current.style.overflowY = 'hidden';
       // Move cursor to end
       editRef.current.selectionStart = editRef.current.value.length;
@@ -344,136 +373,126 @@ const MessageBubble = memo(function MessageBubble({
   const handleEditChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEditText(e.target.value);
     e.target.style.height = 'auto';
-    e.target.style.height = e.target.scrollHeight + 'px';
+    e.target.style.height = `${e.target.scrollHeight}px`;
   };
 
   // Memoize expensive HTML formatting — only recompute when message text changes
   const formattedHtml = useMemo(
-    () => message.is_user ? formatMarkdown(message.mes) : formatMessageContent(message.mes),
+    () => (message.is_user ? formatMarkdown(message.mes) : formatMessageContent(message.mes)),
     [message.mes, message.is_user],
   );
 
   return (
     <div ref={bubbleRef} className={clsx('flex flex-col gap-1 group/msg', isUser ? 'items-end' : 'items-start')}>
-      <div className={clsx(
-        'flex flex-col gap-1',
-        'max-w-[95%] sm:max-w-[85%]',
-        isEditing && 'w-full',
-      )}>
-      <div className={clsx(
-        'flex gap-2 sm:gap-3',
-        isUser ? 'flex-row-reverse' : '',
-      )}>
-        {!isUser && (
-          <div className="w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] flex-shrink-0 overflow-hidden">
-            {characterAvatar ? (
-              <img src={`/characters/${characterAvatar}`} alt="" className="w-full h-full object-cover" />
+      <div className={clsx('flex flex-col gap-1', 'max-w-[95%] sm:max-w-[85%]', isEditing && 'w-full')}>
+        <div className={clsx('flex gap-2 sm:gap-3', isUser ? 'flex-row-reverse' : '')}>
+          {!isUser && (
+            <div className="w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] flex-shrink-0 overflow-hidden">
+              {characterAvatar ? (
+                <img src={`/characters/${characterAvatar}`} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs text-[var(--color-text-muted)]">
+                  AI
+                </div>
+              )}
+            </div>
+          )}
+          <div
+            className={clsx(
+              'rounded-2xl px-4 py-2.5 text-sm leading-relaxed relative',
+              isUser
+                ? 'bg-[var(--color-primary)] text-white rounded-br-md'
+                : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] rounded-bl-md border border-[var(--color-border)]',
+              isEditing && 'flex-1',
+            )}
+          >
+            {!isUser && <div className="text-xs font-semibold text-[var(--color-primary)] mb-1">{message.name}</div>}
+
+            {isEditing ? (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  ref={editRef}
+                  value={editText}
+                  onChange={handleEditChange}
+                  onKeyDown={handleEditKeyDown}
+                  className={clsx(
+                    'w-full resize-none rounded-lg px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]',
+                    isUser
+                      ? 'bg-white/15 text-white placeholder:text-white/50'
+                      : 'bg-[var(--color-background)] text-[var(--color-text)] border border-[var(--color-border)]',
+                  )}
+                  rows={1}
+                />
+                <div className="flex items-center gap-1 justify-end">
+                  <button
+                    onClick={saveEdit}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--color-accent)] text-white text-xs font-medium hover:brightness-110 transition-all cursor-pointer"
+                    title="Сохранить (Ctrl+Enter)"
+                  >
+                    <Check size={13} />
+                    <span>Сохранить</span>
+                  </button>
+                  <button
+                    onClick={cancelEditing}
+                    className={clsx(
+                      'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer',
+                      isUser
+                        ? 'text-white/70 hover:text-white hover:bg-white/10'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]',
+                    )}
+                    title="Отмена (Esc)"
+                  >
+                    <X size={13} />
+                    <span>Отмена</span>
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-[var(--color-text-muted)]">AI</div>
+              <div
+                className="whitespace-pre-wrap break-words overflow-hidden [overflow-wrap:anywhere] [&_em]:italic [&_strong]:font-bold"
+                dangerouslySetInnerHTML={{ __html: formattedHtml }}
+              />
+            )}
+          </div>
+        </div>
+        {/* Timestamp + action buttons — shares width with bubble row */}
+        {!isEditing && (
+          <div className={clsx('flex items-center px-1', isUser ? 'gap-2' : 'ml-10 sm:ml-12 justify-between')}>
+            {time && (
+              <span className="text-[10px] text-[var(--color-text-muted)]/50 flex-shrink-0">
+                {time}
+                {!isUser && words > 0 && ` · ${words} сл.`}
+              </span>
+            )}
+            {!isGenerating && (
+              <div className="opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-0.5">
+                {isAssistant && isLast && onRegenerate && (
+                  <button
+                    onClick={onRegenerate}
+                    className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"
+                    title="Перегенерировать (Ctrl+R)"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                )}
+                <button
+                  onClick={startEditing}
+                  className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"
+                  title="Редактировать"
+                >
+                  <Pencil size={12} />
+                </button>
+                <button
+                  onClick={onDelete}
+                  className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] cursor-pointer transition-colors"
+                  title="Удалить"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             )}
           </div>
         )}
-        <div
-          className={clsx(
-            'rounded-2xl px-4 py-2.5 text-sm leading-relaxed relative',
-            isUser
-              ? 'bg-[var(--color-primary)] text-white rounded-br-md'
-              : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] rounded-bl-md border border-[var(--color-border)]',
-            isEditing && 'flex-1',
-          )}
-        >
-          {!isUser && (
-            <div className="text-xs font-semibold text-[var(--color-primary)] mb-1">{message.name}</div>
-          )}
-
-          {isEditing ? (
-            <div className="flex flex-col gap-2">
-              <textarea
-                ref={editRef}
-                value={editText}
-                onChange={handleEditChange}
-                onKeyDown={handleEditKeyDown}
-                className={clsx(
-                  'w-full resize-none rounded-lg px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]',
-                  isUser
-                    ? 'bg-white/15 text-white placeholder:text-white/50'
-                    : 'bg-[var(--color-background)] text-[var(--color-text)] border border-[var(--color-border)]',
-                )}
-                rows={1}
-              />
-              <div className="flex items-center gap-1 justify-end">
-                <button
-                  onClick={saveEdit}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--color-accent)] text-white text-xs font-medium hover:brightness-110 transition-all cursor-pointer"
-                  title="Сохранить (Ctrl+Enter)"
-                >
-                  <Check size={13} />
-                  <span>Сохранить</span>
-                </button>
-                <button
-                  onClick={cancelEditing}
-                  className={clsx(
-                    'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer',
-                    isUser
-                      ? 'text-white/70 hover:text-white hover:bg-white/10'
-                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface)]',
-                  )}
-                  title="Отмена (Esc)"
-                >
-                  <X size={13} />
-                  <span>Отмена</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div
-              className="whitespace-pre-wrap break-words overflow-hidden [overflow-wrap:anywhere] [&_em]:italic [&_strong]:font-bold"
-              dangerouslySetInnerHTML={{ __html: formattedHtml }}
-            />
-          )}
-        </div>
-
-      </div>
-      {/* Timestamp + action buttons — shares width with bubble row */}
-      {!isEditing && (
-        <div className={clsx(
-          'flex items-center px-1',
-          isUser ? 'gap-2' : 'ml-10 sm:ml-12 justify-between',
-        )}>
-          {time && (
-            <span className="text-[10px] text-[var(--color-text-muted)]/50 flex-shrink-0">
-              {time}{!isUser && words > 0 && ` · ${words} сл.`}
-            </span>
-          )}
-          {!isGenerating && (
-            <div className="opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-0.5">
-              {isAssistant && isLast && onRegenerate && (
-                <button
-                  onClick={onRegenerate}
-                  className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"
-                  title="Перегенерировать (Ctrl+R)"
-                >
-                  <RotateCcw size={12} />
-                </button>
-              )}
-              <button
-                onClick={startEditing}
-                className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"
-                title="Редактировать"
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                onClick={onDelete}
-                className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-danger)] cursor-pointer transition-colors"
-                title="Удалить"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
       </div>
     </div>
   );
@@ -509,8 +528,13 @@ function ChatListItem({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') { e.preventDefault(); saveTitle(); }
-    if (e.key === 'Escape') { setEditing(false); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveTitle();
+    }
+    if (e.key === 'Escape') {
+      setEditing(false);
+    }
   };
 
   const displayTitle = session.title || 'Новый чат';
@@ -528,7 +552,9 @@ function ChatListItem({
               src={`/characters/${session.characterAvatar}`}
               alt=""
               className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -557,7 +583,10 @@ function ChatListItem({
                 className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-primary)] rounded px-1.5 py-0.5 text-sm text-[var(--color-text)] outline-none min-w-0"
               />
               <button
-                onMouseDown={(e) => { e.preventDefault(); saveTitle(); }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  saveTitle();
+                }}
                 className="p-0.5 rounded hover:bg-[var(--color-primary)]/20 text-[var(--color-primary)] cursor-pointer flex-shrink-0"
               >
                 <Check size={12} />
@@ -565,9 +594,7 @@ function ChatListItem({
             </div>
           ) : (
             <div className="flex items-center gap-1 min-w-0">
-              <span className="text-sm font-medium text-[var(--color-text)] truncate">
-                {displayTitle}
-              </span>
+              <span className="text-sm font-medium text-[var(--color-text)] truncate">{displayTitle}</span>
               <button
                 onClick={startEditing}
                 className="opacity-0 group-hover/chat:opacity-100 p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-opacity cursor-pointer flex-shrink-0"
@@ -582,7 +609,10 @@ function ChatListItem({
               {formatRelativeDate(session.lastActiveAt)}
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onDelete(session); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(session);
+              }}
               className="opacity-0 group-hover/chat:opacity-100 p-0.5 rounded hover:bg-[var(--color-danger)]/15 text-[var(--color-text-muted)] hover:text-[var(--color-danger)] transition-all cursor-pointer"
               title="Удалить чат"
             >
@@ -653,7 +683,7 @@ function ChatList({
             (s) => s.characterAvatar === chat.characterAvatar && s.chatFile === chat.chatFile,
           );
           let lastDate = chat.lastDate;
-          if (!isNaN(Number(lastDate))) {
+          if (!Number.isNaN(Number(lastDate))) {
             lastDate = new Date(Number(lastDate)).toISOString();
           }
           upsertChatSession({
@@ -674,7 +704,9 @@ function ChatList({
       }
     };
     sync();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Flat list sorted by last activity (most recent first), with search filter
@@ -726,9 +758,7 @@ function ChatList({
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-[var(--color-text-muted)]">
             <MessageCircle size={48} className="mx-auto mb-3 opacity-30" />
-            <div className="text-sm">
-              {search ? 'Чаты не найдены' : 'Нет чатов. Начните новый!'}
-            </div>
+            <div className="text-sm">{search ? 'Чаты не найдены' : 'Нет чатов. Начните новый!'}</div>
           </div>
         </div>
       ) : (
@@ -752,13 +782,15 @@ function ChatList({
               <AlertTriangle size={20} className="text-[var(--color-danger)]" />
             </div>
             <div className="text-sm text-[var(--color-text-muted)]">
-              Удалить чат <strong className="text-[var(--color-text)]">{deleteTarget?.title || 'Новый чат'}</strong> с персонажем{' '}
-              <strong className="text-[var(--color-text)]">{deleteTarget?.characterName}</strong>?
-              Это действие необратимо.
+              Удалить чат <strong className="text-[var(--color-text)]">{deleteTarget?.title || 'Новый чат'}</strong> с
+              персонажем <strong className="text-[var(--color-text)]">{deleteTarget?.characterName}</strong>? Это
+              действие необратимо.
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-[var(--color-border)]">
-            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Отмена</Button>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+              Отмена
+            </Button>
             <Button variant="danger" onClick={handleDeleteConfirm} disabled={isDeleting}>
               {isDeleting ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -777,10 +809,25 @@ function ChatList({
 // ── Chat Settings Panel (right sidebar) ─────────────────────────────────────
 
 function ChatSettingSlider({
-  label, value, onChange, min, max, step, hint, modified, tooltip,
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  hint,
+  modified,
+  tooltip,
 }: {
-  label: string; value: number; onChange: (v: number) => void;
-  min: number; max: number; step: number; hint?: string; modified?: boolean; tooltip?: string;
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  hint?: string;
+  modified?: boolean;
+  tooltip?: string;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
   return (
@@ -788,7 +835,10 @@ function ChatSettingSlider({
       <div className="flex justify-between items-center">
         <div className="relative flex items-center gap-1">
           <label
-            className={clsx('text-[10px] cursor-help', modified ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]')}
+            className={clsx(
+              'text-[10px] cursor-help',
+              modified ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]',
+            )}
             onMouseEnter={() => tooltip && setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
           >
@@ -804,14 +854,19 @@ function ChatSettingSlider({
           type="number"
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          min={min} max={max} step={step}
+          min={min}
+          max={max}
+          step={step}
           className="w-16 text-right bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded px-1.5 py-0.5 text-[10px] text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
         />
       </div>
       <input
         type="range"
-        value={value} onChange={(e) => onChange(Number(e.target.value))}
-        min={min} max={max} step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        min={min}
+        max={max}
+        step={step}
         className="w-full h-1 bg-[var(--color-surface-2)] rounded-full appearance-none cursor-pointer accent-[var(--color-primary)]"
       />
       {hint && <span className="text-[9px] text-[var(--color-text-muted)] opacity-50">{hint}</span>}
@@ -820,9 +875,13 @@ function ChatSettingSlider({
 }
 
 function ContextTrimToggle({
-  value, onChange, modified,
+  value,
+  onChange,
+  modified,
 }: {
-  value: ContextTrimStrategy; onChange: (v: ContextTrimStrategy) => void; modified?: boolean;
+  value: ContextTrimStrategy;
+  onChange: (v: ContextTrimStrategy) => void;
+  modified?: boolean;
 }) {
   const options: { key: ContextTrimStrategy; label: string }[] = [
     { key: 'trim_start', label: 'Начало' },
@@ -833,7 +892,10 @@ function ContextTrimToggle({
     <div className="flex flex-col gap-1">
       <div className="relative flex items-center gap-1">
         <label
-          className={clsx('text-[10px] cursor-help', modified ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]')}
+          className={clsx(
+            'text-[10px] cursor-help',
+            modified ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]',
+          )}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
         >
@@ -841,7 +903,8 @@ function ContextTrimToggle({
         </label>
         {showTooltip && (
           <div className="absolute left-0 bottom-full mb-1 z-50 w-[min(13rem,calc(100vw-2rem))] px-2.5 py-2 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] shadow-lg text-[10px] leading-snug text-[var(--color-text-muted)] pointer-events-none">
-            Что удалять при заполнении контекста. «Начало» — самые старые сообщения удаляются первыми. «Середина» — сохраняет начало чата (завязка, приветствие) и последние сообщения, удаляя середину.
+            Что удалять при заполнении контекста. «Начало» — самые старые сообщения удаляются первыми. «Середина» —
+            сохраняет начало чата (завязка, приветствие) и последние сообщения, удаляя середину.
           </div>
         )}
       </div>
@@ -905,7 +968,7 @@ function ModelSettingsSection() {
         // Poll until idle
         let attempts = 0;
         while (attempts < 60) {
-          await new Promise(r => setTimeout(r, 500));
+          await new Promise((r) => setTimeout(r, 500));
           const s = await api.getLlmServerStatus();
           if (s.status === 'idle' || s.status === 'error') break;
           attempts++;
@@ -1015,9 +1078,7 @@ function computeBaseSystemPrompt(
 
   let text: string;
   if (ch.system_prompt) {
-    text = ch.system_prompt
-      .replace(/\{\{char\}\}/g, ch.name)
-      .replace(/\{\{user\}\}/g, userName || 'User');
+    text = ch.system_prompt.replace(/\{\{char\}\}/g, ch.name).replace(/\{\{user\}\}/g, userName || 'User');
   } else {
     // Use language-appropriate default if the template hasn't been customized
     const template = DEFAULT_PROMPTS.includes(systemPromptTemplate)
@@ -1031,17 +1092,14 @@ function computeBaseSystemPrompt(
       .replace(/\{\{scenario\}\}/g, activeScenario?.content || '')
       .replace(/\{\{userPersona\}\}/g, userPersona || '');
 
-    text = text.replace(
-      /\{\{#if (\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g,
-      (_, varName: string, content: string) => {
-        const vars: Record<string, string | undefined> = {
-          personality: ch.personality,
-          scenario: activeScenario?.content,
-          userPersona,
-        };
-        return vars[varName] ? content : '';
-      },
-    );
+    text = text.replace(/\{\{#if (\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, varName: string, content: string) => {
+      const vars: Record<string, string | undefined> = {
+        personality: ch.personality,
+        scenario: activeScenario?.content,
+        userPersona,
+      };
+      return vars[varName] ? content : '';
+    });
   }
   return text.replace(/\n{3,}/g, '\n\n').trim();
 }
@@ -1054,14 +1112,10 @@ function ScenarioDisplay({ session }: { session: ChatSessionMeta | null }) {
     <div className="flex flex-col gap-1 border-t border-[var(--color-border)] pt-3">
       <div className="flex items-center gap-1.5">
         <FileText size={10} className="text-[var(--color-primary)]" />
-        <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-          Сценарий
-        </span>
+        <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">Сценарий</span>
       </div>
       <div className="text-xs text-[var(--color-text)]">{activeScenarioName}</div>
-      <div className="text-[9px] text-[var(--color-text-muted)] opacity-60">
-        Выбирается при создании чата
-      </div>
+      <div className="text-[9px] text-[var(--color-text-muted)] opacity-60">Выбирается при создании чата</div>
     </div>
   );
 }
@@ -1113,16 +1167,10 @@ function SystemPromptSection({
 
   return (
     <div className="flex flex-col gap-1.5 border-t border-[var(--color-border)] pt-3">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 cursor-pointer group"
-      >
+      <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-1.5 cursor-pointer group">
         <ChevronRight
           size={12}
-          className={clsx(
-            'text-[var(--color-primary)] transition-transform duration-200',
-            expanded && 'rotate-90',
-          )}
+          className={clsx('text-[var(--color-primary)] transition-transform duration-200', expanded && 'rotate-90')}
         />
         <span className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide group-hover:text-[var(--color-text)] transition-colors">
           Системный промпт
@@ -1232,15 +1280,20 @@ function ChatSettingsPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex flex-col">
-              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">Пресет</label>
-              <span className={clsx('text-xs font-medium', hasOverrides ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)]')}>
+              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                Пресет
+              </label>
+              <span
+                className={clsx(
+                  'text-xs font-medium',
+                  hasOverrides ? 'text-[var(--color-primary)]' : 'text-[var(--color-text)]',
+                )}
+              >
                 {hasOverrides ? 'Custom' : basePreset.name}
               </span>
             </div>
             {hasOverrides && (
-              <span className="text-[9px] text-[var(--color-text-muted)] opacity-60">
-                ({basePreset.name})
-              </span>
+              <span className="text-[9px] text-[var(--color-text-muted)] opacity-60">({basePreset.name})</span>
             )}
           </div>
           {hasOverrides && (
@@ -1269,7 +1322,9 @@ function ChatSettingsPanel({
               value={customOverrides.temperature ?? effective.temperature}
               onChange={(v) => handleOverride('temperature', v)}
               modified={'temperature' in customOverrides}
-              min={0.1} max={2.0} step={0.05}
+              min={0.1}
+              max={2.0}
+              step={0.05}
             />
             <ChatSettingSlider
               label="Min P"
@@ -1277,7 +1332,9 @@ function ChatSettingsPanel({
               value={customOverrides.min_p ?? effective.min_p}
               onChange={(v) => handleOverride('min_p', v)}
               modified={'min_p' in customOverrides}
-              min={0} max={0.5} step={0.01}
+              min={0}
+              max={0.5}
+              step={0.01}
             />
             <ChatSettingSlider
               label="Top P"
@@ -1285,7 +1342,9 @@ function ChatSettingsPanel({
               value={customOverrides.top_p ?? effective.top_p}
               onChange={(v) => handleOverride('top_p', v)}
               modified={'top_p' in customOverrides}
-              min={0} max={1} step={0.05}
+              min={0}
+              max={1}
+              step={0.05}
             />
             <ChatSettingSlider
               label="Top K"
@@ -1293,7 +1352,9 @@ function ChatSettingsPanel({
               value={customOverrides.top_k ?? effective.top_k}
               onChange={(v) => handleOverride('top_k', v)}
               modified={'top_k' in customOverrides}
-              min={0} max={200} step={1}
+              min={0}
+              max={200}
+              step={1}
             />
             <ChatSettingSlider
               label="Rep. Penalty"
@@ -1301,7 +1362,9 @@ function ChatSettingsPanel({
               value={customOverrides.rep_pen ?? effective.rep_pen}
               onChange={(v) => handleOverride('rep_pen', v)}
               modified={'rep_pen' in customOverrides}
-              min={1} max={1.5} step={0.01}
+              min={1}
+              max={1.5}
+              step={0.01}
             />
             <ChatSettingSlider
               label="Rep. Pen. Range"
@@ -1309,7 +1372,9 @@ function ChatSettingsPanel({
               value={customOverrides.rep_pen_range ?? effective.rep_pen_range}
               onChange={(v) => handleOverride('rep_pen_range', v)}
               modified={'rep_pen_range' in customOverrides}
-              min={0} max={8192} step={128}
+              min={0}
+              max={8192}
+              step={128}
             />
             <ChatSettingSlider
               label="Presence Penalty"
@@ -1317,7 +1382,9 @@ function ChatSettingsPanel({
               value={customOverrides.presence_penalty ?? effective.presence_penalty}
               onChange={(v) => handleOverride('presence_penalty', v)}
               modified={'presence_penalty' in customOverrides}
-              min={0} max={2} step={0.05}
+              min={0}
+              max={2}
+              step={0.05}
             />
             <ChatSettingSlider
               label="Max Tokens"
@@ -1325,7 +1392,9 @@ function ChatSettingsPanel({
               value={customOverrides.max_length ?? effective.max_length}
               onChange={(v) => handleOverride('max_length', v)}
               modified={'max_length' in customOverrides}
-              min={64} max={32768} step={64}
+              min={64}
+              max={32768}
+              step={64}
             />
             {/* Context trim strategy */}
             <ContextTrimToggle
@@ -1359,7 +1428,8 @@ function ChatSettingsPanel({
 export function ActiveChatView() {
   const { chatId } = useParams<{ chatId: string }>();
   const navigate = useNavigate();
-  const { upsertChatSession, connection, chatSessions, streamingEnabled, sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { upsertChatSession, connection, chatSessions, streamingEnabled, sidebarCollapsed, toggleSidebar } =
+    useAppStore();
 
   // Look up the session by chatId (which is the chatFile / timestamp)
   const session = chatSessions.find((s) => s.chatFile === chatId);
@@ -1390,7 +1460,7 @@ export function ActiveChatView() {
   useEffect(() => {
     if (!characterAvatar || !chatFile) return;
     loadChat();
-  }, [characterAvatar, chatFile]);
+  }, [characterAvatar, chatFile, loadChat]);
 
   // Load active scenario when session changes
   const activeScenarioName = session?.activeScenarioName;
@@ -1399,7 +1469,8 @@ export function ActiveChatView() {
       setActiveScenario(null);
       return;
     }
-    api.getScenario(activeScenarioName)
+    api
+      .getScenario(activeScenarioName)
       .then(setActiveScenario)
       .catch(() => setActiveScenario(null));
   }, [activeScenarioName]);
@@ -1409,7 +1480,7 @@ export function ActiveChatView() {
     if (shouldAutoScroll.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, streamText]);
+  }, []);
 
   const handleScroll = () => {
     const container = messagesContainerRef.current;
@@ -1461,14 +1532,13 @@ export function ActiveChatView() {
         characterName: char.name,
         chatFile: activeChat.chatFile,
         model,
-        createdAt: useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile)?.createdAt ?? new Date().toISOString(),
+        createdAt:
+          useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile)?.createdAt ??
+          new Date().toISOString(),
         lastActiveAt: new Date().toISOString(),
       });
 
-      const chatData = await api.getChatMessages(
-        activeChat.characterAvatar,
-        activeChat.chatFile,
-      );
+      const chatData = await api.getChatMessages(activeChat.characterAvatar, activeChat.chatFile);
       const allLines = chatData as unknown as Array<Record<string, unknown>>;
       const header = allLines.find((m) => 'chat_metadata' in m);
       if (header) chatHeaderRef.current = header;
@@ -1502,17 +1572,24 @@ export function ActiveChatView() {
 
         // Generate title for existing chats that don't have one yet
         if (!existingSession?.title && msgs.some((m) => !m.is_user && !m.is_system) && char) {
-          api.generateChatTitle(
-            msgs.filter((m) => !m.is_system).map((m) => ({ name: m.name, mes: m.is_user ? m.mes : stripThinkBlocks(m.mes) })),
-            char.name,
-          ).then((title) => {
-            if (title) {
-              const current = useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile);
-              if (current && !current.title) {
-                useAppStore.getState().upsertChatSession({ ...current, title });
+          api
+            .generateChatTitle(
+              msgs
+                .filter((m) => !m.is_system)
+                .map((m) => ({ name: m.name, mes: m.is_user ? m.mes : stripThinkBlocks(m.mes) })),
+              char.name,
+            )
+            .then((title) => {
+              if (title) {
+                const current = useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile);
+                if (current && !current.title) {
+                  useAppStore.getState().upsertChatSession({ ...current, title });
+                }
               }
-            }
-          }).catch(() => { /* ignore */ });
+            })
+            .catch(() => {
+              /* ignore */
+            });
         }
       } else if (existingSession) {
         // Chat file is empty/missing — sync session metadata
@@ -1524,7 +1601,8 @@ export function ActiveChatView() {
         });
       }
     } catch (err) {
-      console.error(err); setError('Произошла ошибка. Попробуйте ещё раз.');
+      console.error(err);
+      setError('Произошла ошибка. Попробуйте ещё раз.');
     }
   };
 
@@ -1536,7 +1614,9 @@ export function ActiveChatView() {
       const { responseLanguage, thinkingEnabled, getChatSession } = useAppStore.getState();
 
       // Merge per-chat character overrides on top of the card data
-      const sessionOverrides = chatFile ? getChatSession(character.avatar ?? '', chatFile)?.characterOverrides : undefined;
+      const sessionOverrides = chatFile
+        ? getChatSession(character.avatar ?? '', chatFile)?.characterOverrides
+        : undefined;
       const ch = sessionOverrides ? { ...character, ...sessionOverrides } : character;
 
       // Check for per-chat system prompt override
@@ -1559,12 +1639,16 @@ export function ActiveChatView() {
       // Merge world info into system text (strict templates like Qwen3.5
       // only allow a single system message at the very beginning)
       if (lorebook?.entries) {
-        const chatText = msgs.map((m) => m.mes).join('\n').toLowerCase();
+        const chatText = msgs
+          .map((m) => m.mes)
+          .join('\n')
+          .toLowerCase();
         const matchedEntries: WorldInfoEntry[] = [];
         for (const entry of Object.values(lorebook.entries)) {
           if (entry.disable) continue;
           const primaryMatch = entry.key.some((k) => k && chatText.includes(k.toLowerCase()));
-          const secondaryMatch = !entry.selective ||
+          const secondaryMatch =
+            !entry.selective ||
             entry.keysecondary.length === 0 ||
             entry.keysecondary.some((k) => k && chatText.includes(k.toLowerCase()));
           if (entry.constant || (primaryMatch && secondaryMatch)) {
@@ -1601,10 +1685,7 @@ export function ActiveChatView() {
       const contextSize = useAppStore.getState().llmServerConfig.contextSize;
       // Reserve at least 25% of context for the prompt even if max_length is very large
       // (e.g. thinking models with max_length == contextSize)
-      const maxTokens = Math.max(
-        contextSize - samplers.max_length,
-        Math.floor(contextSize * 0.25),
-      );
+      const maxTokens = Math.max(contextSize - samplers.max_length, Math.floor(contextSize * 0.25));
       const preambleLength = chatMessages.reduce((sum, m) => sum + m.content.length, 0);
       const preambleTokens = Math.round(preambleLength / 3.5);
 
@@ -1680,7 +1761,10 @@ export function ActiveChatView() {
 
   // Estimate prompt length for context indicator (use full untruncated length)
   useEffect(() => {
-    if (!character || messages.length === 0) { setLastPromptLength(0); return; }
+    if (!character || messages.length === 0) {
+      setLastPromptLength(0);
+      return;
+    }
     buildChatData(messages); // triggers fullPromptLengthRef update
     setLastPromptLength(fullPromptLengthRef.current);
   }, [messages, character, buildChatData]);
@@ -1734,19 +1818,24 @@ export function ActiveChatView() {
     if (!hasAssistantMsg) return;
 
     // Fire and forget — don't await
-    api.generateChatTitle(
-      msgs.filter((m) => !m.is_system).map((m) => ({ name: m.name, mes: m.is_user ? m.mes : stripThinkBlocks(m.mes) })),
-      character.name,
-    ).then((title) => {
-      if (title) {
-        const current = useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile);
-        if (current && !current.title) {
-          useAppStore.getState().upsertChatSession({ ...current, title });
+    api
+      .generateChatTitle(
+        msgs
+          .filter((m) => !m.is_system)
+          .map((m) => ({ name: m.name, mes: m.is_user ? m.mes : stripThinkBlocks(m.mes) })),
+        character.name,
+      )
+      .then((title) => {
+        if (title) {
+          const current = useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile);
+          if (current && !current.title) {
+            useAppStore.getState().upsertChatSession({ ...current, title });
+          }
         }
-      }
-    }).catch(() => {
-      // silently ignore title generation errors
-    });
+      })
+      .catch(() => {
+        // silently ignore title generation errors
+      });
   };
 
   /** Wait if a generation was recently aborted so KoboldCpp can finish cleanup */
@@ -1777,9 +1866,7 @@ export function ActiveChatView() {
     const textGen = settings?.textgenerationwebui as Record<string, unknown> | undefined;
     const urls = textGen?.server_urls as Record<string, string> | undefined;
     const rawUrl = urls?.koboldcpp ?? 'http://127.0.0.1:5001';
-    const apiServer = backendMode === 'builtin'
-      ? rawUrl
-      : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
+    const apiServer = backendMode === 'builtin' ? rawUrl : rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
 
     abortRef.current = new AbortController();
     const samplers = getEffectiveSamplerSettings(useAppStore.getState(), chatFile ?? undefined);
@@ -1850,7 +1937,8 @@ export function ActiveChatView() {
       await runGeneration(updatedMessages, { preSave: true, generateTitle: true });
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        console.error(err); setError('Произошла ошибка. Попробуйте ещё раз.');
+        console.error(err);
+        setError('Произошла ошибка. Попробуйте ещё раз.');
       }
     } finally {
       setIsGenerating(false);
@@ -1874,7 +1962,8 @@ export function ActiveChatView() {
       await runGeneration(messages, { generateTitle: true });
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        console.error(err); setError('Произошла ошибка. Попробуйте ещё раз.');
+        console.error(err);
+        setError('Произошла ошибка. Попробуйте ещё раз.');
       }
     } finally {
       setIsGenerating(false);
@@ -1899,7 +1988,8 @@ export function ActiveChatView() {
       await runGeneration(withoutLast, { preSave: true });
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        console.error(err); setError('Произошла ошибка. Попробуйте ещё раз.');
+        console.error(err);
+        setError('Произошла ошибка. Попробуйте ещё раз.');
       }
     } finally {
       setIsGenerating(false);
@@ -1964,7 +2054,7 @@ export function ActiveChatView() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [messages, isGenerating]);
+  }, [messages, isGenerating, handleGenerate, handleRegenerate]);
 
   const handleBack = () => {
     navigate('/chat');
@@ -2004,14 +2094,15 @@ export function ActiveChatView() {
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-[var(--color-text)] truncate">
-            {character?.name ?? 'Chat'}
-          </div>
+          <div className="text-sm font-semibold text-[var(--color-text)] truncate">{character?.name ?? 'Chat'}</div>
           <div className="text-xs text-[var(--color-text-muted)] flex items-center gap-2 min-w-0 overflow-hidden">
             <span className="flex-shrink-0">
               {messages.length} {messages.length === 1 ? 'сообщение' : messages.length < 5 ? 'сообщения' : 'сообщений'}
             </span>
-            <ContextIndicator promptLength={lastPromptLength} maxContext={useAppStore.getState().llmServerConfig.contextSize} />
+            <ContextIndicator
+              promptLength={lastPromptLength}
+              maxContext={useAppStore.getState().llmServerConfig.contextSize}
+            />
             <GenerationTimer isGenerating={isGenerating} />
           </div>
         </div>
@@ -2032,136 +2123,146 @@ export function ActiveChatView() {
       </div>
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-      {/* Left column: messages + input */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-      {/* Messages */}
-      <div
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 sm:py-4"
-      >
-        <div className="max-w-3xl mx-auto flex flex-col gap-3 sm:gap-4">
-        {messages.map((msg, i) => (
-          <MessageBubble
-            key={`${msg.send_date}-${i}`}
-            message={msg}
-            characterAvatar={character?.avatar}
-            isLast={i === messages.length - 1}
-            onEdit={(newText) => handleEditMessage(i, newText)}
-            onDelete={() => handleDeleteMessage(i)}
-            onRegenerate={handleRegenerate}
-            isGenerating={isGenerating}
-          />
-        ))}
-
-        {isGenerating && (
-          <div className="flex gap-2 sm:gap-3 max-w-[95%] sm:max-w-[85%]">
-            <div className="w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] flex-shrink-0 overflow-hidden flex items-center justify-center">
-              <Loader2 size={14} className="animate-spin text-[var(--color-primary)]" />
-            </div>
-            <div className="rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--color-surface-2)] border border-[var(--color-border)]">
-              {streamText ? (
-                <div
-                  className="text-sm text-[var(--color-text-muted)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] [&_em]:italic [&_strong]:font-bold"
-                  dangerouslySetInnerHTML={{ __html: formatMessageContent(streamText, true) }}
+        {/* Left column: messages + input */}
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          {/* Messages */}
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 sm:py-4"
+          >
+            <div className="max-w-3xl mx-auto flex flex-col gap-3 sm:gap-4">
+              {messages.map((msg, i) => (
+                <MessageBubble
+                  key={`${msg.send_date}-${i}`}
+                  message={msg}
+                  characterAvatar={character?.avatar}
+                  isLast={i === messages.length - 1}
+                  onEdit={(newText) => handleEditMessage(i, newText)}
+                  onDelete={() => handleDeleteMessage(i)}
+                  onRegenerate={handleRegenerate}
+                  isGenerating={isGenerating}
                 />
-              ) : (
-                <div className="flex items-center gap-1.5 py-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-bounce" style={{ animationDelay: '300ms' }} />
+              ))}
+
+              {isGenerating && (
+                <div className="flex gap-2 sm:gap-3 max-w-[95%] sm:max-w-[85%]">
+                  <div className="w-8 sm:w-9 h-8 sm:h-9 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] flex-shrink-0 overflow-hidden flex items-center justify-center">
+                    <Loader2 size={14} className="animate-spin text-[var(--color-primary)]" />
+                  </div>
+                  <div className="rounded-2xl rounded-bl-md px-4 py-2.5 bg-[var(--color-surface-2)] border border-[var(--color-border)]">
+                    {streamText ? (
+                      <div
+                        className="text-sm text-[var(--color-text-muted)] whitespace-pre-wrap break-words [overflow-wrap:anywhere] [&_em]:italic [&_strong]:font-bold"
+                        dangerouslySetInnerHTML={{ __html: formatMessageContent(streamText, true) }}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1.5 py-1">
+                        <div
+                          className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-bounce"
+                          style={{ animationDelay: '0ms' }}
+                        />
+                        <div
+                          className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-bounce"
+                          style={{ animationDelay: '150ms' }}
+                        />
+                        <div
+                          className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-bounce"
+                          style={{ animationDelay: '300ms' }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
+
+              {error && (
+                <div className="flex items-center gap-2 justify-center text-xs text-[var(--color-danger)] bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/25 rounded-xl px-4 py-2.5 mx-auto max-w-md">
+                  <AlertTriangle size={14} className="flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Generate button — only when last message is from user (AI reply missing) */}
+              {!isGenerating && messages.length > 0 && messages[messages.length - 1]?.is_user && (
+                <div className="flex justify-center mt-1">
+                  <button
+                    onClick={handleGenerate}
+                    disabled={!connection.connected}
+                    title={!connection.connected ? 'Нет подключения к API' : undefined}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-[var(--color-border)]"
+                  >
+                    <RotateCcw size={13} className="text-[var(--color-primary)]" />
+                    <span>Сгенерировать ответ ИИ</span>
+                    <span className="opacity-40 ml-1">(Ctrl+R)</span>
+                  </button>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
           </div>
-        )}
 
-        {error && (
-          <div className="flex items-center gap-2 justify-center text-xs text-[var(--color-danger)] bg-[var(--color-danger)]/10 border border-[var(--color-danger)]/25 rounded-xl px-4 py-2.5 mx-auto max-w-md">
-            <AlertTriangle size={14} className="flex-shrink-0" />
-            <span>{error}</span>
+          {/* Input area */}
+          <div className="flex-shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface)] px-2 sm:px-4 py-2 sm:py-3">
+            <div className="flex items-center gap-2 max-w-3xl mx-auto">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={connection.connected ? 'Напишите сообщение...' : 'Нет подключения к API...'}
+                rows={1}
+                disabled={isGenerating || !connection.connected}
+                className="flex-1 min-w-0 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-none min-h-[42px] max-h-32"
+                style={{ height: 'auto' }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+                }}
+              />
+              <div className="flex gap-1">
+                {isGenerating ? (
+                  <Button variant="danger" size="sm" onClick={handleStop}>
+                    <Square size={14} />
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={handleSend}
+                    disabled={!input.trim() || !connection.connected}
+                    title={!connection.connected ? 'Нет подключения к API' : undefined}
+                  >
+                    <Send size={14} />
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
-        )}
-
-        {/* Generate button — only when last message is from user (AI reply missing) */}
-        {!isGenerating && messages.length > 0 && messages[messages.length - 1]?.is_user && (
-          <div className="flex justify-center mt-1">
-            <button
-              onClick={handleGenerate}
-              disabled={!connection.connected}
-              title={!connection.connected ? 'Нет подключения к API' : undefined}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-[var(--color-border)]"
-            >
-              <RotateCcw size={13} className="text-[var(--color-primary)]" />
-              <span>Сгенерировать ответ ИИ</span>
-              <span className="opacity-40 ml-1">(Ctrl+R)</span>
-            </button>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
         </div>
-      </div>
 
-      {/* Input area */}
-      <div className="flex-shrink-0 border-t border-[var(--color-border)] bg-[var(--color-surface)] px-2 sm:px-4 py-2 sm:py-3">
-        <div className="flex items-center gap-2 max-w-3xl mx-auto">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={connection.connected ? 'Напишите сообщение...' : 'Нет подключения к API...'}
-            rows={1}
-            disabled={isGenerating || !connection.connected}
-            className="flex-1 min-w-0 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-none min-h-[42px] max-h-32"
-            style={{ height: 'auto' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+        {/* Right panel — per-chat sampler settings */}
+        {settingsOpen && (
+          <ChatSettingsPanel
+            session={session ?? null}
+            chatFile={chatFile}
+            character={character}
+            activeScenario={activeScenario}
+            onClose={() => setSettingsOpen(false)}
+            onSettingsChanged={() => {
+              // Debounce save to avoid excessive writes while sliding
+              if (settingsSaveTimerRef.current) clearTimeout(settingsSaveTimerRef.current);
+              settingsSaveTimerRef.current = setTimeout(() => {
+                if (activeChat) {
+                  api
+                    .saveChat(activeChat.characterAvatar, activeChat.chatFile, buildChatForSave(messages))
+                    .catch((err) => console.warn('Failed to save chat settings:', err));
+                }
+              }, 500);
             }}
           />
-          <div className="flex gap-1">
-            {isGenerating ? (
-              <Button variant="danger" size="sm" onClick={handleStop}>
-                <Square size={14} />
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={handleSend}
-                disabled={!input.trim() || !connection.connected}
-                title={!connection.connected ? 'Нет подключения к API' : undefined}
-              >
-                <Send size={14} />
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-      </div>
-
-      {/* Right panel — per-chat sampler settings */}
-      {settingsOpen && (
-        <ChatSettingsPanel
-          session={session ?? null}
-          chatFile={chatFile}
-          character={character}
-          activeScenario={activeScenario}
-          onClose={() => setSettingsOpen(false)}
-          onSettingsChanged={() => {
-            // Debounce save to avoid excessive writes while sliding
-            if (settingsSaveTimerRef.current) clearTimeout(settingsSaveTimerRef.current);
-            settingsSaveTimerRef.current = setTimeout(() => {
-              if (activeChat) {
-                api.saveChat(activeChat.characterAvatar, activeChat.chatFile, buildChatForSave(messages))
-                  .catch((err) => console.warn('Failed to save chat settings:', err));
-              }
-            }, 500);
-          }}
-        />
-      )}
+        )}
       </div>
     </div>
   );
@@ -2182,10 +2283,7 @@ export function ChatPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-3 sm:p-5">
-      <ChatList
-        onOpenChat={handleOpenChat}
-        onNewChat={handleNewChat}
-      />
+      <ChatList onOpenChat={handleOpenChat} onNewChat={handleNewChat} />
     </div>
   );
 }
