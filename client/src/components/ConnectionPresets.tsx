@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/stores';
@@ -8,6 +8,12 @@ import { ProviderType } from '@/types';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Modal } from './ui/Modal';
+
+// ── Provider display names ──────────────────────────────────────────────────
+
+const PROVIDER_NAMES: Record<ProviderType, string> = {
+  [ProviderType.KoboldCpp]: 'KoboldCpp',
+};
 
 // ── Preset edit/create modal ────────────────────────────────────────────────
 
@@ -22,78 +28,44 @@ function PresetModal({ open, onClose, preset }: PresetModalProps) {
   const { addConnectionPreset, updateConnectionPreset } = useAppStore();
   const isEdit = !!preset;
 
-  const [name, setName] = useState(preset?.name ?? '');
+  const provider = preset?.provider ?? ProviderType.KoboldCpp;
+  const providerName = PROVIDER_NAMES[provider];
+
   const [url, setUrl] = useState(preset?.url ?? 'http://127.0.0.1:5001');
-  const [apiKey, setApiKey] = useState(preset?.apiKey ?? '');
-  const [showKey, setShowKey] = useState(false);
 
   const handleSave = useCallback(() => {
-    const trimmedName = name.trim();
     const trimmedUrl = url.trim();
-    if (!trimmedName || !trimmedUrl) return;
+    if (!trimmedUrl) return;
 
     if (isEdit && preset) {
-      updateConnectionPreset(preset.id, {
-        name: trimmedName,
-        url: trimmedUrl,
-        apiKey: apiKey.trim() || undefined,
-      });
+      updateConnectionPreset(preset.id, { url: trimmedUrl });
     } else {
       const newPreset: ConnectionPreset = {
         id: `preset-${Date.now()}`,
-        name: trimmedName,
-        provider: ProviderType.KoboldCpp,
+        name: providerName,
+        provider,
         url: trimmedUrl,
-        apiKey: apiKey.trim() || undefined,
       };
       addConnectionPreset(newPreset);
     }
     onClose();
-  }, [name, url, apiKey, isEdit, preset, addConnectionPreset, updateConnectionPreset, onClose]);
-
-  const handleToggleKeyVisibility = useCallback(() => {
-    setShowKey((prev) => !prev);
-  }, []);
+  }, [url, isEdit, preset, provider, providerName, addConnectionPreset, updateConnectionPreset, onClose]);
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={isEdit ? t('server.editConnection') : t('server.newConnection')}
-      size="sm"
-    >
+    <Modal open={open} onClose={onClose} title={isEdit ? providerName : t('server.newConnection')} size="sm">
       <div className="flex flex-col gap-4 p-5">
-        <Input label={t('server.presetName')} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         <Input
           label={t('server.presetUrl')}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="http://127.0.0.1:5001"
+          autoFocus
         />
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm text-[var(--color-text-muted)] font-medium">{t('server.presetApiKey')}</label>
-          <div className="relative">
-            <input
-              type={showKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={t('server.presetApiKeyPlaceholder')}
-              className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3 py-2 pr-10 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
-            />
-            <button
-              type="button"
-              onClick={handleToggleKeyVisibility}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer"
-            >
-              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
-        </div>
         <div className="flex gap-2 justify-end pt-2">
           <Button variant="secondary" size="sm" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={!name.trim() || !url.trim()}>
+          <Button size="sm" onClick={handleSave} disabled={!url.trim()}>
             {t('common.save')}
           </Button>
         </div>

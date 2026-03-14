@@ -93,7 +93,7 @@ const DEFAULT_LLM_SERVER_CONFIG: LlmServerConfig = {
 
 const DEFAULT_CONNECTION_PRESET: ConnectionPreset = {
   id: 'default-koboldcpp',
-  name: 'KoboldCpp (локальный)',
+  name: 'KoboldCpp',
   provider: ProviderType.KoboldCpp,
   url: 'http://127.0.0.1:5001',
 };
