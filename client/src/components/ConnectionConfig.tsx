@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react';
-import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getProviderDefinitions } from '@/api';
 import { useAppStore } from '@/stores';
@@ -119,10 +119,15 @@ export function ConnectionConfig() {
   }, [activeProvider, activeDef, config]);
 
   const handleProviderChange = useCallback(
-    (e: ChangeEvent<HTMLSelectElement>) => {
-      setActiveProvider(e.target.value as ProviderType);
+    (value: string) => {
+      setActiveProvider(value as ProviderType);
     },
     [setActiveProvider],
+  );
+
+  const providerOptions = useMemo(
+    () => providers.map((p) => ({ value: p.type, label: t(`server.provider_${p.type}`, p.label) })),
+    [providers, t],
   );
 
   const handleFieldChange = useCallback((key: string, value: string) => {
@@ -146,13 +151,12 @@ export function ConnectionConfig() {
         {t('server.connectionTitle')}
       </h3>
 
-      <Select label={t('server.providerLabel')} value={activeProvider} onChange={handleProviderChange}>
-        {providers.map((p) => (
-          <option key={p.type} value={p.type}>
-            {t(`server.provider_${p.type}`, p.label)}
-          </option>
-        ))}
-      </Select>
+      <Select
+        label={t('server.providerLabel')}
+        value={activeProvider}
+        options={providerOptions}
+        onChange={handleProviderChange}
+      />
 
       {activeDef?.fields.map((field) => (
         <ProviderField
