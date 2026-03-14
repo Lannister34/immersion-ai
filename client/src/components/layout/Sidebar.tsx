@@ -1,24 +1,26 @@
 import { clsx } from 'clsx';
 import { BookOpen, FileText, Menu, MessageCircle, Server, Settings, Users, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores';
 
 interface NavItem {
   path: string;
-  label: string;
+  labelKey: 'nav.chats' | 'nav.characters' | 'nav.lorebooks' | 'nav.scenarios' | 'nav.api' | 'nav.settings';
   icon: React.ReactNode;
 }
 
 const navItems: NavItem[] = [
-  { path: '/chat', label: 'Чаты', icon: <MessageCircle size={18} /> },
-  { path: '/characters', label: 'Персонажи', icon: <Users size={18} /> },
-  { path: '/lorebooks', label: 'Лорбуки', icon: <BookOpen size={18} /> },
-  { path: '/scenarios', label: 'Сценарии', icon: <FileText size={18} /> },
-  { path: '/server', label: 'API', icon: <Server size={18} /> },
-  { path: '/settings', label: 'Настройки', icon: <Settings size={18} /> },
+  { path: '/chat', labelKey: 'nav.chats', icon: <MessageCircle size={18} /> },
+  { path: '/characters', labelKey: 'nav.characters', icon: <Users size={18} /> },
+  { path: '/lorebooks', labelKey: 'nav.lorebooks', icon: <BookOpen size={18} /> },
+  { path: '/scenarios', labelKey: 'nav.scenarios', icon: <FileText size={18} /> },
+  { path: '/server', labelKey: 'nav.api', icon: <Server size={18} /> },
+  { path: '/settings', labelKey: 'nav.settings', icon: <Settings size={18} /> },
 ];
 
 export function Sidebar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { sidebarCollapsed, toggleSidebar, connection } = useAppStore();
@@ -32,6 +34,7 @@ export function Sidebar() {
   };
 
   const isActive = (path: string) => location.pathname.startsWith(path);
+  const connectionLabel = connection.connected ? connection.model || 'Connected' : t('nav.noConnection');
 
   return (
     <aside
@@ -63,7 +66,7 @@ export function Sidebar() {
           <button
             key={item.path}
             onClick={() => handleNav(item.path)}
-            title={sidebarCollapsed ? item.label : undefined}
+            title={sidebarCollapsed ? t(item.labelKey) : undefined}
             className={clsx(
               'flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer w-full',
               isActive(item.path)
@@ -72,7 +75,7 @@ export function Sidebar() {
             )}
           >
             <span className="flex-shrink-0">{item.icon}</span>
-            {!sidebarCollapsed && <span className="whitespace-nowrap overflow-hidden">{item.label}</span>}
+            {!sidebarCollapsed && <span className="whitespace-nowrap overflow-hidden">{t(item.labelKey)}</span>}
           </button>
         ))}
       </nav>
@@ -80,9 +83,7 @@ export function Sidebar() {
       {/* Connection status at bottom — click to open API page */}
       <button
         onClick={() => handleNav('/server')}
-        title={
-          sidebarCollapsed ? (connection.connected ? connection.model || 'Connected' : 'Нет подключения') : undefined
-        }
+        title={sidebarCollapsed ? connectionLabel : undefined}
         className={clsx(
           'border-t border-[var(--color-border)] px-3 py-3 flex items-center gap-2.5 w-full cursor-pointer transition-colors hover:bg-[var(--color-surface-2)]',
           sidebarCollapsed && 'justify-center',
@@ -103,9 +104,9 @@ export function Sidebar() {
         {!sidebarCollapsed && (
           <div className="text-[11px] text-[var(--color-text-muted)] truncate leading-tight text-left">
             {connection.connected ? (
-              <span className="text-[var(--color-accent)]">{connection.model || 'Connected'}</span>
+              <span className="text-[var(--color-accent)]">{connectionLabel}</span>
             ) : (
-              'Нет подключения'
+              connectionLabel
             )}
           </div>
         )}
