@@ -14,6 +14,37 @@ export async function getCsrfToken(): Promise<string> {
   return fetchCsrfToken();
 }
 
+/** POST with FormData body (for file uploads). Skips undefined/null values. */
+export async function apiPostForm(
+  path: string,
+  fields: Record<string, string | File | string[] | undefined | null>,
+): Promise<void> {
+  const token = await getCsrfToken();
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value == null) continue;
+    if (Array.isArray(value)) {
+      if (value.length) form.append(key, value.join(', '));
+    } else {
+      form.append(key, value);
+    }
+  }
+
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'x-csrf-token': token },
+    body: form,
+  });
+  if (!res.ok) {
+    let msg = `Ошибка сервера (${res.status})`;
+    try {
+      const data = await res.json() as { error?: string };
+      if (data?.error) msg = data.error;
+    } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+}
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const token = await getCsrfToken();
   const res = await fetch(path, {

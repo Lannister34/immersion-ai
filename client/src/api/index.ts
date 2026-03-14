@@ -1,4 +1,4 @@
-export { apiPost, getCsrfToken, fetchCsrfToken } from './client';
+export { apiPost, apiPostForm, getCsrfToken, fetchCsrfToken } from './client';
 
 export { getCharacters, getCharacterByAvatar, createCharacter, editCharacter, deleteCharacter } from './characters';
 

@@ -1,4 +1,4 @@
-import { apiPost, getCsrfToken } from './client';
+import { apiPost } from './client';
 
 export interface ChatFileInfo {
   file_name: string;
@@ -75,11 +75,5 @@ export async function createNewChat(
 }
 
 export async function deleteChat(avatarUrl: string, fileName: string): Promise<void> {
-  const token = await getCsrfToken();
-  const res = await fetch('/api/chats/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-csrf-token': token },
-    body: JSON.stringify({ avatar_url: avatarUrl, file_name: fileName }),
-  });
-  if (!res.ok) throw new Error(`Failed to delete chat: ${res.status}`);
+  await apiPost('/api/chats/delete', { avatar_url: avatarUrl, file_name: fileName });
 }
