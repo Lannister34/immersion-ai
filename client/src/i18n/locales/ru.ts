@@ -348,6 +348,7 @@ export const ru = {
     contextSizeDefault: 'по умолчанию',
     contextSizeCustom: 'переопределено',
     contextSizeReset: 'Сбросить',
+    contextSizeEditHint: 'Нажмите, чтобы ввести вручную',
   },
 
   // ── Character wizard ────────────────────────────────────────────────────────

@@ -83,14 +83,35 @@ function ModelCard({
     return t('modelManager.contextSizeDefault');
   };
 
-  const handleContextInput = useCallback(
+  const [isEditingValue, setIsEditingValue] = useState(false);
+  const [editValue, setEditValue] = useState('');
+
+  const handleSliderChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = Number(e.target.value);
-      if (val >= 512 && val <= 262144) {
-        onContextChange(val);
-      }
+      onContextChange(Number(e.target.value));
     },
     [onContextChange],
+  );
+
+  const handleValueClick = useCallback(() => {
+    setEditValue(String(resolvedContext));
+    setIsEditingValue(true);
+  }, [resolvedContext]);
+
+  const handleValueCommit = useCallback(() => {
+    const val = Number(editValue);
+    if (val >= 512 && val <= 262144) {
+      onContextChange(val);
+    }
+    setIsEditingValue(false);
+  }, [editValue, onContextChange]);
+
+  const handleValueKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') handleValueCommit();
+      if (e.key === 'Escape') setIsEditingValue(false);
+    },
+    [handleValueCommit],
   );
 
   return (
@@ -139,34 +160,66 @@ function ModelCard({
 
       {/* Expandable settings */}
       {isExpanded && (
-        <div className="px-3 pb-2.5 pt-0.5 border-t border-[var(--color-border)]/50">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] text-[var(--color-text-muted)] font-medium">
-              {t('modelManager.contextSizeLabel')}
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={resolvedContext}
-                onChange={handleContextInput}
-                min={512}
-                max={262144}
-                step={512}
-                className="flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md px-2.5 py-1.5 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] min-w-0"
-              />
-              {hasOverride && (
-                <button
-                  type="button"
-                  onClick={onContextReset}
-                  className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] transition-colors cursor-pointer"
-                  title={t('modelManager.contextSizeReset')}
-                >
-                  <RotateCcw size={11} />
-                  {t('modelManager.contextSizeReset')}
-                </button>
-              )}
+        <div className="px-3 pb-2.5 pt-1 border-t border-[var(--color-border)]/50">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-[var(--color-text-muted)] font-medium">
+                {t('modelManager.contextSizeLabel')}
+              </label>
+              <div className="flex items-center gap-1.5">
+                {isEditingValue ? (
+                  <input
+                    type="number"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleValueCommit}
+                    onKeyDown={handleValueKeyDown}
+                    min={512}
+                    max={262144}
+                    step={512}
+                    autoFocus
+                    className="w-20 bg-[var(--color-surface)] border border-[var(--color-primary)] rounded px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text)] outline-none text-right"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleValueClick}
+                    className="text-[10px] font-mono text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer transition-colors"
+                    title={t('modelManager.contextSizeEditHint')}
+                  >
+                    {resolvedContext.toLocaleString()}
+                  </button>
+                )}
+                {hasOverride && (
+                  <button
+                    type="button"
+                    onClick={onContextReset}
+                    className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
+                    title={t('modelManager.contextSizeReset')}
+                  >
+                    <RotateCcw size={10} />
+                  </button>
+                )}
+              </div>
             </div>
-            <span className="text-[10px] text-[var(--color-text-muted)] opacity-60">{getContextSourceLabel()}</span>
+            <input
+              type="range"
+              min={2048}
+              max={131072}
+              step={1024}
+              value={resolvedContext}
+              onChange={handleSliderChange}
+              className="w-full accent-[var(--color-primary)]"
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 text-[9px] text-[var(--color-text-muted)] opacity-50">
+                <span>2K</span>
+              </div>
+              <span className="text-[9px] text-[var(--color-text-muted)] opacity-50">{getContextSourceLabel()}</span>
+              <div className="text-[9px] text-[var(--color-text-muted)] opacity-50">
+                <span>128K</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

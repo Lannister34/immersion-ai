@@ -347,6 +347,7 @@ export const en = {
     contextSizeDefault: 'default',
     contextSizeCustom: 'overridden',
     contextSizeReset: 'Reset',
+    contextSizeEditHint: 'Click to enter manually',
   },
 
   // ── Character wizard ────────────────────────────────────────────────────────
