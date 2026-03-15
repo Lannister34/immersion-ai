@@ -37,7 +37,6 @@ interface ModelCardProps {
   model: ModelFile;
   isCurrent: boolean;
   isLoading: boolean;
-  isActive: boolean;
   isExpanded: boolean;
   modelSettings: Record<string, import('@/types').ModelSettings>;
   modelPresetMap: Record<string, string>;
@@ -55,7 +54,6 @@ function ModelCard({
   model,
   isCurrent,
   isLoading,
-  isActive,
   isExpanded,
   modelSettings,
   modelPresetMap,
@@ -145,13 +143,7 @@ function ModelCard({
         )}
         {isLoading && <Loader2 size={14} className="text-amber-400 animate-spin" />}
         {!isCurrent && !isLoading && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onStart(model)}
-            disabled={isActive}
-            className="text-[10px] !px-2 !py-1"
-          >
+          <Button variant="ghost" size="sm" onClick={() => onStart(model)} className="text-[10px] !px-2 !py-1">
             <Play size={11} />
             {t('modelManager.startButton')}
           </Button>
@@ -591,7 +583,6 @@ export function ModelManager() {
                 model={model}
                 isCurrent={!!isCurrent}
                 isLoading={!!isLoading}
-                isActive={isActive}
                 isExpanded={isExpanded}
                 modelSettings={modelSettings}
                 modelPresetMap={modelPresetMap}
