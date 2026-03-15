@@ -232,6 +232,11 @@ export const en = {
     scenarioLabel: 'Scenario',
     noScenario: 'No scenario',
     scenarioHint: 'Substituted into {{scenario}} in the system prompt.',
+    userPersonaSectionTitle: 'User Persona',
+    userNameLabel: 'User Name',
+    userNamePlaceholder: 'Your name...',
+    userPersonaLabel: 'Persona Description',
+    userPersonaPlaceholder: 'Your character description for RP (age, appearance, personality)...',
   },
 
   // ── Scenarios page ──────────────────────────────────────────────────────────

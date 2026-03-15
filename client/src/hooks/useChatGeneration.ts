@@ -204,8 +204,10 @@ export function useChatGeneration({
     const conn = useAppStore.getState().connection;
     if (!conn.connected) return;
 
+    const state = useAppStore.getState();
+    const session = state.chatSessions.find((s) => s.chatFile === chatFileRef.current);
     const userMessage: ChatMessage = {
-      name: useAppStore.getState().userName || 'User',
+      name: session?.customUserName || state.userName || 'User',
       is_user: true,
       mes: input.trim(),
       send_date: new Date().toISOString(),
