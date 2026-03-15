@@ -127,10 +127,12 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
         .map((m) => m as unknown as ChatMessage);
       setMessages(msgs);
 
-      // Restore per-chat sampler overrides from chat file metadata
+      // Restore per-chat overrides from chat file metadata
       const chatMeta = (header?.chat_metadata ?? {}) as Record<string, unknown>;
       const savedOverrides = chatMeta.customSamplerSettings as Partial<SamplerSettings> | undefined;
       const savedSystemPrompt = chatMeta.customSystemPrompt as string | undefined;
+      const savedUserName = chatMeta.customUserName as string | undefined;
+      const savedUserPersona = chatMeta.customUserPersona as string | undefined;
 
       // Update session with message count/preview + overrides from file
       const existingSession = getChatSession(characterAvatar, chatFile);
@@ -147,6 +149,8 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
           title: existingSession?.title,
           customSamplerSettings: savedOverrides,
           customSystemPrompt: savedSystemPrompt,
+          customUserName: savedUserName,
+          customUserPersona: savedUserPersona,
         });
 
         // Generate title for existing chats that don't have one yet
@@ -230,11 +234,16 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
 
       // Check for per-chat system prompt override
       const sessionMeta = chatFile ? getChatSession(character.avatar ?? '', chatFile) : undefined;
+      const userOverrides =
+        sessionMeta?.customUserName !== undefined || sessionMeta?.customUserPersona !== undefined
+          ? { userName: sessionMeta?.customUserName, userPersona: sessionMeta?.customUserPersona }
+          : undefined;
+
       let systemText: string;
       if (sessionMeta?.customSystemPrompt) {
         systemText = sessionMeta.customSystemPrompt;
       } else {
-        systemText = computeBaseSystemPrompt(character, sessionOverrides, activeScenario);
+        systemText = computeBaseSystemPrompt(character, sessionOverrides, activeScenario, userOverrides);
       }
 
       // Append language enforcement
@@ -394,6 +403,16 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
         metadata.customSystemPrompt = sess.customSystemPrompt;
       } else {
         delete metadata.customSystemPrompt;
+      }
+      if (sess?.customUserName) {
+        metadata.customUserName = sess.customUserName;
+      } else {
+        delete metadata.customUserName;
+      }
+      if (sess?.customUserPersona) {
+        metadata.customUserPersona = sess.customUserPersona;
+      } else {
+        delete metadata.customUserPersona;
       }
       const updatedHeader = { ...header, chat_metadata: metadata };
       chatHeaderRef.current = updatedHeader;
