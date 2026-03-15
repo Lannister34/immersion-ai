@@ -161,7 +161,7 @@ function ModelCard({
       {/* Expandable settings */}
       {isExpanded && (
         <div className="px-3 pb-2.5 pt-1 border-t border-[var(--color-border)]/50">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 max-w-xs">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-[var(--color-text-muted)] font-medium">
                 {t('modelManager.contextSizeLabel')}
@@ -211,14 +211,10 @@ function ModelCard({
               onChange={handleSliderChange}
               className="w-full accent-[var(--color-primary)]"
             />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1 text-[9px] text-[var(--color-text-muted)] opacity-50">
-                <span>2K</span>
-              </div>
-              <span className="text-[9px] text-[var(--color-text-muted)] opacity-50">{getContextSourceLabel()}</span>
-              <div className="text-[9px] text-[var(--color-text-muted)] opacity-50">
-                <span>128K</span>
-              </div>
+            <div className="flex items-center justify-between text-[9px] text-[var(--color-text-muted)] opacity-50">
+              <span>2K</span>
+              <span>{getContextSourceLabel()}</span>
+              <span>128K</span>
             </div>
           </div>
         </div>
