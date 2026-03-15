@@ -460,7 +460,14 @@ Each entry should cover a distinct aspect of the world. Cover: locations, factio
     const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 3000, apiKey });
     const result = extractJson(raw) as Record<string, unknown>;
 
-    const entries = Array.isArray(result?.entries) ? result.entries : Array.isArray(result) ? result : [];
+    let entries: unknown[];
+    if (Array.isArray(result?.entries)) {
+      entries = result.entries as unknown[];
+    } else if (Array.isArray(result)) {
+      entries = result;
+    } else {
+      entries = [];
+    }
 
     const normalized = (entries as Array<Record<string, unknown>>).map((e) => ({
       key: Array.isArray(e.key) ? e.key : [String(e.key ?? '')],
@@ -626,13 +633,16 @@ Character name (for {{char}} substitution): ${character?.name ?? 'N/A'}`;
       }
     }
 
-    const genderHint = isRu
-      ? user?.name
+    let genderHint: string;
+    if (isRu) {
+      genderHint = user?.name
         ? `Определи грамматический род {{user}} по имени игрока "${user.name}". `
-        : 'По умолчанию используй мужской грамматический род для {{user}}. '
-      : user?.name
+        : 'По умолчанию используй мужской грамматический род для {{user}}. ';
+    } else {
+      genderHint = user?.name
         ? `Determine {{user}}'s grammatical gender from the player name "${user.name}". `
         : 'Default to masculine grammatical gender for {{user}}. ';
+    }
 
     const userPrompt = isRu
       ? `Создай детальный ролевой сценарий на основе концепции: ${concept}
@@ -702,13 +712,16 @@ router.post('/first-message', async (req, res) => {
     const { url: apiServer, apiKey } = getActivePreset();
     const isRu = language !== 'en';
 
-    const genderHint = isRu
-      ? user?.name
+    let genderHint: string;
+    if (isRu) {
+      genderHint = user?.name
         ? `Определи грамматический род {{user}} по имени игрока "${user.name}". `
-        : 'По умолчанию используй мужской грамматический род для {{user}}. '
-      : user?.name
+        : 'По умолчанию используй мужской грамматический род для {{user}}. ';
+    } else {
+      genderHint = user?.name
         ? `Determine {{user}}'s grammatical gender from the player name "${user.name}". `
         : 'Default to masculine grammatical gender for {{user}}. ';
+    }
 
     const systemPrompt = isRu
       ? `Ты — помощник для ролевых игр. Сгенерируй вступительное сообщение от лица {{char}} для начала ролевой сцены.

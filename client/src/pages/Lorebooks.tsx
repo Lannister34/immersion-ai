@@ -29,6 +29,11 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useAppStore } from '@/stores';
 import type { GeneratedLorebook, WorldInfo, WorldInfoEntry } from '@/types';
 
+function getStepStyle(i: number, current: number): string {
+  if (i === current) return 'bg-[var(--color-primary)] text-white';
+  return 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]';
+}
+
 // ── Lorebook Wizard ────────────────────────────────────────────────────────────
 
 interface LorebookWizardProps {
@@ -153,11 +158,7 @@ function LorebookWizard({ open, onClose, onComplete }: LorebookWizardProps) {
           <div key={i} className="flex items-center gap-2">
             <div
               className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
-                i < stepIdx
-                  ? 'bg-[var(--color-accent)] text-white'
-                  : i === stepIdx
-                    ? 'bg-[var(--color-primary)] text-white'
-                    : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
+                i < stepIdx ? 'bg-[var(--color-accent)] text-white' : getStepStyle(i, stepIdx)
               }`}
             >
               {i < stepIdx ? <Check size={12} /> : i + 1}
@@ -654,11 +655,11 @@ export function LorebooksPage() {
           {t('common.create')}
         </Button>
 
-        {isLoading ? (
-          <div className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>
-        ) : worlds.length === 0 ? (
+        {isLoading && <div className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>}
+        {!isLoading && worlds.length === 0 && (
           <div className="text-sm text-[var(--color-text-muted)]">{t('lorebooks.empty')}</div>
-        ) : (
+        )}
+        {!isLoading && worlds.length > 0 && (
           <div className="flex flex-col gap-1">
             {worlds.map((name) => (
               <div

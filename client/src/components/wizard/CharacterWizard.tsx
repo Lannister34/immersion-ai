@@ -16,19 +16,19 @@ interface CharacterWizardProps {
 
 type Step = 'concept' | 'generating' | 'preview' | 'avatar' | 'saving';
 
+function getStepStyle(i: number, current: number): string {
+  if (i < current) return 'bg-[var(--color-accent)] text-white';
+  if (i === current) return 'bg-[var(--color-primary)] text-white';
+  return 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]';
+}
+
 function StepIndicator({ current, steps }: { current: number; steps: string[] }) {
   return (
     <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--color-border)]">
       {steps.map((label, i) => (
         <div key={i} className="flex items-center gap-2">
           <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
-              i < current
-                ? 'bg-[var(--color-accent)] text-white'
-                : i === current
-                  ? 'bg-[var(--color-primary)] text-white'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)]'
-            }`}
+            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${getStepStyle(i, current)}`}
           >
             {i < current ? <Check size={12} /> : i + 1}
           </div>
