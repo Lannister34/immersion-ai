@@ -342,6 +342,12 @@ export const en = {
     currentBadge: 'Current',
     startButton: 'Start',
     noModelsFound: 'No models (.gguf) found in {{dir}}',
+    contextSizeLabel: 'Context size',
+    contextSizeFromPreset: 'from preset {{preset}}',
+    contextSizeDefault: 'default',
+    contextSizeCustom: 'overridden',
+    contextSizeReset: 'Reset',
+    contextSizeEditHint: 'Click to enter manually',
   },
 
   // ── Character wizard ────────────────────────────────────────────────────────

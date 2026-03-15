@@ -276,6 +276,13 @@ export interface TextGenPresetData {
   [key: string]: unknown;
 }
 
+// ── Per-model Settings ─────────────────────────────────────────────────────
+
+/** Per-model settings (context size overrides, etc.) */
+export interface ModelSettings {
+  contextSize?: number;
+}
+
 // ── LLM Server Types ───────────────────────────────────────────────────────
 
 export interface LlmStartConfig {
