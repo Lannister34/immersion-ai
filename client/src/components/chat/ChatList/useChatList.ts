@@ -1,15 +1,51 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as api from '@/api';
 import { useAppStore } from '@/stores';
 import type { ChatSessionMeta } from '@/types';
 
+/**
+ * Fetch the authoritative chat list from the server and reconcile
+ * the in-memory chatSessions: remove stale entries, upsert current ones.
+ */
+async function syncSessionsFromServer(): Promise<void> {
+  const allChats = await api.getAllChats();
+  const { upsertChatSession, removeChatSession, chatSessions: existing } = useAppStore.getState();
+
+  // Remove sessions whose files no longer exist on disk
+  const diskKeys = new Set(allChats.map((c) => `${c.characterAvatar}::${c.chatFile}`));
+  for (const session of existing) {
+    if (!diskKeys.has(`${session.characterAvatar}::${session.chatFile}`)) {
+      removeChatSession(session.characterAvatar, session.chatFile);
+    }
+  }
+
+  // Upsert sessions that do exist on disk
+  for (const chat of allChats) {
+    const already = existing.find((s) => s.characterAvatar === chat.characterAvatar && s.chatFile === chat.chatFile);
+    let lastDate = chat.lastDate;
+    if (!Number.isNaN(Number(lastDate))) {
+      lastDate = new Date(Number(lastDate)).toISOString();
+    }
+    upsertChatSession({
+      characterAvatar: chat.characterAvatar,
+      characterName: chat.characterName,
+      chatFile: chat.chatFile,
+      createdAt: already?.createdAt ?? lastDate ?? new Date().toISOString(),
+      lastActiveAt: lastDate ?? new Date().toISOString(),
+      messageCount: chat.messageCount,
+      lastMessagePreview: chat.lastMessage,
+      title: already?.title,
+    });
+  }
+}
+
 export function useChatList() {
   const chatSessions = useAppStore((s) => s.chatSessions);
-  const removeChatSession = useAppStore((s) => s.removeChatSession);
   const [search, setSearch] = useState('');
   const [loadingChats, setLoadingChats] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ChatSessionMeta | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const cancelledRef = useRef(false);
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteTarget) return;
@@ -17,16 +53,16 @@ export function useChatList() {
     try {
       await api.deleteChat(deleteTarget.characterAvatar, deleteTarget.chatFile);
     } catch (err) {
-      // File already gone on disk — still clean up the session
       const msg = err instanceof Error ? err.message.toLowerCase() : '';
       if (!msg.includes('404') && !msg.includes('not found')) {
         console.error('Failed to delete chat:', err);
       }
     }
-    removeChatSession(deleteTarget.characterAvatar, deleteTarget.chatFile);
+    // Re-fetch the authoritative list from the server
+    await syncSessionsFromServer().catch(() => {});
     setDeleteTarget(null);
     setIsDeleting(false);
-  }, [deleteTarget, removeChatSession]);
+  }, [deleteTarget]);
 
   const handleDeleteCancel = useCallback(() => {
     if (!isDeleting) setDeleteTarget(null);
@@ -36,44 +72,22 @@ export function useChatList() {
     setSearch(e.target.value);
   }, []);
 
-  // Sync all chat sessions from backend in a single API call
+  // Initial sync from server on mount
   useEffect(() => {
-    let cancelled = false;
+    cancelledRef.current = false;
     const sync = async () => {
       setLoadingChats(true);
       try {
-        const allChats = await api.getAllChats();
-        if (cancelled) return;
-
-        const { upsertChatSession, chatSessions: existing } = useAppStore.getState();
-        for (const chat of allChats) {
-          const already = existing.find(
-            (s) => s.characterAvatar === chat.characterAvatar && s.chatFile === chat.chatFile,
-          );
-          let lastDate = chat.lastDate;
-          if (!Number.isNaN(Number(lastDate))) {
-            lastDate = new Date(Number(lastDate)).toISOString();
-          }
-          upsertChatSession({
-            characterAvatar: chat.characterAvatar,
-            characterName: chat.characterName,
-            chatFile: chat.chatFile,
-            createdAt: already?.createdAt ?? lastDate ?? new Date().toISOString(),
-            lastActiveAt: lastDate ?? new Date().toISOString(),
-            messageCount: chat.messageCount,
-            lastMessagePreview: chat.lastMessage,
-            title: already?.title,
-          });
-        }
+        await syncSessionsFromServer();
       } catch {
         // ignore
       } finally {
-        if (!cancelled) setLoadingChats(false);
+        if (!cancelledRef.current) setLoadingChats(false);
       }
     };
     sync();
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
   }, []);
 
