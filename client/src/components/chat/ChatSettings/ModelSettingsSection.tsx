@@ -30,6 +30,12 @@ export function ModelSettingsSection(): JSX.Element {
   const handleApply = useCallback(async () => {
     if (!hasChanged) return;
 
+    // Persist to per-model settings for currently loaded model
+    const currentModel = useAppStore.getState().connection.model;
+    if (currentModel) {
+      useAppStore.getState().setModelSettings(currentModel, { contextSize: localContextSize });
+    }
+
     if (isBuiltinRunning) {
       // Restart server with new context size
       setRestarting(true);

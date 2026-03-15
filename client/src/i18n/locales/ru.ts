@@ -343,6 +343,11 @@ export const ru = {
     currentBadge: 'Текущая',
     startButton: 'Запуск',
     noModelsFound: 'Модели (.gguf) не найдены в {{dir}}',
+    contextSizeLabel: 'Размер контекста',
+    contextSizeFromPreset: 'из пресета {{preset}}',
+    contextSizeDefault: 'по умолчанию',
+    contextSizeCustom: 'переопределено',
+    contextSizeReset: 'Сбросить',
   },
 
   // ── Character wizard ────────────────────────────────────────────────────────

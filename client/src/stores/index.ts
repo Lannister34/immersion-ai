@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import { getUserSettings, saveUserSettings } from '@/api';
 import type { UiLanguage } from '@/i18n';
-import type { ChatSessionMeta, ConnectionStatus, ProviderConfig, SamplerPreset, SamplerSettings } from '@/types';
+import type {
+  ChatSessionMeta,
+  ConnectionStatus,
+  ModelSettings,
+  ProviderConfig,
+  SamplerPreset,
+  SamplerSettings,
+} from '@/types';
 import { ProviderType } from '@/types';
 
 interface AppState {
@@ -62,6 +69,11 @@ interface AppState {
 
   llmServerConfig: LlmServerConfig;
   setLlmServerConfig: (partial: Partial<LlmServerConfig>) => void;
+
+  // Per-model settings (context size overrides, etc.)
+  modelSettings: Record<string, ModelSettings>;
+  setModelSettings: (model: string, settings: ModelSettings) => void;
+  clearModelSettings: (model: string) => void;
 
   // Transient (not persisted)
   llmServerStatus: 'idle' | 'starting' | 'running' | 'stopping' | 'error';
@@ -204,6 +216,7 @@ const PERSISTED_KEYS = [
   'chatSessions',
   'backendMode',
   'llmServerConfig',
+  'modelSettings',
   'activeProvider',
   'providerConfigs',
 ] as const;
@@ -294,6 +307,26 @@ export function getActiveProviderConfig(state: AppState): ProviderConfig {
  */
 export function getActiveConnectionUrl(state: AppState): string {
   return getActiveProviderConfig(state).url;
+}
+
+/**
+ * Resolve context size for a given model.
+ * Priority: per-model override → bound preset max_context_length → 8192 default.
+ */
+export function resolveContextSize(state: AppState, modelName: string): number {
+  // 1. Per-model override
+  const modelCtx = state.modelSettings[modelName]?.contextSize;
+  if (modelCtx != null) return modelCtx;
+
+  // 2. Bound preset's max_context_length
+  const presetId = state.modelPresetMap[modelName];
+  if (presetId) {
+    const preset = state.samplerPresets.find((p) => p.id === presetId);
+    if (preset) return preset.max_context_length;
+  }
+
+  // 3. Default
+  return 8192;
 }
 
 // ── Store ──────────────────────────────────────────────────────────────────
@@ -429,6 +462,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   llmServerConfig: { ...DEFAULT_LLM_SERVER_CONFIG },
   setLlmServerConfig: (partial) => set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } })),
+
+  // Per-model settings
+  modelSettings: {},
+  setModelSettings: (model, settings) =>
+    set((s) => ({
+      modelSettings: { ...s.modelSettings, [model]: { ...s.modelSettings[model], ...settings } },
+    })),
+  clearModelSettings: (model) =>
+    set((s) => {
+      const { [model]: _, ...rest } = s.modelSettings;
+      return { modelSettings: rest };
+    }),
 
   llmServerStatus: 'idle',
   setLlmServerStatus: (status) => set({ llmServerStatus: status }),
