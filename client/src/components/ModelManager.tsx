@@ -52,12 +52,14 @@ export function ModelManager() {
   const status = serverStatus?.status ?? 'idle';
 
   // Effective model directories (from config or engine default)
-  const effectiveModelsDirs =
-    llmServerConfig.modelsDirs.length > 0
-      ? llmServerConfig.modelsDirs
-      : engineInfo?.defaultModelsDir
-        ? [engineInfo.defaultModelsDir]
-        : [];
+  let effectiveModelsDirs: string[];
+  if (llmServerConfig.modelsDirs.length > 0) {
+    effectiveModelsDirs = llmServerConfig.modelsDirs;
+  } else if (engineInfo?.defaultModelsDir) {
+    effectiveModelsDirs = [engineInfo.defaultModelsDir];
+  } else {
+    effectiveModelsDirs = [];
+  }
 
   // List model files from all directories
   const { data: modelFiles } = useQuery<ModelFile[]>({
@@ -100,11 +102,23 @@ export function ModelManager() {
 
   const handleStartModel = async (model: ModelFile) => {
     try {
+      // Check if this model has a bound preset → use its context size
+      const state = useAppStore.getState();
+      const modelBaseName = model.name.includes('/') ? model.name.split('/').pop()! : model.name;
+      const boundPresetId = state.modelPresetMap[modelBaseName];
+      const boundPreset = boundPresetId ? state.samplerPresets.find((p) => p.id === boundPresetId) : undefined;
+      const contextSize = boundPreset?.max_context_length ?? llmServerConfig.contextSize;
+
+      // Sync llmServerConfig so the UI slider stays consistent
+      if (contextSize !== llmServerConfig.contextSize) {
+        setLlmServerConfig({ contextSize });
+      }
+
       await startLlmServer({
         modelPath: model.path,
         port: llmServerConfig.port,
         gpuLayers: llmServerConfig.gpuLayers,
-        contextSize: llmServerConfig.contextSize,
+        contextSize,
         flashAttention: llmServerConfig.flashAttention,
         threads: llmServerConfig.threads,
       });
@@ -125,14 +139,13 @@ export function ModelManager() {
     }
   };
 
-  const statusDot =
-    status === 'running'
-      ? 'bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]'
-      : status === 'starting' || status === 'stopping'
-        ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse'
-        : status === 'error'
-          ? 'bg-[var(--color-danger)] shadow-[0_0_8px_var(--color-danger)]'
-          : 'bg-[var(--color-text-muted)]';
+  const getStatusDot = (): string => {
+    if (status === 'running') return 'bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]';
+    if (status === 'starting' || status === 'stopping')
+      return 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse';
+    if (status === 'error') return 'bg-[var(--color-danger)] shadow-[0_0_8px_var(--color-danger)]';
+    return 'bg-[var(--color-text-muted)]';
+  };
 
   const getStatusText = (): string => {
     if (status === 'running') {
@@ -182,7 +195,7 @@ export function ModelManager() {
     <div className="flex flex-col gap-4">
       {/* Status bar */}
       <div className="flex items-center gap-3">
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${statusDot}`} />
+        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getStatusDot()}`} />
         <span className="text-sm text-[var(--color-text-muted)] flex-1">{getStatusText()}</span>
         <div className="flex items-center gap-2">
           <button
@@ -374,13 +387,13 @@ export function ModelManager() {
                   </div>
                   <div className="text-[10px] text-[var(--color-text-muted)] opacity-60">{formatSize(model.size)}</div>
                 </div>
-                {isCurrent ? (
+                {isCurrent && (
                   <span className="text-[10px] text-[var(--color-accent)] font-medium px-2 py-0.5 rounded-full bg-[var(--color-accent)]/10">
                     {t('modelManager.currentBadge')}
                   </span>
-                ) : isLoading ? (
-                  <Loader2 size={14} className="text-amber-400 animate-spin" />
-                ) : (
+                )}
+                {!isCurrent && isLoading && <Loader2 size={14} className="text-amber-400 animate-spin" />}
+                {!isCurrent && !isLoading && (
                   <Button
                     variant="ghost"
                     size="sm"

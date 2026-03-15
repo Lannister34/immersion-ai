@@ -289,7 +289,7 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
 
       // Context window management
       const samplers = getEffectiveSamplerSettings(useAppStore.getState(), chatFile ?? undefined);
-      const contextSize = useAppStore.getState().llmServerConfig.contextSize;
+      const contextSize = samplers.max_context_length;
       const maxTokens = Math.max(contextSize - samplers.max_length, Math.floor(contextSize * 0.25));
       const preambleLength = chatMessages.reduce((sum, m) => sum + m.content.length, 0);
       const preambleTokens = Math.round(preambleLength / 3.5);
