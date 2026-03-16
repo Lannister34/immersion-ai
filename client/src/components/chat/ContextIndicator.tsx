@@ -19,12 +19,14 @@ export function ContextIndicator({ promptLength, maxContext }: ContextIndicatorP
 
   const formatTokens = (n: number): string => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
-  const barColor =
-    isOverflow || percent > 90
-      ? 'bg-[var(--color-danger)]'
-      : percent > 70
-        ? 'bg-yellow-500'
-        : 'bg-[var(--color-primary)]';
+  let barColor: string;
+  if (isOverflow || percent > 90) {
+    barColor = 'bg-[var(--color-danger)]';
+  } else if (percent > 70) {
+    barColor = 'bg-yellow-500';
+  } else {
+    barColor = 'bg-[var(--color-primary)]';
+  }
 
   return (
     <span
