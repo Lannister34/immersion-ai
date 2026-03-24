@@ -253,7 +253,15 @@ export function ModelManager() {
 
   const status = serverStatus?.status ?? 'idle';
 
-  const effectiveModelsDirs = llmServerConfig.modelsDirs;
+  // Effective model directories (from config or engine default)
+  let effectiveModelsDirs: string[];
+  if (llmServerConfig.modelsDirs.length > 0) {
+    effectiveModelsDirs = llmServerConfig.modelsDirs;
+  } else if (engineInfo?.defaultModelsDir) {
+    effectiveModelsDirs = [engineInfo.defaultModelsDir];
+  } else {
+    effectiveModelsDirs = [];
+  }
 
   // List model files from all directories
   const { data: modelFiles } = useQuery<ModelFile[]>({
@@ -337,7 +345,6 @@ export function ModelManager() {
     if (status === 'error') return 'bg-[var(--color-danger)] shadow-[0_0_8px_var(--color-danger)]';
     return 'bg-[var(--color-text-muted)]';
   };
-  const statusDot = getStatusDot();
 
   const getStatusText = (): string => {
     if (status === 'running') {
@@ -387,7 +394,7 @@ export function ModelManager() {
     <div className="flex flex-col gap-4">
       {/* Status bar */}
       <div className="flex items-center gap-3">
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${statusDot}`} />
+        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getStatusDot()}`} />
         <span className="text-sm text-[var(--color-text-muted)] flex-1">{getStatusText()}</span>
         <div className="flex items-center gap-2">
           <button

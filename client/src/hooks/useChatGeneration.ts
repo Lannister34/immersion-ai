@@ -160,7 +160,7 @@ export function useChatGeneration({
           messages: chatCompletionMessages,
           chat_template_kwargs: { enable_thinking: thinkingEnabled },
           max_length: samplers.max_length,
-          max_context_length: llmServerConfig.contextSize,
+          max_context_length: samplers.max_context_length,
           temperature: samplers.temperature,
           top_p: samplers.top_p,
           top_k: samplers.top_k,

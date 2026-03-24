@@ -452,11 +452,12 @@ function CreateScenarioModal({
             disabled={!connection.connected}
             className={clsx(
               'flex-1 px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-center gap-1.5',
-              !connection.connected
-                ? 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] opacity-50 cursor-not-allowed'
-                : mode === 'generate'
-                  ? 'bg-[var(--color-primary)] text-white cursor-pointer'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer',
+              !connection.connected &&
+                'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] opacity-50 cursor-not-allowed',
+              connection.connected && mode === 'generate' && 'bg-[var(--color-primary)] text-white cursor-pointer',
+              connection.connected &&
+                mode !== 'generate' &&
+                'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer',
             )}
             title={!connection.connected ? t('common.noApiConnection') : undefined}
           >
@@ -465,7 +466,7 @@ function CreateScenarioModal({
           </button>
         </div>
 
-        {mode === 'manual' ? (
+        {mode === 'manual' && (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
@@ -475,6 +476,7 @@ function CreateScenarioModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t('scenarios.manualNamePlaceholder')}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 autoFocus
                 className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
               />
@@ -495,7 +497,8 @@ function CreateScenarioModal({
               </span>
             </div>
           </div>
-        ) : preview ? (
+        )}
+        {mode === 'generate' && preview && (
           /* Generated preview — review and edit before saving */
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
@@ -533,7 +536,8 @@ function CreateScenarioModal({
               <div className="text-[9px] text-[var(--color-text-muted)]">{t('common.commaSeparated')}</div>
             </div>
           </div>
-        ) : (
+        )}
+        {mode === 'generate' && !preview && (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
@@ -601,12 +605,13 @@ function CreateScenarioModal({
           <Button variant="secondary" onClick={handleClose}>
             {t('common.cancel')}
           </Button>
-          {mode === 'manual' ? (
+          {mode === 'manual' && (
             <Button onClick={handleCreate} disabled={!name.trim() || creating} loading={creating}>
               <Plus size={14} />
               {t('common.create')}
             </Button>
-          ) : preview ? (
+          )}
+          {mode === 'generate' && preview && (
             <>
               <Button
                 variant="secondary"
@@ -624,7 +629,8 @@ function CreateScenarioModal({
                 {t('common.save')}
               </Button>
             </>
-          ) : (
+          )}
+          {mode === 'generate' && !preview && (
             <Button
               onClick={handleGenerate}
               disabled={!concept.trim() || generating || !connection.connected}
@@ -694,13 +700,13 @@ export function ScenariosPage() {
           />
         </div>
 
-        {isLoading ? (
-          <div className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>
-        ) : filtered.length === 0 ? (
+        {isLoading && <div className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>}
+        {!isLoading && filtered.length === 0 && (
           <div className="text-sm text-[var(--color-text-muted)]">
             {scenarios.length === 0 ? t('scenarios.empty') : t('common.nothingFound')}
           </div>
-        ) : (
+        )}
+        {!isLoading && filtered.length > 0 && (
           <div className="flex flex-col gap-1">
             {filtered.map((s) => (
               <button
