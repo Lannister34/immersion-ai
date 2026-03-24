@@ -66,7 +66,7 @@ router.post('/', (req: Request, res: Response) => {
     const existing = readSettings();
     const merged = shallowMerge(existing, incoming as Record<string, unknown>);
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf-8');
-    res.json({ ok: true });
+    res.json({ ok: true, data: merged });
   } catch (err) {
     console.error('Failed to save user settings:', err);
     res.status(500).json({ ok: false, error: 'Failed to save' });

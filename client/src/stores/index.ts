@@ -234,7 +234,24 @@ function extractPersisted(state: AppState): Record<PersistedKey, unknown> {
 // ── Targeted server sync ───────────────────────────────────────────────────
 
 /**
+ * Apply server-returned merged state to the store.
+ * Only updates known persisted keys to avoid polluting the store.
+ */
+function applyServerState(serverData: Record<string, unknown>): void {
+  const patch: Record<string, unknown> = {};
+  for (const key of PERSISTED_KEYS) {
+    if (key in serverData && serverData[key] !== undefined) {
+      patch[key] = serverData[key];
+    }
+  }
+  if (Object.keys(patch).length > 0) {
+    useAppStore.setState(patch);
+  }
+}
+
+/**
  * Save specific fields to the server (merge, not overwrite).
+ * Server returns the full merged state; store is updated to match.
  * Use after explicit user actions (button clicks, toggle changes).
  */
 export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void> {
@@ -243,12 +260,14 @@ export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void>
   for (const key of keys) {
     data[key] = state[key];
   }
-  await saveUserSettings(data);
+  const merged = await saveUserSettings(data);
+  if (merged) applyServerState(merged);
 }
 
 /**
  * Create a debounced sync function for auto-saved fields.
  * Batches rapid changes (e.g. slider drags) into a single server call.
+ * Server returns the full merged state; store is updated to match.
  */
 function createDebouncedSync(delay: number): (...keys: PersistedKey[]) => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -256,11 +275,16 @@ function createDebouncedSync(delay: number): (...keys: PersistedKey[]) => void {
     // Don't even schedule if init hasn't completed — prevents stale defaults from overwriting server data
     if (!useAppStore.getState()._initComplete) return;
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
+    timer = setTimeout(async () => {
       const state = useAppStore.getState();
       const data: Record<string, unknown> = {};
       for (const k of keys) data[k] = state[k];
-      saveUserSettings(data).catch((err) => console.warn('Failed to sync settings:', err));
+      try {
+        const merged = await saveUserSettings(data);
+        if (merged) applyServerState(merged);
+      } catch (err) {
+        console.warn('Failed to sync settings:', err);
+      }
     }, delay);
   };
 }

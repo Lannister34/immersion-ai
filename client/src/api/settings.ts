@@ -14,8 +14,9 @@ export async function getUserSettings(): Promise<Record<string, unknown> | null>
   }
 }
 
-export async function saveUserSettings(data: Record<string, unknown>): Promise<void> {
-  await apiPost('/api/user-settings', data);
+export async function saveUserSettings(data: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  const res = await apiPost<{ ok: boolean; data?: Record<string, unknown> }>('/api/user-settings', data);
+  return res.data ?? null;
 }
 
 // ── App Settings ─────────────────────────────────────────────────────────────
