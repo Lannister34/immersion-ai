@@ -99,7 +99,7 @@ router.post('/models', async (req, res) => {
         : [];
 
     if (dirs.length === 0) {
-      return res.status(400).json({ models: [] });
+      return res.json({ models: [] });
     }
 
     const allModels: Array<{ name: string; path: string; size: number }> = [];

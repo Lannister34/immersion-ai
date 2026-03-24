@@ -305,6 +305,7 @@ function CreateScenarioModal({
   const userPersona = useAppStore((s) => s.userPersona);
   const [mode, setMode] = useState<'manual' | 'generate'>('manual');
   const [name, setName] = useState('');
+  const [manualContent, setManualContent] = useState('');
   const [concept, setConcept] = useState('');
   const [creating, setCreating] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -335,6 +336,7 @@ function CreateScenarioModal({
   const reset = () => {
     setMode('manual');
     setName('');
+    setManualContent('');
     setConcept('');
     setCreating(false);
     setGenerating(false);
@@ -354,7 +356,7 @@ function CreateScenarioModal({
     setCreating(true);
     setError('');
     try {
-      await createScenario({ name: name.trim() });
+      await createScenario({ name: name.trim(), content: manualContent.trim() || undefined });
       const created = name.trim();
       reset();
       onCreated(created);
@@ -464,18 +466,34 @@ function CreateScenarioModal({
         </div>
 
         {mode === 'manual' ? (
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-              {t('scenarios.nameLabel')}
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('scenarios.manualNamePlaceholder')}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              autoFocus
-              className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
-            />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                {t('scenarios.nameLabel')}
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('scenarios.manualNamePlaceholder')}
+                autoFocus
+                className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                {t('scenarios.contentLabel')}
+              </label>
+              <textarea
+                value={manualContent}
+                onChange={(e) => setManualContent(e.target.value)}
+                placeholder={t('scenarios.manualContentPlaceholder')}
+                rows={6}
+                className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-none font-mono leading-relaxed"
+              />
+              <span className="text-[10px] text-[var(--color-text-muted)] opacity-60">
+                {t('scenarios.placeholdersHint')}
+              </span>
+            </div>
           </div>
         ) : preview ? (
           /* Generated preview — review and edit before saving */

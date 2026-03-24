@@ -29,7 +29,7 @@ export function SystemPromptSection({
     return computeBaseSystemPrompt(character, session?.characterOverrides, activeScenario);
   }, [character, session?.characterOverrides, activeScenario]);
 
-  const hasOverride = !!session?.customSystemPrompt;
+  const hasOverride = session?.customSystemPrompt != null;
   const displayText = hasOverride ? session!.customSystemPrompt! : autoPrompt;
 
   const [editText, setEditText] = useState(displayText);

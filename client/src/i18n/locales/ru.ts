@@ -239,7 +239,6 @@ export const ru = {
   scenarios: {
     notFound: 'Сценарий не найден',
     namePlaceholder: 'Название сценария',
-    contentLabel: 'Контент сценария',
     generateContentTooltip: 'Сгенерировать контент на основе описания',
     contentPlaceholder: 'Полный текст сценария, который будет подставлен в промпт через {{scenario}}...',
     tagsLabel: 'Теги',
@@ -254,6 +253,9 @@ export const ru = {
     generationTab: 'Генерация',
     nameLabel: 'Название',
     manualNamePlaceholder: 'Встреча в библиотеке...',
+    contentLabel: 'Контент',
+    manualContentPlaceholder: 'Опишите обстановку, ситуацию, контекст сцены. Можно использовать {{char}} и {{user}}...',
+    placeholdersHint: 'Поддерживаются подстановки: {{char}}, {{user}}',
     contentPreviewLabel: 'Контент',
     tagsPreviewPlaceholder: 'романтика, фэнтези...',
     conceptLabel: 'Концепция',

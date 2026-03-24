@@ -79,8 +79,8 @@ interface AppState {
   llmServerStatus: 'idle' | 'starting' | 'running' | 'stopping' | 'error';
   setLlmServerStatus: (status: 'idle' | 'starting' | 'running' | 'stopping' | 'error') => void;
 
-  /** Server sync state */
-  _serverSynced: boolean;
+  /** Whether initial settings have been loaded from the server */
+  _initComplete: boolean;
 }
 
 export interface LlmServerConfig {
@@ -231,30 +231,43 @@ function extractPersisted(state: AppState): Record<PersistedKey, unknown> {
   return result as Record<PersistedKey, unknown>;
 }
 
-// ── Debounced server sync ──────────────────────────────────────────────────
+// ── Targeted server sync ───────────────────────────────────────────────────
 
-let syncTimer: ReturnType<typeof setTimeout> | null = null;
-
-function scheduleSyncToServer() {
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => {
-    const state = useAppStore.getState();
-    const data = extractPersisted(state);
-    saveUserSettings(data).catch((err) => console.warn('Failed to sync settings to server:', err));
-  }, 1000); // debounce 1s
+/**
+ * Save specific fields to the server (merge, not overwrite).
+ * Use after explicit user actions (button clicks, toggle changes).
+ */
+export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void> {
+  const state = useAppStore.getState();
+  const data: Record<string, unknown> = {};
+  for (const key of keys) {
+    data[key] = state[key];
+  }
+  await saveUserSettings(data);
 }
 
 /**
- * Immediately sync current settings to server (bypass debounce).
- * Call after explicit user save actions like "Сохранить" button.
+ * Create a debounced sync function for auto-saved fields.
+ * Batches rapid changes (e.g. slider drags) into a single server call.
  */
-export async function syncToServerNow(): Promise<void> {
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = null;
-  const state = useAppStore.getState();
-  const data = extractPersisted(state);
-  await saveUserSettings(data);
+function createDebouncedSync(delay: number): (...keys: PersistedKey[]) => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (...keys: PersistedKey[]) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!useAppStore.getState()._initComplete) return;
+      const state = useAppStore.getState();
+      const data: Record<string, unknown> = {};
+      for (const k of keys) data[k] = state[k];
+      saveUserSettings(data).catch((err) => console.warn('Failed to sync settings:', err));
+    }, delay);
+  };
 }
+
+const debouncedSyncChatSessions = createDebouncedSync(1000);
+const debouncedSyncPresets = createDebouncedSync(500);
+const debouncedSyncServerConfig = createDebouncedSync(500);
+const debouncedSyncModelSettings = createDebouncedSync(500);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -350,19 +363,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
   activePresetId: 'default',
   modelPresetMap: {},
 
-  addPreset: (preset) => set((s) => ({ samplerPresets: [...s.samplerPresets, preset] })),
+  addPreset: (preset) => {
+    set((s) => ({ samplerPresets: [...s.samplerPresets, preset] }));
+    debouncedSyncPresets('samplerPresets');
+  },
 
-  updatePreset: (id, partial) =>
+  updatePreset: (id, partial) => {
     set((s) => ({
       samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, ...partial } : p)),
-    })),
+    }));
+    debouncedSyncPresets('samplerPresets');
+  },
 
-  renamePreset: (id, name) =>
+  renamePreset: (id, name) => {
     set((s) => ({
       samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, name } : p)),
-    })),
+    }));
+    debouncedSyncPresets('samplerPresets');
+  },
 
-  deletePreset: (id) =>
+  deletePreset: (id) => {
     set((s) => {
       if (s.samplerPresets.length <= 1) return s; // keep at least one
       const filtered = s.samplerPresets.filter((p) => p.id !== id);
@@ -377,11 +397,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
         activePresetId: newActive,
         modelPresetMap: newMap,
       };
-    }),
+    });
+    debouncedSyncPresets('samplerPresets', 'activePresetId', 'modelPresetMap');
+  },
 
-  setActivePreset: (id) => set({ activePresetId: id }),
+  setActivePreset: (id) => {
+    set({ activePresetId: id });
+    debouncedSyncPresets('activePresetId');
+  },
 
-  setModelPreset: (model, presetId) =>
+  setModelPreset: (model, presetId) => {
     set((s) => {
       const newMap = { ...s.modelPresetMap };
       if (presetId) {
@@ -390,7 +415,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         delete newMap[model];
       }
       return { modelPresetMap: newMap };
-    }),
+    });
+    debouncedSyncPresets('modelPresetMap');
+  },
 
   systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_RU,
   setSystemPromptTemplate: (template) => set({ systemPromptTemplate: template }),
@@ -398,7 +425,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   uiLanguage: 'ru',
   setUiLanguage: (lang) => {
     set({ uiLanguage: lang });
-    // i18n.changeLanguage is called in App.tsx via subscription
+    syncFieldsToServer('uiLanguage').catch(console.warn);
   },
 
   responseLanguage: 'ru',
@@ -410,17 +437,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
       update.systemPromptTemplate = getDefaultSystemPrompt(lang);
     }
     set(update);
+    const keys: PersistedKey[] = ['responseLanguage'];
+    if (update.systemPromptTemplate) keys.push('systemPromptTemplate');
+    syncFieldsToServer(...keys).catch(console.warn);
   },
 
   streamingEnabled: true,
-  setStreamingEnabled: (enabled) => set({ streamingEnabled: enabled }),
+  setStreamingEnabled: (enabled) => {
+    set({ streamingEnabled: enabled });
+    syncFieldsToServer('streamingEnabled').catch(console.warn);
+  },
 
   thinkingEnabled: true,
-  setThinkingEnabled: (enabled) => set({ thinkingEnabled: enabled }),
+  setThinkingEnabled: (enabled) => {
+    set({ thinkingEnabled: enabled });
+    syncFieldsToServer('thinkingEnabled').catch(console.warn);
+  },
 
   // Chat sessions
   chatSessions: [],
-  upsertChatSession: (meta) =>
+  upsertChatSession: (meta) => {
     set((s) => {
       const existing = s.chatSessions.findIndex(
         (c) => c.characterAvatar === meta.characterAvatar && c.chatFile === meta.chatFile,
@@ -434,11 +470,15 @@ export const useAppStore = create<AppState>()((set, get) => ({
         sessions.push(meta);
       }
       return { chatSessions: sessions };
-    }),
-  removeChatSession: (characterAvatar, chatFile) =>
+    });
+    debouncedSyncChatSessions('chatSessions');
+  },
+  removeChatSession: (characterAvatar, chatFile) => {
     set((s) => ({
       chatSessions: s.chatSessions.filter((c) => !(c.characterAvatar === characterAvatar && c.chatFile === chatFile)),
-    })),
+    }));
+    debouncedSyncChatSessions('chatSessions');
+  },
   getChatSession: (characterAvatar, chatFile) =>
     get().chatSessions.find((c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile),
 
@@ -446,53 +486,55 @@ export const useAppStore = create<AppState>()((set, get) => ({
   activeProvider: ProviderType.KoboldCpp,
   providerConfigs: { ...DEFAULT_PROVIDER_CONFIGS },
 
-  setActiveProvider: (provider) => set({ activeProvider: provider }),
+  setActiveProvider: (provider) => {
+    set({ activeProvider: provider });
+    syncFieldsToServer('activeProvider').catch(console.warn);
+  },
 
-  updateProviderConfig: (provider, partial) =>
+  updateProviderConfig: (provider, partial) => {
     set((s) => ({
       providerConfigs: {
         ...s.providerConfigs,
         [provider]: { ...(s.providerConfigs[provider] ?? { url: '' }), ...partial },
       },
-    })),
+    }));
+    debouncedSyncServerConfig('providerConfigs');
+  },
 
   // LLM Server
   backendMode: 'builtin',
-  setBackendMode: (mode) => set({ backendMode: mode }),
+  setBackendMode: (mode) => {
+    set({ backendMode: mode });
+    syncFieldsToServer('backendMode').catch(console.warn);
+  },
 
   llmServerConfig: { ...DEFAULT_LLM_SERVER_CONFIG },
-  setLlmServerConfig: (partial) => set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } })),
+  setLlmServerConfig: (partial) => {
+    set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } }));
+    debouncedSyncServerConfig('llmServerConfig');
+  },
 
   // Per-model settings
   modelSettings: {},
-  setModelSettings: (model, settings) =>
+  setModelSettings: (model, settings) => {
     set((s) => ({
       modelSettings: { ...s.modelSettings, [model]: { ...s.modelSettings[model], ...settings } },
-    })),
-  clearModelSettings: (model) =>
+    }));
+    debouncedSyncModelSettings('modelSettings');
+  },
+  clearModelSettings: (model) => {
     set((s) => {
       const { [model]: _, ...rest } = s.modelSettings;
       return { modelSettings: rest };
-    }),
+    });
+    debouncedSyncModelSettings('modelSettings');
+  },
 
   llmServerStatus: 'idle',
   setLlmServerStatus: (status) => set({ llmServerStatus: status }),
 
-  _serverSynced: false,
+  _initComplete: false,
 }));
-
-// ── Server sync: subscribe to state changes ────────────────────────────────
-
-useAppStore.subscribe((state, prevState) => {
-  // Don't sync until initial server load is complete
-  if (!state._serverSynced) return;
-
-  // Check if any persisted field actually changed
-  const changed = PERSISTED_KEYS.some((key) => state[key] !== prevState[key]);
-  if (changed) {
-    scheduleSyncToServer();
-  }
-});
 
 // ── Server sync: load on startup ───────────────────────────────────────────
 
@@ -560,9 +602,11 @@ export async function initSettingsFromServer(): Promise<void> {
     }
   } catch (err) {
     console.warn('Could not load settings from server, using defaults:', err);
+    // Do NOT mark init as complete — prevent auto-saves from overwriting real data
+    return;
   }
-  // Mark as synced so future changes will be saved
-  useAppStore.setState({ _serverSynced: true });
+  // Mark init complete so auto-saves in store actions can proceed
+  useAppStore.setState({ _initComplete: true });
 }
 
 export type { SamplerSettings };

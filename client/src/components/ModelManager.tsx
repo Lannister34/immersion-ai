@@ -45,7 +45,7 @@ interface ModelCardProps {
   onStart: (model: ModelFile) => void;
   onContextChange: (size: number) => void;
   onContextReset: () => void;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: ReturnType<typeof import('react-i18next').useTranslation>['t'];
 }
 
 // ── Model Card ──────────────────────────────────────────────────────────────
@@ -244,13 +244,6 @@ export function ModelManager() {
     staleTime: 60_000,
   });
 
-  // Set default modelsDirs from engine info on first load
-  useEffect(() => {
-    if (engineInfo?.defaultModelsDir && llmServerConfig.modelsDirs.length === 0) {
-      setLlmServerConfig({ modelsDirs: [engineInfo.defaultModelsDir] });
-    }
-  }, [engineInfo?.defaultModelsDir, llmServerConfig.modelsDirs.length, setLlmServerConfig]);
-
   // Poll server status every 2s
   const { data: serverStatus } = useQuery<LlmServerStatus>({
     queryKey: ['llm-server-status'],
@@ -260,13 +253,7 @@ export function ModelManager() {
 
   const status = serverStatus?.status ?? 'idle';
 
-  // Effective model directories (from config or engine default)
-  let effectiveModelsDirs: string[] = [];
-  if (llmServerConfig.modelsDirs.length > 0) {
-    effectiveModelsDirs = llmServerConfig.modelsDirs;
-  } else if (engineInfo?.defaultModelsDir) {
-    effectiveModelsDirs = [engineInfo.defaultModelsDir];
-  }
+  const effectiveModelsDirs = llmServerConfig.modelsDirs;
 
   // List model files from all directories
   const { data: modelFiles } = useQuery<ModelFile[]>({

@@ -10,7 +10,6 @@ import { MessageEditForm } from './MessageEditForm';
 interface MessageBubbleProps {
   message: ChatMessage;
   characterAvatar?: string;
-  isLast: boolean;
   onEdit: (newText: string) => void;
   onDelete: () => void;
   onRegenerate?: () => void;
@@ -20,7 +19,6 @@ interface MessageBubbleProps {
 export const MessageBubble = memo(function MessageBubble({
   message,
   characterAvatar,
-  isLast,
   onEdit,
   onDelete,
   onRegenerate,
@@ -175,7 +173,7 @@ export const MessageBubble = memo(function MessageBubble({
             )}
             {!isGenerating && (
               <div className="opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-0.5">
-                {isAssistant && isLast && onRegenerate && (
+                {isAssistant && onRegenerate && (
                   <button
                     onClick={onRegenerate}
                     className="p-0.5 rounded hover:bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"

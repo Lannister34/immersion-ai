@@ -1,17 +1,23 @@
 /** Base HTTP client with CSRF token management */
 
 let csrfToken: string | null = null;
+let csrfPromise: Promise<string> | null = null;
 
 export async function fetchCsrfToken(): Promise<string> {
   const res = await fetch('/csrf-token');
   const data = (await res.json()) as { token: string };
   csrfToken = data.token;
+  csrfPromise = null;
   return csrfToken;
 }
 
 export async function getCsrfToken(): Promise<string> {
   if (csrfToken) return csrfToken;
-  return fetchCsrfToken();
+  // Deduplicate concurrent calls — reuse the same in-flight promise
+  if (!csrfPromise) {
+    csrfPromise = fetchCsrfToken();
+  }
+  return csrfPromise;
 }
 
 /** POST with FormData body (for file uploads). Skips undefined/null values. */
@@ -76,6 +82,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
   // If CSRF token expired (e.g. backend restarted), refresh and retry once
   if (res.status === 403) {
+    csrfToken = null;
     const newToken = await fetchCsrfToken();
     const retry = await fetch(path, {
       method: 'POST',

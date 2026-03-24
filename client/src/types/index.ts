@@ -196,16 +196,18 @@ export interface GeneratedScenario {
 
 // ── Provider Types ──────────────────────────────────────────────────────────
 
-export enum ProviderType {
-  KoboldCpp = 'koboldcpp',
-  Custom = 'custom',
-  // future: OpenAI = 'openai', OpenRouter = 'openrouter', Ollama = 'ollama'
-}
+export const ProviderType = {
+  KoboldCpp: 'koboldcpp',
+  Custom: 'custom',
+} as const;
+
+export type ProviderType = (typeof ProviderType)[keyof typeof ProviderType];
 
 /** Per-provider connection configuration (URL, API key, etc.) */
 export interface ProviderConfig {
   url: string;
   apiKey?: string;
+  [key: string]: string | undefined;
 }
 
 /** Describes a single field in the provider configuration form (from backend). */

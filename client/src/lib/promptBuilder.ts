@@ -13,6 +13,12 @@ export function computeBaseSystemPrompt(
   const { userPersona, userName, systemPromptTemplate, responseLanguage } = useAppStore.getState();
   const ch = sessionOverrides ? { ...character, ...sessionOverrides } : character;
 
+  // Free chat (no character) — no system prompt by default
+  const isFreeChat = !ch.name && !ch.description;
+  if (isFreeChat && !ch.system_prompt) {
+    return '';
+  }
+
   let text: string;
   if (ch.system_prompt) {
     text = ch.system_prompt.replace(/\{\{char\}\}/g, ch.name).replace(/\{\{user\}\}/g, userName || 'User');
@@ -21,12 +27,17 @@ export function computeBaseSystemPrompt(
     const template = DEFAULT_PROMPTS.includes(systemPromptTemplate)
       ? getDefaultSystemPrompt(responseLanguage)
       : systemPromptTemplate;
+    // Replace {{char}}/{{user}} in scenario content before inserting into template
+    const scenarioContent = (activeScenario?.content || '')
+      .replace(/\{\{char\}\}/g, ch.name)
+      .replace(/\{\{user\}\}/g, userName || 'User');
+
     text = template
       .replace(/\{\{char\}\}/g, ch.name)
       .replace(/\{\{user\}\}/g, userName || 'User')
       .replace(/\{\{description\}\}/g, ch.description || '')
       .replace(/\{\{personality\}\}/g, ch.personality || '')
-      .replace(/\{\{scenario\}\}/g, activeScenario?.content || '')
+      .replace(/\{\{scenario\}\}/g, scenarioContent)
       .replace(/\{\{userPersona\}\}/g, userPersona || '');
 
     text = text.replace(/\{\{#if (\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, varName: string, content: string) => {
