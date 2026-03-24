@@ -238,6 +238,7 @@ function extractPersisted(state: AppState): Record<PersistedKey, unknown> {
  * Use after explicit user actions (button clicks, toggle changes).
  */
 export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void> {
+  if (!useAppStore.getState()._initComplete) return;
   const state = useAppStore.getState();
   const data: Record<string, unknown> = {};
   for (const key of keys) {
@@ -253,9 +254,10 @@ export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void>
 function createDebouncedSync(delay: number): (...keys: PersistedKey[]) => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   return (...keys: PersistedKey[]) => {
+    // Don't even schedule if init hasn't completed — prevents stale defaults from overwriting server data
+    if (!useAppStore.getState()._initComplete) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      if (!useAppStore.getState()._initComplete) return;
       const state = useAppStore.getState();
       const data: Record<string, unknown> = {};
       for (const k of keys) data[k] = state[k];
