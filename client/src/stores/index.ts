@@ -238,7 +238,6 @@ function extractPersisted(state: AppState): Record<PersistedKey, unknown> {
  * Use after explicit user actions (button clicks, toggle changes).
  */
 export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void> {
-  if (!useAppStore.getState()._initComplete) return;
   const state = useAppStore.getState();
   const data: Record<string, unknown> = {};
   for (const key of keys) {
