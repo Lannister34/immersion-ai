@@ -4,14 +4,10 @@ import { apiPost } from './client';
 // ── User Settings (server-side persistence) ──────────────────────────────────
 
 export async function getUserSettings(): Promise<Record<string, unknown> | null> {
-  try {
-    const res = await fetch('/api/user-settings');
-    if (!res.ok) return null;
-    const json = (await res.json()) as { ok: boolean; data: Record<string, unknown> | null };
-    return json.data ?? null;
-  } catch {
-    return null;
-  }
+  const res = await fetch('/api/user-settings');
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as { ok: boolean; data: Record<string, unknown> | null };
+  return json.data ?? null;
 }
 
 export async function saveUserSettings(data: Record<string, unknown>): Promise<Record<string, unknown> | null> {

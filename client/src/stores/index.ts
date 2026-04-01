@@ -223,35 +223,12 @@ const PERSISTED_KEYS = [
 
 type PersistedKey = (typeof PERSISTED_KEYS)[number];
 
-function extractPersisted(state: AppState): Record<PersistedKey, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const key of PERSISTED_KEYS) {
-    result[key] = state[key];
-  }
-  return result as Record<PersistedKey, unknown>;
-}
-
 // ── Targeted server sync ───────────────────────────────────────────────────
 
 /**
- * Apply server-returned merged state to the store.
- * Only updates known persisted keys to avoid polluting the store.
- */
-function applyServerState(serverData: Record<string, unknown>): void {
-  const patch: Record<string, unknown> = {};
-  for (const key of PERSISTED_KEYS) {
-    if (key in serverData && serverData[key] !== undefined) {
-      patch[key] = serverData[key];
-    }
-  }
-  if (Object.keys(patch).length > 0) {
-    useAppStore.setState(patch);
-  }
-}
-
-/**
  * Save specific fields to the server (merge, not overwrite).
- * Server returns the full merged state; store is updated to match.
+ * Only applies back the sent keys from the server response —
+ * avoids overwriting other in-memory state with stale file data.
  * Use after explicit user actions (button clicks, toggle changes).
  */
 export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void> {
@@ -261,13 +238,19 @@ export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void>
     data[key] = state[key];
   }
   const merged = await saveUserSettings(data);
-  if (merged) applyServerState(merged);
+  if (merged) {
+    const patch: Record<string, unknown> = {};
+    for (const key of keys) {
+      if (key in merged && merged[key] !== undefined) patch[key] = merged[key];
+    }
+    if (Object.keys(patch).length > 0) useAppStore.setState(patch);
+  }
 }
 
 /**
  * Create a debounced sync function for auto-saved fields.
  * Batches rapid changes (e.g. slider drags) into a single server call.
- * Server returns the full merged state; store is updated to match.
+ * Only applies back the sent keys from the server response.
  */
 function createDebouncedSync(delay: number): (...keys: PersistedKey[]) => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -281,7 +264,13 @@ function createDebouncedSync(delay: number): (...keys: PersistedKey[]) => void {
       for (const k of keys) data[k] = state[k];
       try {
         const merged = await saveUserSettings(data);
-        if (merged) applyServerState(merged);
+        if (merged) {
+          const patch: Record<string, unknown> = {};
+          for (const k of keys) {
+            if (k in merged && merged[k] !== undefined) patch[k] = merged[k];
+          }
+          if (Object.keys(patch).length > 0) useAppStore.setState(patch);
+        }
       } catch (err) {
         console.warn('Failed to sync settings:', err);
       }
@@ -567,71 +556,84 @@ export const useAppStore = create<AppState>()((set, get) => ({
  * Fetch settings from server and merge into store.
  * Server is the sole source of truth for user settings.
  * Call this once on app startup.
+ * Retries up to 5 times with 600ms delay to handle server startup race.
  */
 export async function initSettingsFromServer(): Promise<void> {
   // Clean up legacy localStorage data (persist middleware removed)
   localStorage.removeItem('st-ui-settings');
 
-  try {
-    const serverData = await getUserSettings();
-    if (serverData && typeof serverData === 'object') {
-      // Clean up stale llmServerConfig fields from server (legacy)
-      const serverCfg = serverData.llmServerConfig as Record<string, unknown> | undefined;
-      if (serverCfg) {
-        delete serverCfg.executablePath;
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 600;
 
-        // Migrate legacy modelsDir (string) → modelsDirs (string[])
-        if (typeof serverCfg.modelsDir === 'string') {
-          const dir = serverCfg.modelsDir as string;
-          if (!serverCfg.modelsDirs) {
-            serverCfg.modelsDirs = dir && dir !== 'D:\\Neuro\\llm' ? [dir] : [];
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const serverData = await getUserSettings();
+
+      if (serverData && typeof serverData === 'object') {
+        // Clean up stale llmServerConfig fields from server (legacy)
+        const serverCfg = serverData.llmServerConfig as Record<string, unknown> | undefined;
+        if (serverCfg) {
+          delete serverCfg.executablePath;
+
+          // Migrate legacy modelsDir (string) → modelsDirs (string[])
+          if (typeof serverCfg.modelsDir === 'string') {
+            const dir = serverCfg.modelsDir as string;
+            if (!serverCfg.modelsDirs) {
+              serverCfg.modelsDirs = dir && dir !== 'D:\\Neuro\\llm' ? [dir] : [];
+            }
+            delete serverCfg.modelsDir;
           }
-          delete serverCfg.modelsDir;
         }
-      }
 
-      // Migrate legacy connectionPresets → activeProvider + providerConfigs
-      if ('connectionPresets' in serverData && !('providerConfigs' in serverData)) {
-        const presets = serverData.connectionPresets as Array<{
-          provider?: string;
-          url?: string;
-          apiKey?: string;
-          id?: string;
-        }>;
-        const activeId = serverData.activeConnectionPresetId as string | undefined;
-        const active = presets?.find((p) => p.id === activeId) ?? presets?.[0];
-        if (active?.url) {
-          serverData.activeProvider = active.provider ?? ProviderType.KoboldCpp;
-          serverData.providerConfigs = {
-            [active.provider ?? ProviderType.KoboldCpp]: { url: active.url, apiKey: active.apiKey },
-          };
+        // Migrate legacy connectionPresets → activeProvider + providerConfigs
+        if ('connectionPresets' in serverData && !('providerConfigs' in serverData)) {
+          const presets = serverData.connectionPresets as Array<{
+            provider?: string;
+            url?: string;
+            apiKey?: string;
+            id?: string;
+          }>;
+          const activeId = serverData.activeConnectionPresetId as string | undefined;
+          const active = presets?.find((p) => p.id === activeId) ?? presets?.[0];
+          if (active?.url) {
+            serverData.activeProvider = active.provider ?? ProviderType.KoboldCpp;
+            serverData.providerConfigs = {
+              [active.provider ?? ProviderType.KoboldCpp]: { url: active.url, apiKey: active.apiKey },
+            };
+          }
+          delete serverData.connectionPresets;
+          delete serverData.activeConnectionPresetId;
         }
-        delete serverData.connectionPresets;
-        delete serverData.activeConnectionPresetId;
-      }
 
-      // Apply only known persisted keys from server
-      const patch: Record<string, unknown> = {};
-      for (const key of PERSISTED_KEYS) {
-        if (key in serverData && serverData[key] !== undefined) {
-          patch[key] = serverData[key];
+        // Apply only known persisted keys from server
+        const patch: Record<string, unknown> = {};
+        for (const key of PERSISTED_KEYS) {
+          if (key in serverData && serverData[key] !== undefined) {
+            patch[key] = serverData[key];
+          }
+        }
+        if (Object.keys(patch).length > 0) {
+          useAppStore.setState(patch);
         }
       }
-      if (Object.keys(patch).length > 0) {
-        useAppStore.setState(patch);
+      // If serverData is null (fresh install, empty file) — keep in-memory defaults.
+      // Don't push defaults to server; first explicit user save will create the file.
+
+      // Mark init complete so auto-saves in store actions can proceed
+      useAppStore.setState({ _initComplete: true });
+      return;
+    } catch (err) {
+      if (attempt < MAX_RETRIES) {
+        console.warn(`Could not load settings from server (attempt ${attempt + 1}/${MAX_RETRIES}), retrying...`);
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      } else {
+        console.warn('Could not load settings from server after retries, using defaults:', err);
+        // Still mark init complete — explicit saves (button clicks) don't check _initComplete,
+        // and we must not block auto-saves indefinitely after a transient network error.
+        useAppStore.setState({ _initComplete: true });
       }
-    } else {
-      // No server data yet — push current defaults to server
-      const data = extractPersisted(useAppStore.getState());
-      saveUserSettings(data).catch(() => {});
     }
-  } catch (err) {
-    console.warn('Could not load settings from server, using defaults:', err);
-    // Do NOT mark init as complete — prevent auto-saves from overwriting real data
-    return;
   }
-  // Mark init complete so auto-saves in store actions can proceed
-  useAppStore.setState({ _initComplete: true });
 }
 
 export type { SamplerSettings };
