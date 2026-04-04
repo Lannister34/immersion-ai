@@ -40,10 +40,23 @@ body:
       label: Suspected seam
       description: Which module, boundary, or ownership problem is likely involved?
   - type: textarea
+    id: source-of-truth
+    attributes:
+      label: Source of truth and owner
+      description: Which module or layer should own this data or rule?
+    validations:
+      required: true
+  - type: textarea
+    id: broken-invariant
+    attributes:
+      label: Broken invariant
+      description: What guarantee is failing right now?
+    validations:
+      required: true
+  - type: textarea
     id: validation
     attributes:
       label: Validation plan
       description: State automated and manual checks required for the fix.
     validations:
       required: true
-

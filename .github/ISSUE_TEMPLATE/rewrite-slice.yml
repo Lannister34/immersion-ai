@@ -19,10 +19,24 @@ body:
     validations:
       required: true
   - type: textarea
+    id: ownership
+    attributes:
+      label: Source of truth and ownership
+      description: Which layer owns the data, the rules, and invalidation for this slice?
+    validations:
+      required: true
+  - type: textarea
     id: decision
     attributes:
       label: Proposed design
       description: Describe the target ownership model, contracts, and migration path.
+    validations:
+      required: true
+  - type: textarea
+    id: consolidation
+    attributes:
+      label: Consolidation plan
+      description: What duplication, layering, or owner confusion will this slice remove?
     validations:
       required: true
   - type: input
@@ -36,6 +50,13 @@ body:
     attributes:
       label: Risks and rollback
       description: What can fail, and how do we revert safely?
+    validations:
+      required: true
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Invariants
+      description: Which guarantees must remain true after the slice lands?
     validations:
       required: true
   - type: textarea
