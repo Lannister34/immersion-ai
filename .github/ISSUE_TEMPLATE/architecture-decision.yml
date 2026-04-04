@@ -17,6 +17,13 @@ body:
     validations:
       required: true
   - type: textarea
+    id: ownership
+    attributes:
+      label: Source of truth and ownership impact
+      description: Which layer will own the data and rules after this decision?
+    validations:
+      required: true
+  - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
@@ -26,6 +33,13 @@ body:
     id: consequences
     attributes:
       label: Consequences
+    validations:
+      required: true
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Invariants and boundary rules
+      description: Which guarantees and boundaries does this decision create or change?
     validations:
       required: true
   - type: textarea
