@@ -997,6 +997,8 @@ interface StartChatOverrides {
   personality: string;
   first_mes: string;
   activeScenarioName?: string;
+  userName: string;
+  userPersona: string;
 }
 
 function StartChatModal({
@@ -1019,6 +1021,8 @@ function StartChatModal({
     description: '',
     personality: '',
     first_mes: '',
+    userName: '',
+    userPersona: '',
   });
   const [generatingFirstMes, setGeneratingFirstMes] = useState(false);
 
@@ -1035,10 +1039,12 @@ function StartChatModal({
         personality: character.personality ?? '',
         first_mes: '',
         activeScenarioName: undefined,
+        userName: userName || '',
+        userPersona: userPersona || '',
       });
       setGeneratingFirstMes(false);
     }
-  }, [character, open]);
+  }, [character, open, userName, userPersona]);
 
   if (!character) return null;
 
@@ -1062,7 +1068,11 @@ function StartChatModal({
         }
       }
 
-      const userCtx = userName ? { name: userName, persona: userPersona || undefined } : undefined;
+      const effectiveUserName = form.userName || userName;
+      const effectiveUserPersona = form.userPersona || userPersona;
+      const userCtx = effectiveUserName
+        ? { name: effectiveUserName, persona: effectiveUserPersona || undefined }
+        : undefined;
       const result = await generateFirstMessage(
         { name: character.name, description: form.description, personality: form.personality },
         scenarioContent,
@@ -1177,6 +1187,34 @@ function StartChatModal({
               </div>
             </div>
           )}
+
+          {/* User persona */}
+          <div className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-4">
+            <label className="text-xs font-semibold text-[var(--color-text)] uppercase tracking-wide flex items-center gap-1.5">
+              <User size={12} className="text-[var(--color-primary)]" />
+              {t('characters.userPersonaSectionTitle')}
+            </label>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-[var(--color-text-muted)]">{t('characters.userNameLabel')}</label>
+              <input
+                type="text"
+                value={form.userName}
+                onChange={(e) => updateField('userName', e.target.value)}
+                placeholder={t('characters.userNamePlaceholder')}
+                className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-[var(--color-text-muted)]">{t('characters.userPersonaLabel')}</label>
+              <textarea
+                value={form.userPersona}
+                onChange={(e) => updateField('userPersona', e.target.value)}
+                placeholder={t('characters.userPersonaPlaceholder')}
+                rows={3}
+                className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-y min-h-[60px]"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 p-4 border-t border-[var(--color-border)] bg-[var(--color-background)] flex-shrink-0">
@@ -1316,7 +1354,7 @@ export function CharactersPage() {
       // Replace {{char}}/{{user}} placeholders with actual names before saving
       const resolvedFirstMes = overrides.first_mes
         .replace(/\{\{char\}\}/gi, startChatChar.name || '')
-        .replace(/\{\{user\}\}/gi, useAppStore.getState().userName || 'User');
+        .replace(/\{\{user\}\}/gi, overrides.userName || useAppStore.getState().userName || 'User');
       const chatId = await createNewChat(startChatChar.avatar, startChatChar.name, resolvedFirstMes);
 
       // Build character overrides — only store fields that differ from the card
@@ -1328,6 +1366,11 @@ export function CharactersPage() {
           charOverrides.personality = overrides.personality;
       }
 
+      // Build user persona overrides — only store if different from global
+      const { userName: globalUserName, userPersona: globalUserPersona } = useAppStore.getState();
+      const customUserName = overrides.userName !== globalUserName ? overrides.userName : undefined;
+      const customUserPersona = overrides.userPersona !== globalUserPersona ? overrides.userPersona : undefined;
+
       useAppStore.getState().upsertChatSession({
         characterAvatar: startChatChar.avatar,
         characterName: startChatChar.name || t('characters.freeChat'),
@@ -1338,6 +1381,8 @@ export function CharactersPage() {
         lastMessagePreview: resolvedFirstMes?.slice(0, 120),
         ...(Object.keys(charOverrides).length > 0 ? { characterOverrides: charOverrides } : {}),
         ...(overrides.activeScenarioName ? { activeScenarioName: overrides.activeScenarioName } : {}),
+        ...(customUserName !== undefined ? { customUserName } : {}),
+        ...(customUserPersona !== undefined ? { customUserPersona } : {}),
       });
       setStartChatChar(null);
       navigate(`/chat/${encodeURIComponent(chatId)}`);

@@ -233,6 +233,11 @@ export const ru = {
     scenarioLabel: 'Сценарий',
     noScenario: 'Без сценария',
     scenarioHint: 'Подставляется в {{scenario}} в системном промпте.',
+    userPersonaSectionTitle: 'Персона пользователя',
+    userNameLabel: 'Имя пользователя',
+    userNamePlaceholder: 'Ваше имя...',
+    userPersonaLabel: 'Описание персоны',
+    userPersonaPlaceholder: 'Описание вашего персонажа для RP (возраст, внешность, характер)...',
   },
 
   // ── Scenarios page ──────────────────────────────────────────────────────────

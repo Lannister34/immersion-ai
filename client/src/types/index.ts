@@ -111,6 +111,8 @@ export interface ChatSessionMeta {
   activeScenarioName?: string;
   /** Per-chat system prompt override; replaces the computed template (WI + language still appended) */
   customSystemPrompt?: string | null;
+  customUserName?: string;
+  customUserPersona?: string;
 }
 
 export interface ChatMessage {
