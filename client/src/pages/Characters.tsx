@@ -487,7 +487,7 @@ function CharacterDetailModal({
             ))}
           </div>
 
-          {tab === 'info' ? (
+          {tab === 'info' && (
             <div className="flex flex-col gap-5 p-5">
               {/* Top section: avatar + basic info */}
               <div className="flex gap-5">
@@ -559,16 +559,15 @@ function CharacterDetailModal({
                 </div>
               </div>
             </div>
-          ) : tab === 'edit' ? (
+          )}
+          {tab === 'edit' && (
             <div className="flex flex-col max-h-[70vh]">
               <div className="flex flex-col gap-4 p-5 overflow-y-auto flex-1 min-h-0">
                 {/* Avatar upload */}
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-full bg-[var(--color-surface-2)] border border-[var(--color-border)] flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {editAvatarPreview ? (
-                      <img src={editAvatarPreview} alt="" className="w-full h-full object-cover" />
-                    ) : avatarUrl ? (
-                      <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                    {editAvatarPreview || avatarUrl ? (
+                      <img src={editAvatarPreview || avatarUrl!} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <User size={24} className="text-[var(--color-text-muted)]" />
                     )}
@@ -673,17 +672,20 @@ function CharacterDetailModal({
                 </Button>
               </div>
             </div>
-          ) : (
+          )}
+          {tab === 'chats' && (
             <div className="flex flex-col gap-3 p-5">
-              {loadingChats ? (
+              {loadingChats && (
                 <div className="flex items-center justify-center py-8">
                   <div className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
                 </div>
-              ) : chats.length === 0 ? (
+              )}
+              {!loadingChats && chats.length === 0 && (
                 <div className="text-center text-[var(--color-text-muted)] py-8 text-sm">
                   {t('characters.noSavedChats')}
                 </div>
-              ) : (
+              )}
+              {!loadingChats && chats.length > 0 && (
                 <>
                   <div className="text-xs text-[var(--color-text-muted)]">
                     {t('characters.chatCount', { count: chats.length })}
@@ -1530,20 +1532,22 @@ export function CharactersPage() {
       </div>
 
       {/* Content */}
-      {isLoading ? (
+      {isLoading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-[var(--color-text-muted)]">
             <div className="w-8 h-8 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
             <span className="text-sm">{t('characters.loading')}</span>
           </div>
         </div>
-      ) : error ? (
+      )}
+      {!isLoading && error && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-sm text-[var(--color-danger)]">
             {t('characters.loadError', { error: String(error) })}
           </div>
         </div>
-      ) : viewMode === 'grid' ? (
+      )}
+      {!isLoading && !error && viewMode === 'grid' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 overflow-y-auto pb-4">
           {/* "Without character" card — always first */}
           <div
@@ -1575,7 +1579,8 @@ export function CharactersPage() {
             />
           ))}
         </div>
-      ) : (
+      )}
+      {!isLoading && !error && viewMode === 'list' && (
         <div className="flex flex-col gap-1.5 overflow-y-auto pb-4">
           {/* "Without character" list item — always first */}
           <div

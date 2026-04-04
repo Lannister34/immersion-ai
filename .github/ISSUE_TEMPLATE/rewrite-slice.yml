@@ -1,0 +1,47 @@
+name: Rewrite slice
+description: Define a bounded rewrite or platform slice before code begins.
+title: "rewrite: "
+labels:
+  - rewrite
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What structural or product problem does this slice solve?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Slice boundary
+      description: List entrypoints, domains, and files that are in scope.
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: Proposed design
+      description: Describe the target ownership model, contracts, and migration path.
+    validations:
+      required: true
+  - type: input
+    id: design-doc
+    attributes:
+      label: ADR or RFC link
+      description: Required when architecture, framework, package, or data-ownership decisions are involved.
+      placeholder: Link the ADR, RFC, or design note for this slice
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and rollback
+      description: What can fail, and how do we revert safely?
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: Which tests and manual flows will prove this slice?
+    validations:
+      required: true

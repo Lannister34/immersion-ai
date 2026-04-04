@@ -309,6 +309,9 @@ router.post('/character-field', async (req, res) => {
       ? 'Ты составляешь карточки персонажей для ролевого чат-приложения. Пиши кратко и по существу — без литературной прозы и пышных описаний. Возвращай ТОЛЬКО запрошенный контент простым текстом, без JSON, без названий полей, без лишнего форматирования.'
       : 'You are a character card writer for a roleplay chat app. Write concise, factual content — avoid literary prose or elaborate descriptions. Return ONLY the requested content as plain text, no JSON, no field names, no extra formatting.';
 
+    // Check if this is a regeneration (field already has content) vs first generation
+    const isRegen = !!character[field];
+
     const userPrompt = isRu
       ? `Исходная концепция: ${concept || 'не указана'}
 
@@ -317,7 +320,7 @@ router.post('/character-field', async (req, res) => {
 - Описание: ${character.description}
 - Характер: ${character.personality}
 
-Задача: Перегенерируй ТОЛЬКО поле "${field}". ${instruction}
+Задача: ${isRegen ? `Напиши НОВЫЙ, ДРУГОЙ вариант поля "${field}". Не повторяй предыдущий вариант, придумай свежий взгляд на персонажа.` : `Сгенерируй поле "${field}".`} ${instruction}
 
 Пиши на русском. Сохраняй согласованность с остальной карточкой. Верни ТОЛЬКО новое значение поля "${field}", ничего больше.`
       : `Original concept: ${concept || 'not provided'}
@@ -327,11 +330,15 @@ Current character card:
 - Description: ${character.description}
 - Personality: ${character.personality}
 
-Task: Regenerate ONLY the "${field}" field. ${instruction}
+Task: ${isRegen ? `Write a NEW, DIFFERENT version of the "${field}" field. Do not repeat the previous version, come up with a fresh take.` : `Generate the "${field}" field.`} ${instruction}
 
 Write in English. Keep it consistent with the rest of the character card. Return ONLY the new value for "${field}", nothing else.`;
 
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 1024, apiKey });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, {
+      maxTokens: 1024,
+      temperature: isRegen ? 1.1 : 0.8,
+      apiKey,
+    });
     res.json({ field, value: raw.trim() });
   } catch (err) {
     console.error('[ai-generation/character-field]', err);
@@ -460,7 +467,14 @@ Each entry should cover a distinct aspect of the world. Cover: locations, factio
     const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 3000, apiKey });
     const result = extractJson(raw) as Record<string, unknown>;
 
-    const entries = Array.isArray(result?.entries) ? result.entries : Array.isArray(result) ? result : [];
+    let entries: unknown[];
+    if (Array.isArray(result?.entries)) {
+      entries = result.entries as unknown[];
+    } else if (Array.isArray(result)) {
+      entries = result;
+    } else {
+      entries = [];
+    }
 
     const normalized = (entries as Array<Record<string, unknown>>).map((e) => ({
       key: Array.isArray(e.key) ? e.key : [String(e.key ?? '')],
@@ -626,13 +640,16 @@ Character name (for {{char}} substitution): ${character?.name ?? 'N/A'}`;
       }
     }
 
-    const genderHint = isRu
-      ? user?.name
+    let genderHint: string;
+    if (isRu) {
+      genderHint = user?.name
         ? `Определи грамматический род {{user}} по имени игрока "${user.name}". `
-        : 'По умолчанию используй мужской грамматический род для {{user}}. '
-      : user?.name
+        : 'По умолчанию используй мужской грамматический род для {{user}}. ';
+    } else {
+      genderHint = user?.name
         ? `Determine {{user}}'s grammatical gender from the player name "${user.name}". `
         : 'Default to masculine grammatical gender for {{user}}. ';
+    }
 
     const userPrompt = isRu
       ? `Создай детальный ролевой сценарий на основе концепции: ${concept}
@@ -702,13 +719,16 @@ router.post('/first-message', async (req, res) => {
     const { url: apiServer, apiKey } = getActivePreset();
     const isRu = language !== 'en';
 
-    const genderHint = isRu
-      ? user?.name
+    let genderHint: string;
+    if (isRu) {
+      genderHint = user?.name
         ? `Определи грамматический род {{user}} по имени игрока "${user.name}". `
-        : 'По умолчанию используй мужской грамматический род для {{user}}. '
-      : user?.name
+        : 'По умолчанию используй мужской грамматический род для {{user}}. ';
+    } else {
+      genderHint = user?.name
         ? `Determine {{user}}'s grammatical gender from the player name "${user.name}". `
         : 'Default to masculine grammatical gender for {{user}}. ';
+    }
 
     const systemPrompt = isRu
       ? `Ты — помощник для ролевых игр. Сгенерируй вступительное сообщение от лица {{char}} для начала ролевой сцены.

@@ -20,7 +20,7 @@ export function Header() {
   if (location.pathname.startsWith('/chat/')) return null;
 
   const titleKey = pageTitleKeys[location.pathname];
-  const title = titleKey ? t(titleKey) : '';
+  const title = titleKey ? t(titleKey as never) : '';
 
   return (
     <header className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0">

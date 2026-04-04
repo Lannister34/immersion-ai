@@ -5,18 +5,26 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api';
 import { useAppStore } from '@/stores';
 
-export function ModelSettingsSection(): JSX.Element {
+interface ModelSettingsSectionProps {
+  effectiveContextSize: number;
+  onContextSizeOverride?: (value: number) => void;
+}
+
+export function ModelSettingsSection({
+  effectiveContextSize,
+  onContextSizeOverride,
+}: ModelSettingsSectionProps): JSX.Element {
   const { t } = useTranslation();
   const { llmServerConfig, setLlmServerConfig, backendMode, connection } = useAppStore();
-  const [localContextSize, setLocalContextSize] = useState(llmServerConfig.contextSize);
+  const [localContextSize, setLocalContextSize] = useState(effectiveContextSize);
   const [restarting, setRestarting] = useState(false);
 
-  // Sync local state when store changes externally
+  // Sync local state when effective context changes (e.g., preset switch)
   useEffect(() => {
-    setLocalContextSize(llmServerConfig.contextSize);
-  }, [llmServerConfig.contextSize]);
+    setLocalContextSize(effectiveContextSize);
+  }, [effectiveContextSize]);
 
-  const hasChanged = localContextSize !== llmServerConfig.contextSize;
+  const hasChanged = localContextSize !== effectiveContextSize;
   const isBuiltinRunning = backendMode === 'builtin' && connection.connected;
 
   const handleContextSizeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -24,13 +32,24 @@ export function ModelSettingsSection(): JSX.Element {
   }, []);
 
   const handleReset = useCallback(() => {
-    setLocalContextSize(llmServerConfig.contextSize);
-  }, [llmServerConfig.contextSize]);
+    setLocalContextSize(effectiveContextSize);
+  }, [effectiveContextSize]);
 
   const handleApply = useCallback(async () => {
     if (!hasChanged) return;
 
-    if (isBuiltinRunning) {
+    // Persist to per-model settings for currently loaded model
+    const currentModel = useAppStore.getState().connection.model;
+    if (currentModel) {
+      useAppStore.getState().setModelSettings(currentModel, { contextSize: localContextSize });
+    }
+
+    // Create per-chat sampler override so generation uses the new context size
+    onContextSizeOverride?.(localContextSize);
+
+    const needsRestart = localContextSize !== llmServerConfig.contextSize;
+
+    if (needsRestart && isBuiltinRunning) {
       // Restart server with new context size
       setRestarting(true);
       try {
@@ -72,10 +91,17 @@ export function ModelSettingsSection(): JSX.Element {
       } finally {
         setRestarting(false);
       }
-    } else {
+    } else if (needsRestart) {
       setLlmServerConfig({ contextSize: localContextSize });
     }
-  }, [hasChanged, isBuiltinRunning, localContextSize, setLlmServerConfig]);
+  }, [
+    hasChanged,
+    isBuiltinRunning,
+    localContextSize,
+    llmServerConfig.contextSize,
+    setLlmServerConfig,
+    onContextSizeOverride,
+  ]);
 
   return (
     <div className="flex flex-col gap-2.5 border-t border-[var(--color-border)] pt-3">
@@ -124,7 +150,9 @@ export function ModelSettingsSection(): JSX.Element {
             ) : (
               <>
                 <Check size={12} />
-                {isBuiltinRunning ? t('chatSettings.applyRestart') : t('common.apply')}
+                {isBuiltinRunning && localContextSize !== llmServerConfig.contextSize
+                  ? t('chatSettings.applyRestart')
+                  : t('common.apply')}
               </>
             )}
           </button>

@@ -92,14 +92,17 @@ function scanDirectory(modelsDir: string): Array<{ name: string; path: string; s
 router.post('/models', async (req, res) => {
   try {
     // Support both new (modelsDirs: string[]) and legacy (modelsDir: string)
-    const dirs: string[] = Array.isArray(req.body?.modelsDirs)
-      ? req.body.modelsDirs
-      : typeof req.body?.modelsDir === 'string' && req.body.modelsDir
-        ? [req.body.modelsDir]
-        : [];
+    let dirs: string[];
+    if (Array.isArray(req.body?.modelsDirs)) {
+      dirs = req.body.modelsDirs;
+    } else if (typeof req.body?.modelsDir === 'string' && req.body.modelsDir) {
+      dirs = [req.body.modelsDir];
+    } else {
+      dirs = [];
+    }
 
     if (dirs.length === 0) {
-      return res.status(400).json({ models: [] });
+      return res.json({ models: [] });
     }
 
     const allModels: Array<{ name: string; path: string; size: number }> = [];

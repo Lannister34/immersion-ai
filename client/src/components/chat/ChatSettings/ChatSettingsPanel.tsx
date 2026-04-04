@@ -225,7 +225,10 @@ export function ChatSettingsPanel({
           </div>
         </div>
 
-        <ModelSettingsSection />
+        <ModelSettingsSection
+          effectiveContextSize={effective.max_context_length}
+          onContextSizeOverride={(value) => handleOverride('max_context_length', value)}
+        />
 
         <ScenarioDisplay session={session} />
 

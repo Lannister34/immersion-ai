@@ -1,11 +1,24 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Download, ExternalLink, HardDrive, Loader2, Play, Plus, Settings, Square, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  ChevronDown,
+  Download,
+  ExternalLink,
+  HardDrive,
+  Loader2,
+  Play,
+  Plus,
+  RotateCcw,
+  Settings,
+  Square,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EngineInfo, LlmServerStatus, ModelFile } from '@/api';
 import { browseFolder, getEngineInfo, getLlmServerStatus, listModelFiles, startLlmServer, stopLlmServer } from '@/api';
 import { Button } from '@/components/ui/Button';
-import { useAppStore } from '@/stores';
+import { resolveContextSize, useAppStore } from '@/stores';
 
 function formatSize(bytes: number): string {
   const gb = bytes / (1024 * 1024 * 1024);
@@ -18,14 +31,210 @@ function formatElapsed(seconds: number): string {
   return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `0:${String(s).padStart(2, '0')}`;
 }
 
+// ── Types ───────────────────────────────────────────────────────────────────
+
+interface ModelCardProps {
+  model: ModelFile;
+  isCurrent: boolean;
+  isLoading: boolean;
+  isExpanded: boolean;
+  modelSettings: Record<string, import('@/types').ModelSettings>;
+  modelPresetMap: Record<string, string>;
+  samplerPresets: import('@/types').SamplerPreset[];
+  onToggleExpand: () => void;
+  onStart: (model: ModelFile) => void;
+  onContextChange: (size: number) => void;
+  onContextReset: () => void;
+  t: ReturnType<typeof import('react-i18next').useTranslation>['t'];
+}
+
+// ── Model Card ──────────────────────────────────────────────────────────────
+
+function ModelCard({
+  model,
+  isCurrent,
+  isLoading,
+  isExpanded,
+  modelSettings,
+  modelPresetMap,
+  samplerPresets,
+  onToggleExpand,
+  onStart,
+  onContextChange,
+  onContextReset,
+  t,
+}: ModelCardProps) {
+  const hasOverride = modelSettings[model.name]?.contextSize != null;
+  const presetId = modelPresetMap[model.name];
+  const boundPreset = presetId ? samplerPresets.find((p) => p.id === presetId) : undefined;
+
+  let resolvedContext = 8192;
+  if (hasOverride) {
+    resolvedContext = modelSettings[model.name].contextSize!;
+  } else if (boundPreset) {
+    resolvedContext = boundPreset.max_context_length;
+  }
+
+  const getContextSourceLabel = (): string => {
+    if (hasOverride) return t('modelManager.contextSizeCustom');
+    if (boundPreset) return t('modelManager.contextSizeFromPreset', { preset: boundPreset.name });
+    return t('modelManager.contextSizeDefault');
+  };
+
+  const [isEditingValue, setIsEditingValue] = useState(false);
+  const [editValue, setEditValue] = useState('');
+
+  const handleSliderChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onContextChange(Number(e.target.value));
+    },
+    [onContextChange],
+  );
+
+  const handleValueClick = useCallback(() => {
+    setEditValue(String(resolvedContext));
+    setIsEditingValue(true);
+  }, [resolvedContext]);
+
+  const handleValueCommit = useCallback(() => {
+    const val = Number(editValue);
+    if (val >= 512 && val <= 262144) {
+      onContextChange(val);
+    }
+    setIsEditingValue(false);
+  }, [editValue, onContextChange]);
+
+  const handleValueKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') handleValueCommit();
+      if (e.key === 'Escape') setIsEditingValue(false);
+    },
+    [handleValueCommit],
+  );
+
+  return (
+    <div
+      className={`rounded-lg border transition-colors ${
+        isCurrent
+          ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5'
+          : 'border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+      }`}
+    >
+      {/* Header row */}
+      <div className="flex items-center gap-2 px-2.5 py-2">
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer flex-shrink-0"
+        >
+          <ChevronDown size={14} className={`transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
+        </button>
+        <HardDrive size={14} className="text-[var(--color-text-muted)] flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-xs text-[var(--color-text)] truncate" title={model.name}>
+            {model.name}
+          </div>
+          <div className="text-[10px] text-[var(--color-text-muted)] opacity-60">{formatSize(model.size)}</div>
+        </div>
+        {isCurrent && (
+          <span className="text-[10px] text-[var(--color-accent)] font-medium px-2 py-0.5 rounded-full bg-[var(--color-accent)]/10">
+            {t('modelManager.currentBadge')}
+          </span>
+        )}
+        {isLoading && <Loader2 size={14} className="text-amber-400 animate-spin" />}
+        {!isCurrent && !isLoading && (
+          <Button variant="ghost" size="sm" onClick={() => onStart(model)} className="text-[10px] !px-2 !py-1">
+            <Play size={11} />
+            {t('modelManager.startButton')}
+          </Button>
+        )}
+      </div>
+
+      {/* Expandable settings */}
+      {isExpanded && (
+        <div className="px-3 pb-2.5 pt-1 border-t border-[var(--color-border)]/50">
+          <div className="flex flex-col gap-1 max-w-xs">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-[var(--color-text-muted)] font-medium">
+                {t('modelManager.contextSizeLabel')}
+              </label>
+              <div className="flex items-center gap-1.5">
+                {isEditingValue ? (
+                  <input
+                    type="number"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleValueCommit}
+                    onKeyDown={handleValueKeyDown}
+                    min={512}
+                    max={262144}
+                    step={512}
+                    autoFocus
+                    className="w-20 bg-[var(--color-surface)] border border-[var(--color-primary)] rounded px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text)] outline-none text-right"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleValueClick}
+                    className="text-[10px] font-mono text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer transition-colors"
+                    title={t('modelManager.contextSizeEditHint')}
+                  >
+                    {resolvedContext.toLocaleString()}
+                  </button>
+                )}
+                {hasOverride && (
+                  <button
+                    type="button"
+                    onClick={onContextReset}
+                    className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
+                    title={t('modelManager.contextSizeReset')}
+                  >
+                    <RotateCcw size={10} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <input
+              type="range"
+              min={2048}
+              max={131072}
+              step={1024}
+              value={resolvedContext}
+              onChange={handleSliderChange}
+              className="w-full accent-[var(--color-primary)]"
+            />
+            <div className="flex items-center justify-between text-[9px] text-[var(--color-text-muted)] opacity-50">
+              <span>2K</span>
+              <span>{getContextSourceLabel()}</span>
+              <span>128K</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Model Manager ───────────────────────────────────────────────────────────
+
 export function ModelManager() {
   const { t } = useTranslation();
-  const { llmServerConfig, setLlmServerConfig, setConnection } = useAppStore();
+  const {
+    llmServerConfig,
+    setLlmServerConfig,
+    setConnection,
+    modelSettings,
+    setModelSettings,
+    clearModelSettings,
+    modelPresetMap,
+    samplerPresets,
+  } = useAppStore();
   const queryClient = useQueryClient();
   const [showSettings, setShowSettings] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [browsing, setBrowsing] = useState(false);
+  const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const prevStatusRef = useRef<string>('idle');
 
   // Check engine availability
@@ -34,13 +243,6 @@ export function ModelManager() {
     queryFn: getEngineInfo,
     staleTime: 60_000,
   });
-
-  // Set default modelsDirs from engine info on first load
-  useEffect(() => {
-    if (engineInfo?.defaultModelsDir && llmServerConfig.modelsDirs.length === 0) {
-      setLlmServerConfig({ modelsDirs: [engineInfo.defaultModelsDir] });
-    }
-  }, [engineInfo?.defaultModelsDir, llmServerConfig.modelsDirs.length, setLlmServerConfig]);
 
   // Poll server status every 2s
   const { data: serverStatus } = useQuery<LlmServerStatus>({
@@ -52,12 +254,14 @@ export function ModelManager() {
   const status = serverStatus?.status ?? 'idle';
 
   // Effective model directories (from config or engine default)
-  const effectiveModelsDirs =
-    llmServerConfig.modelsDirs.length > 0
-      ? llmServerConfig.modelsDirs
-      : engineInfo?.defaultModelsDir
-        ? [engineInfo.defaultModelsDir]
-        : [];
+  let effectiveModelsDirs: string[];
+  if (llmServerConfig.modelsDirs.length > 0) {
+    effectiveModelsDirs = llmServerConfig.modelsDirs;
+  } else if (engineInfo?.defaultModelsDir) {
+    effectiveModelsDirs = [engineInfo.defaultModelsDir];
+  } else {
+    effectiveModelsDirs = [];
+  }
 
   // List model files from all directories
   const { data: modelFiles } = useQuery<ModelFile[]>({
@@ -98,22 +302,31 @@ export function ModelManager() {
     prevStatusRef.current = status;
   }, [status, serverStatus?.model, setConnection]);
 
-  const handleStartModel = async (model: ModelFile) => {
-    try {
-      await startLlmServer({
-        modelPath: model.path,
-        port: llmServerConfig.port,
-        gpuLayers: llmServerConfig.gpuLayers,
-        contextSize: llmServerConfig.contextSize,
-        flashAttention: llmServerConfig.flashAttention,
-        threads: llmServerConfig.threads,
-      });
-      // Immediately refetch status after starting
-      void queryClient.invalidateQueries({ queryKey: ['llm-server-status'] });
-    } catch (err) {
-      console.error('Failed to start LLM server:', err);
-    }
-  };
+  const handleStartModel = useCallback(
+    async (model: ModelFile) => {
+      try {
+        const state = useAppStore.getState();
+        const contextSize = resolveContextSize(state, model.name);
+
+        // Update llmServerConfig so all components see the correct value immediately
+        setLlmServerConfig({ contextSize });
+
+        await startLlmServer({
+          modelPath: model.path,
+          port: llmServerConfig.port,
+          gpuLayers: llmServerConfig.gpuLayers,
+          contextSize,
+          flashAttention: llmServerConfig.flashAttention,
+          threads: llmServerConfig.threads,
+        });
+        // Immediately refetch status after starting
+        void queryClient.invalidateQueries({ queryKey: ['llm-server-status'] });
+      } catch (err) {
+        console.error('Failed to start LLM server:', err);
+      }
+    },
+    [llmServerConfig, setLlmServerConfig, queryClient],
+  );
 
   const handleStop = async () => {
     try {
@@ -125,14 +338,13 @@ export function ModelManager() {
     }
   };
 
-  const statusDot =
-    status === 'running'
-      ? 'bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]'
-      : status === 'starting' || status === 'stopping'
-        ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse'
-        : status === 'error'
-          ? 'bg-[var(--color-danger)] shadow-[0_0_8px_var(--color-danger)]'
-          : 'bg-[var(--color-text-muted)]';
+  const getStatusDot = (): string => {
+    if (status === 'running') return 'bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]';
+    if (status === 'starting' || status === 'stopping')
+      return 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse';
+    if (status === 'error') return 'bg-[var(--color-danger)] shadow-[0_0_8px_var(--color-danger)]';
+    return 'bg-[var(--color-text-muted)]';
+  };
 
   const getStatusText = (): string => {
     if (status === 'running') {
@@ -182,7 +394,7 @@ export function ModelManager() {
     <div className="flex flex-col gap-4">
       {/* Status bar */}
       <div className="flex items-center gap-3">
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${statusDot}`} />
+        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getStatusDot()}`} />
         <span className="text-sm text-[var(--color-text-muted)] flex-1">{getStatusText()}</span>
         <div className="flex items-center gap-2">
           <button
@@ -357,51 +569,33 @@ export function ModelManager() {
           {modelFiles.map((model) => {
             const isCurrent = currentModelName && status === 'running' && model.name === currentModelName;
             const isLoading = status === 'starting' && currentModelName && model.name === currentModelName;
+            const isExpanded = expandedModel === model.name;
 
             return (
-              <div
+              <ModelCard
                 key={model.path}
-                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border transition-colors ${
-                  isCurrent
-                    ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5'
-                    : 'border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
-                }`}
-              >
-                <HardDrive size={14} className="text-[var(--color-text-muted)] flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs text-[var(--color-text)] truncate" title={model.name}>
-                    {model.name}
-                  </div>
-                  <div className="text-[10px] text-[var(--color-text-muted)] opacity-60">{formatSize(model.size)}</div>
-                </div>
-                {isCurrent ? (
-                  <span className="text-[10px] text-[var(--color-accent)] font-medium px-2 py-0.5 rounded-full bg-[var(--color-accent)]/10">
-                    {t('modelManager.currentBadge')}
-                  </span>
-                ) : isLoading ? (
-                  <Loader2 size={14} className="text-amber-400 animate-spin" />
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleStartModel(model)}
-                    disabled={isActive}
-                    className="text-[10px] !px-2 !py-1"
-                  >
-                    <Play size={11} />
-                    {t('modelManager.startButton')}
-                  </Button>
-                )}
-              </div>
+                model={model}
+                isCurrent={!!isCurrent}
+                isLoading={!!isLoading}
+                isExpanded={isExpanded}
+                modelSettings={modelSettings}
+                modelPresetMap={modelPresetMap}
+                samplerPresets={samplerPresets}
+                onToggleExpand={() => setExpandedModel(isExpanded ? null : model.name)}
+                onStart={handleStartModel}
+                onContextChange={(size) => setModelSettings(model.name, { contextSize: size })}
+                onContextReset={() => clearModelSettings(model.name)}
+                t={t}
+              />
             );
           })}
         </div>
       )}
 
       {/* No models found */}
-      {modelFiles && modelFiles.length === 0 && effectiveModelsDir && (
+      {modelFiles && modelFiles.length === 0 && effectiveModelsDirs.length > 0 && (
         <div className="text-xs text-[var(--color-text-muted)] text-center py-3">
-          {t('modelManager.noModelsFound', { dir: effectiveModelsDir })}
+          {t('modelManager.noModelsFound', { dir: effectiveModelsDirs.join(', ') })}
         </div>
       )}
     </div>

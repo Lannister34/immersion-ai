@@ -305,6 +305,7 @@ function CreateScenarioModal({
   const userPersona = useAppStore((s) => s.userPersona);
   const [mode, setMode] = useState<'manual' | 'generate'>('manual');
   const [name, setName] = useState('');
+  const [manualContent, setManualContent] = useState('');
   const [concept, setConcept] = useState('');
   const [creating, setCreating] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -335,6 +336,7 @@ function CreateScenarioModal({
   const reset = () => {
     setMode('manual');
     setName('');
+    setManualContent('');
     setConcept('');
     setCreating(false);
     setGenerating(false);
@@ -354,7 +356,7 @@ function CreateScenarioModal({
     setCreating(true);
     setError('');
     try {
-      await createScenario({ name: name.trim() });
+      await createScenario({ name: name.trim(), content: manualContent.trim() || undefined });
       const created = name.trim();
       reset();
       onCreated(created);
@@ -450,11 +452,12 @@ function CreateScenarioModal({
             disabled={!connection.connected}
             className={clsx(
               'flex-1 px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-center gap-1.5',
-              !connection.connected
-                ? 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] opacity-50 cursor-not-allowed'
-                : mode === 'generate'
-                  ? 'bg-[var(--color-primary)] text-white cursor-pointer'
-                  : 'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer',
+              !connection.connected &&
+                'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] opacity-50 cursor-not-allowed',
+              connection.connected && mode === 'generate' && 'bg-[var(--color-primary)] text-white cursor-pointer',
+              connection.connected &&
+                mode !== 'generate' &&
+                'bg-[var(--color-surface-2)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer',
             )}
             title={!connection.connected ? t('common.noApiConnection') : undefined}
           >
@@ -463,21 +466,39 @@ function CreateScenarioModal({
           </button>
         </div>
 
-        {mode === 'manual' ? (
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
-              {t('scenarios.nameLabel')}
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('scenarios.manualNamePlaceholder')}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              autoFocus
-              className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
-            />
+        {mode === 'manual' && (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                {t('scenarios.nameLabel')}
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('scenarios.manualNamePlaceholder')}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                autoFocus
+                className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
+                {t('scenarios.contentLabel')}
+              </label>
+              <textarea
+                value={manualContent}
+                onChange={(e) => setManualContent(e.target.value)}
+                placeholder={t('scenarios.manualContentPlaceholder')}
+                rows={6}
+                className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-none font-mono leading-relaxed"
+              />
+              <span className="text-[10px] text-[var(--color-text-muted)] opacity-60">
+                {t('scenarios.placeholdersHint')}
+              </span>
+            </div>
           </div>
-        ) : preview ? (
+        )}
+        {mode === 'generate' && preview && (
           /* Generated preview — review and edit before saving */
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
@@ -515,7 +536,8 @@ function CreateScenarioModal({
               <div className="text-[9px] text-[var(--color-text-muted)]">{t('common.commaSeparated')}</div>
             </div>
           </div>
-        ) : (
+        )}
+        {mode === 'generate' && !preview && (
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wide">
@@ -583,12 +605,13 @@ function CreateScenarioModal({
           <Button variant="secondary" onClick={handleClose}>
             {t('common.cancel')}
           </Button>
-          {mode === 'manual' ? (
+          {mode === 'manual' && (
             <Button onClick={handleCreate} disabled={!name.trim() || creating} loading={creating}>
               <Plus size={14} />
               {t('common.create')}
             </Button>
-          ) : preview ? (
+          )}
+          {mode === 'generate' && preview && (
             <>
               <Button
                 variant="secondary"
@@ -606,7 +629,8 @@ function CreateScenarioModal({
                 {t('common.save')}
               </Button>
             </>
-          ) : (
+          )}
+          {mode === 'generate' && !preview && (
             <Button
               onClick={handleGenerate}
               disabled={!concept.trim() || generating || !connection.connected}
@@ -676,13 +700,13 @@ export function ScenariosPage() {
           />
         </div>
 
-        {isLoading ? (
-          <div className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>
-        ) : filtered.length === 0 ? (
+        {isLoading && <div className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>}
+        {!isLoading && filtered.length === 0 && (
           <div className="text-sm text-[var(--color-text-muted)]">
             {scenarios.length === 0 ? t('scenarios.empty') : t('common.nothingFound')}
           </div>
-        ) : (
+        )}
+        {!isLoading && filtered.length > 0 && (
           <div className="flex flex-col gap-1">
             {filtered.map((s) => (
               <button

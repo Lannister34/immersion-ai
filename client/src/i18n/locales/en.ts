@@ -243,7 +243,6 @@ export const en = {
   scenarios: {
     notFound: 'Scenario not found',
     namePlaceholder: 'Scenario name',
-    contentLabel: 'Scenario Content',
     generateContentTooltip: 'Generate content from description',
     contentPlaceholder: 'Full scenario text to be substituted into the prompt via {{scenario}}...',
     tagsLabel: 'Tags',
@@ -258,6 +257,9 @@ export const en = {
     generationTab: 'Generation',
     nameLabel: 'Name',
     manualNamePlaceholder: 'Meeting at the library...',
+    contentLabel: 'Content',
+    manualContentPlaceholder: 'Describe the setting, situation, scene context. You can use {{char}} and {{user}}...',
+    placeholdersHint: 'Supported placeholders: {{char}}, {{user}}',
     contentPreviewLabel: 'Content',
     tagsPreviewPlaceholder: 'romance, fantasy...',
     conceptLabel: 'Concept',
@@ -347,6 +349,12 @@ export const en = {
     currentBadge: 'Current',
     startButton: 'Start',
     noModelsFound: 'No models (.gguf) found in {{dir}}',
+    contextSizeLabel: 'Context size',
+    contextSizeFromPreset: 'from preset {{preset}}',
+    contextSizeDefault: 'default',
+    contextSizeCustom: 'overridden',
+    contextSizeReset: 'Reset',
+    contextSizeEditHint: 'Click to enter manually',
   },
 
   // ── Character wizard ────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ import { ChatList, ChatSettingsPanel, ContextIndicator, GenerationTimer, Message
 import { Button } from '@/components/ui/Button';
 import { useAutoScroll, useChatGeneration, useChatSession } from '@/hooks';
 import { formatMessageContent } from '@/lib/messageFormatting';
-import { useAppStore } from '@/stores';
+import { getEffectiveSamplerSettings, useAppStore } from '@/stores';
 
 // ── Active Chat View ────────────────────────────────────────────────────────
 
@@ -97,7 +97,7 @@ export function ActiveChatView(): JSX.Element | null {
             <span className="flex-shrink-0">{t('chat.messageCount', { count: messages.length })}</span>
             <ContextIndicator
               promptLength={lastPromptLength}
-              maxContext={useAppStore.getState().llmServerConfig.contextSize}
+              maxContext={getEffectiveSamplerSettings(useAppStore.getState(), chatId).max_context_length}
             />
             <GenerationTimer isGenerating={isGenerating} />
           </div>
@@ -131,10 +131,9 @@ export function ActiveChatView(): JSX.Element | null {
                   key={`${msg.send_date}-${i}`}
                   message={msg}
                   characterAvatar={character?.avatar}
-                  isLast={i === messages.length - 1}
                   onEdit={(newText) => handleEditMessage(i, newText)}
                   onDelete={() => handleDeleteMessage(i)}
-                  onRegenerate={handleRegenerate}
+                  onRegenerate={() => handleRegenerate(i)}
                   isGenerating={isGenerating}
                 />
               ))}

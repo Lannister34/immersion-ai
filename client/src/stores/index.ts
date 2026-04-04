@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import { getUserSettings, saveUserSettings } from '@/api';
 import type { UiLanguage } from '@/i18n';
-import type { ChatSessionMeta, ConnectionStatus, ProviderConfig, SamplerPreset, SamplerSettings } from '@/types';
+import type {
+  ChatSessionMeta,
+  ConnectionStatus,
+  ModelSettings,
+  ProviderConfig,
+  SamplerPreset,
+  SamplerSettings,
+} from '@/types';
 import { ProviderType } from '@/types';
 
 interface AppState {
@@ -63,12 +70,17 @@ interface AppState {
   llmServerConfig: LlmServerConfig;
   setLlmServerConfig: (partial: Partial<LlmServerConfig>) => void;
 
+  // Per-model settings (context size overrides, etc.)
+  modelSettings: Record<string, ModelSettings>;
+  setModelSettings: (model: string, settings: ModelSettings) => void;
+  clearModelSettings: (model: string) => void;
+
   // Transient (not persisted)
   llmServerStatus: 'idle' | 'starting' | 'running' | 'stopping' | 'error';
   setLlmServerStatus: (status: 'idle' | 'starting' | 'running' | 'stopping' | 'error') => void;
 
-  /** Server sync state */
-  _serverSynced: boolean;
+  /** Whether initial settings have been loaded from the server */
+  _initComplete: boolean;
 }
 
 export interface LlmServerConfig {
@@ -204,44 +216,72 @@ const PERSISTED_KEYS = [
   'chatSessions',
   'backendMode',
   'llmServerConfig',
+  'modelSettings',
   'activeProvider',
   'providerConfigs',
 ] as const;
 
 type PersistedKey = (typeof PERSISTED_KEYS)[number];
 
-function extractPersisted(state: AppState): Record<PersistedKey, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const key of PERSISTED_KEYS) {
-    result[key] = state[key];
+// ── Targeted server sync ───────────────────────────────────────────────────
+
+/**
+ * Save specific fields to the server (merge, not overwrite).
+ * Only applies back the sent keys from the server response —
+ * avoids overwriting other in-memory state with stale file data.
+ * Use after explicit user actions (button clicks, toggle changes).
+ */
+export async function syncFieldsToServer(...keys: PersistedKey[]): Promise<void> {
+  const state = useAppStore.getState();
+  const data: Record<string, unknown> = {};
+  for (const key of keys) {
+    data[key] = state[key];
   }
-  return result as Record<PersistedKey, unknown>;
-}
-
-// ── Debounced server sync ──────────────────────────────────────────────────
-
-let syncTimer: ReturnType<typeof setTimeout> | null = null;
-
-function scheduleSyncToServer() {
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => {
-    const state = useAppStore.getState();
-    const data = extractPersisted(state);
-    saveUserSettings(data).catch((err) => console.warn('Failed to sync settings to server:', err));
-  }, 1000); // debounce 1s
+  const merged = await saveUserSettings(data);
+  if (merged) {
+    const patch: Record<string, unknown> = {};
+    for (const key of keys) {
+      if (key in merged && merged[key] !== undefined) patch[key] = merged[key];
+    }
+    if (Object.keys(patch).length > 0) useAppStore.setState(patch);
+  }
 }
 
 /**
- * Immediately sync current settings to server (bypass debounce).
- * Call after explicit user save actions like "Сохранить" button.
+ * Create a debounced sync function for auto-saved fields.
+ * Batches rapid changes (e.g. slider drags) into a single server call.
+ * Only applies back the sent keys from the server response.
  */
-export async function syncToServerNow(): Promise<void> {
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = null;
-  const state = useAppStore.getState();
-  const data = extractPersisted(state);
-  await saveUserSettings(data);
+function createDebouncedSync(delay: number): (...keys: PersistedKey[]) => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (...keys: PersistedKey[]) => {
+    // Don't even schedule if init hasn't completed — prevents stale defaults from overwriting server data
+    if (!useAppStore.getState()._initComplete) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const state = useAppStore.getState();
+      const data: Record<string, unknown> = {};
+      for (const k of keys) data[k] = state[k];
+      try {
+        const merged = await saveUserSettings(data);
+        if (merged) {
+          const patch: Record<string, unknown> = {};
+          for (const k of keys) {
+            if (k in merged && merged[k] !== undefined) patch[k] = merged[k];
+          }
+          if (Object.keys(patch).length > 0) useAppStore.setState(patch);
+        }
+      } catch (err) {
+        console.warn('Failed to sync settings:', err);
+      }
+    }, delay);
+  };
 }
+
+const debouncedSyncChatSessions = createDebouncedSync(1000);
+const debouncedSyncPresets = createDebouncedSync(500);
+const debouncedSyncServerConfig = createDebouncedSync(500);
+const debouncedSyncModelSettings = createDebouncedSync(500);
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -296,6 +336,26 @@ export function getActiveConnectionUrl(state: AppState): string {
   return getActiveProviderConfig(state).url;
 }
 
+/**
+ * Resolve context size for a given model.
+ * Priority: per-model override → bound preset max_context_length → 8192 default.
+ */
+export function resolveContextSize(state: AppState, modelName: string): number {
+  // 1. Per-model override
+  const modelCtx = state.modelSettings[modelName]?.contextSize;
+  if (modelCtx != null) return modelCtx;
+
+  // 2. Bound preset's max_context_length
+  const presetId = state.modelPresetMap[modelName];
+  if (presetId) {
+    const preset = state.samplerPresets.find((p) => p.id === presetId);
+    if (preset) return preset.max_context_length;
+  }
+
+  // 3. Default
+  return 8192;
+}
+
 // ── Store ──────────────────────────────────────────────────────────────────
 
 export const useAppStore = create<AppState>()((set, get) => ({
@@ -317,19 +377,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
   activePresetId: 'default',
   modelPresetMap: {},
 
-  addPreset: (preset) => set((s) => ({ samplerPresets: [...s.samplerPresets, preset] })),
+  addPreset: (preset) => {
+    set((s) => ({ samplerPresets: [...s.samplerPresets, preset] }));
+    debouncedSyncPresets('samplerPresets');
+  },
 
-  updatePreset: (id, partial) =>
+  updatePreset: (id, partial) => {
     set((s) => ({
       samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, ...partial } : p)),
-    })),
+    }));
+    debouncedSyncPresets('samplerPresets');
+  },
 
-  renamePreset: (id, name) =>
+  renamePreset: (id, name) => {
     set((s) => ({
       samplerPresets: s.samplerPresets.map((p) => (p.id === id ? { ...p, name } : p)),
-    })),
+    }));
+    debouncedSyncPresets('samplerPresets');
+  },
 
-  deletePreset: (id) =>
+  deletePreset: (id) => {
     set((s) => {
       if (s.samplerPresets.length <= 1) return s; // keep at least one
       const filtered = s.samplerPresets.filter((p) => p.id !== id);
@@ -344,11 +411,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
         activePresetId: newActive,
         modelPresetMap: newMap,
       };
-    }),
+    });
+    debouncedSyncPresets('samplerPresets', 'activePresetId', 'modelPresetMap');
+  },
 
-  setActivePreset: (id) => set({ activePresetId: id }),
+  setActivePreset: (id) => {
+    set({ activePresetId: id });
+    debouncedSyncPresets('activePresetId');
+  },
 
-  setModelPreset: (model, presetId) =>
+  setModelPreset: (model, presetId) => {
     set((s) => {
       const newMap = { ...s.modelPresetMap };
       if (presetId) {
@@ -357,7 +429,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
         delete newMap[model];
       }
       return { modelPresetMap: newMap };
-    }),
+    });
+    debouncedSyncPresets('modelPresetMap');
+  },
 
   systemPromptTemplate: DEFAULT_SYSTEM_PROMPT_RU,
   setSystemPromptTemplate: (template) => set({ systemPromptTemplate: template }),
@@ -365,7 +439,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   uiLanguage: 'ru',
   setUiLanguage: (lang) => {
     set({ uiLanguage: lang });
-    // i18n.changeLanguage is called in App.tsx via subscription
+    syncFieldsToServer('uiLanguage').catch(console.warn);
   },
 
   responseLanguage: 'ru',
@@ -377,17 +451,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
       update.systemPromptTemplate = getDefaultSystemPrompt(lang);
     }
     set(update);
+    const keys: PersistedKey[] = ['responseLanguage'];
+    if (update.systemPromptTemplate) keys.push('systemPromptTemplate');
+    syncFieldsToServer(...keys).catch(console.warn);
   },
 
   streamingEnabled: true,
-  setStreamingEnabled: (enabled) => set({ streamingEnabled: enabled }),
+  setStreamingEnabled: (enabled) => {
+    set({ streamingEnabled: enabled });
+    syncFieldsToServer('streamingEnabled').catch(console.warn);
+  },
 
   thinkingEnabled: true,
-  setThinkingEnabled: (enabled) => set({ thinkingEnabled: enabled }),
+  setThinkingEnabled: (enabled) => {
+    set({ thinkingEnabled: enabled });
+    syncFieldsToServer('thinkingEnabled').catch(console.warn);
+  },
 
   // Chat sessions
   chatSessions: [],
-  upsertChatSession: (meta) =>
+  upsertChatSession: (meta) => {
     set((s) => {
       const existing = s.chatSessions.findIndex(
         (c) => c.characterAvatar === meta.characterAvatar && c.chatFile === meta.chatFile,
@@ -401,11 +484,15 @@ export const useAppStore = create<AppState>()((set, get) => ({
         sessions.push(meta);
       }
       return { chatSessions: sessions };
-    }),
-  removeChatSession: (characterAvatar, chatFile) =>
+    });
+    debouncedSyncChatSessions('chatSessions');
+  },
+  removeChatSession: (characterAvatar, chatFile) => {
     set((s) => ({
       chatSessions: s.chatSessions.filter((c) => !(c.characterAvatar === characterAvatar && c.chatFile === chatFile)),
-    })),
+    }));
+    debouncedSyncChatSessions('chatSessions');
+  },
   getChatSession: (characterAvatar, chatFile) =>
     get().chatSessions.find((c) => c.characterAvatar === characterAvatar && c.chatFile === chatFile),
 
@@ -413,41 +500,55 @@ export const useAppStore = create<AppState>()((set, get) => ({
   activeProvider: ProviderType.KoboldCpp,
   providerConfigs: { ...DEFAULT_PROVIDER_CONFIGS },
 
-  setActiveProvider: (provider) => set({ activeProvider: provider }),
+  setActiveProvider: (provider) => {
+    set({ activeProvider: provider });
+    syncFieldsToServer('activeProvider').catch(console.warn);
+  },
 
-  updateProviderConfig: (provider, partial) =>
+  updateProviderConfig: (provider, partial) => {
     set((s) => ({
       providerConfigs: {
         ...s.providerConfigs,
         [provider]: { ...(s.providerConfigs[provider] ?? { url: '' }), ...partial },
       },
-    })),
+    }));
+    debouncedSyncServerConfig('providerConfigs');
+  },
 
   // LLM Server
   backendMode: 'builtin',
-  setBackendMode: (mode) => set({ backendMode: mode }),
+  setBackendMode: (mode) => {
+    set({ backendMode: mode });
+    syncFieldsToServer('backendMode').catch(console.warn);
+  },
 
   llmServerConfig: { ...DEFAULT_LLM_SERVER_CONFIG },
-  setLlmServerConfig: (partial) => set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } })),
+  setLlmServerConfig: (partial) => {
+    set((s) => ({ llmServerConfig: { ...s.llmServerConfig, ...partial } }));
+    debouncedSyncServerConfig('llmServerConfig');
+  },
+
+  // Per-model settings
+  modelSettings: {},
+  setModelSettings: (model, settings) => {
+    set((s) => ({
+      modelSettings: { ...s.modelSettings, [model]: { ...s.modelSettings[model], ...settings } },
+    }));
+    debouncedSyncModelSettings('modelSettings');
+  },
+  clearModelSettings: (model) => {
+    set((s) => {
+      const { [model]: _, ...rest } = s.modelSettings;
+      return { modelSettings: rest };
+    });
+    debouncedSyncModelSettings('modelSettings');
+  },
 
   llmServerStatus: 'idle',
   setLlmServerStatus: (status) => set({ llmServerStatus: status }),
 
-  _serverSynced: false,
+  _initComplete: false,
 }));
-
-// ── Server sync: subscribe to state changes ────────────────────────────────
-
-useAppStore.subscribe((state, prevState) => {
-  // Don't sync until initial server load is complete
-  if (!state._serverSynced) return;
-
-  // Check if any persisted field actually changed
-  const changed = PERSISTED_KEYS.some((key) => state[key] !== prevState[key]);
-  if (changed) {
-    scheduleSyncToServer();
-  }
-});
 
 // ── Server sync: load on startup ───────────────────────────────────────────
 
@@ -455,69 +556,84 @@ useAppStore.subscribe((state, prevState) => {
  * Fetch settings from server and merge into store.
  * Server is the sole source of truth for user settings.
  * Call this once on app startup.
+ * Retries up to 5 times with 600ms delay to handle server startup race.
  */
 export async function initSettingsFromServer(): Promise<void> {
   // Clean up legacy localStorage data (persist middleware removed)
   localStorage.removeItem('st-ui-settings');
 
-  try {
-    const serverData = await getUserSettings();
-    if (serverData && typeof serverData === 'object') {
-      // Clean up stale llmServerConfig fields from server (legacy)
-      const serverCfg = serverData.llmServerConfig as Record<string, unknown> | undefined;
-      if (serverCfg) {
-        delete serverCfg.executablePath;
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 600;
 
-        // Migrate legacy modelsDir (string) → modelsDirs (string[])
-        if (typeof serverCfg.modelsDir === 'string') {
-          const dir = serverCfg.modelsDir as string;
-          if (!serverCfg.modelsDirs) {
-            serverCfg.modelsDirs = dir && dir !== 'D:\\Neuro\\llm' ? [dir] : [];
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const serverData = await getUserSettings();
+
+      if (serverData && typeof serverData === 'object') {
+        // Clean up stale llmServerConfig fields from server (legacy)
+        const serverCfg = serverData.llmServerConfig as Record<string, unknown> | undefined;
+        if (serverCfg) {
+          delete serverCfg.executablePath;
+
+          // Migrate legacy modelsDir (string) → modelsDirs (string[])
+          if (typeof serverCfg.modelsDir === 'string') {
+            const dir = serverCfg.modelsDir as string;
+            if (!serverCfg.modelsDirs) {
+              serverCfg.modelsDirs = dir && dir !== 'D:\\Neuro\\llm' ? [dir] : [];
+            }
+            delete serverCfg.modelsDir;
           }
-          delete serverCfg.modelsDir;
         }
-      }
 
-      // Migrate legacy connectionPresets → activeProvider + providerConfigs
-      if ('connectionPresets' in serverData && !('providerConfigs' in serverData)) {
-        const presets = serverData.connectionPresets as Array<{
-          provider?: string;
-          url?: string;
-          apiKey?: string;
-          id?: string;
-        }>;
-        const activeId = serverData.activeConnectionPresetId as string | undefined;
-        const active = presets?.find((p) => p.id === activeId) ?? presets?.[0];
-        if (active?.url) {
-          serverData.activeProvider = active.provider ?? ProviderType.KoboldCpp;
-          serverData.providerConfigs = {
-            [active.provider ?? ProviderType.KoboldCpp]: { url: active.url, apiKey: active.apiKey },
-          };
+        // Migrate legacy connectionPresets → activeProvider + providerConfigs
+        if ('connectionPresets' in serverData && !('providerConfigs' in serverData)) {
+          const presets = serverData.connectionPresets as Array<{
+            provider?: string;
+            url?: string;
+            apiKey?: string;
+            id?: string;
+          }>;
+          const activeId = serverData.activeConnectionPresetId as string | undefined;
+          const active = presets?.find((p) => p.id === activeId) ?? presets?.[0];
+          if (active?.url) {
+            serverData.activeProvider = active.provider ?? ProviderType.KoboldCpp;
+            serverData.providerConfigs = {
+              [active.provider ?? ProviderType.KoboldCpp]: { url: active.url, apiKey: active.apiKey },
+            };
+          }
+          delete serverData.connectionPresets;
+          delete serverData.activeConnectionPresetId;
         }
-        delete serverData.connectionPresets;
-        delete serverData.activeConnectionPresetId;
-      }
 
-      // Apply only known persisted keys from server
-      const patch: Record<string, unknown> = {};
-      for (const key of PERSISTED_KEYS) {
-        if (key in serverData && serverData[key] !== undefined) {
-          patch[key] = serverData[key];
+        // Apply only known persisted keys from server
+        const patch: Record<string, unknown> = {};
+        for (const key of PERSISTED_KEYS) {
+          if (key in serverData && serverData[key] !== undefined) {
+            patch[key] = serverData[key];
+          }
+        }
+        if (Object.keys(patch).length > 0) {
+          useAppStore.setState(patch);
         }
       }
-      if (Object.keys(patch).length > 0) {
-        useAppStore.setState(patch);
+      // If serverData is null (fresh install, empty file) — keep in-memory defaults.
+      // Don't push defaults to server; first explicit user save will create the file.
+
+      // Mark init complete so auto-saves in store actions can proceed
+      useAppStore.setState({ _initComplete: true });
+      return;
+    } catch (err) {
+      if (attempt < MAX_RETRIES) {
+        console.warn(`Could not load settings from server (attempt ${attempt + 1}/${MAX_RETRIES}), retrying...`);
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      } else {
+        console.warn('Could not load settings from server after retries, using defaults:', err);
+        // Still mark init complete — explicit saves (button clicks) don't check _initComplete,
+        // and we must not block auto-saves indefinitely after a transient network error.
+        useAppStore.setState({ _initComplete: true });
       }
-    } else {
-      // No server data yet — push current defaults to server
-      const data = extractPersisted(useAppStore.getState());
-      saveUserSettings(data).catch(() => {});
     }
-  } catch (err) {
-    console.warn('Could not load settings from server, using defaults:', err);
   }
-  // Mark as synced so future changes will be saved
-  useAppStore.setState({ _serverSynced: true });
 }
 
 export type { SamplerSettings };
