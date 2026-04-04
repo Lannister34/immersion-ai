@@ -250,6 +250,8 @@ export interface ChatMetadata {
   activeScenarioName?: string;
   customSamplerSettings?: Partial<SamplerSettings>;
   customSystemPrompt?: string | null;
+  customUserName?: string;
+  customUserPersona?: string;
 }
 
 export interface ChatHeader {
