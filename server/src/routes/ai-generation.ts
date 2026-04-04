@@ -309,6 +309,9 @@ router.post('/character-field', async (req, res) => {
       ? 'Ты составляешь карточки персонажей для ролевого чат-приложения. Пиши кратко и по существу — без литературной прозы и пышных описаний. Возвращай ТОЛЬКО запрошенный контент простым текстом, без JSON, без названий полей, без лишнего форматирования.'
       : 'You are a character card writer for a roleplay chat app. Write concise, factual content — avoid literary prose or elaborate descriptions. Return ONLY the requested content as plain text, no JSON, no field names, no extra formatting.';
 
+    // Check if this is a regeneration (field already has content) vs first generation
+    const isRegen = !!character[field];
+
     const userPrompt = isRu
       ? `Исходная концепция: ${concept || 'не указана'}
 
@@ -317,7 +320,7 @@ router.post('/character-field', async (req, res) => {
 - Описание: ${character.description}
 - Характер: ${character.personality}
 
-Задача: Перегенерируй ТОЛЬКО поле "${field}". ${instruction}
+Задача: ${isRegen ? `Напиши НОВЫЙ, ДРУГОЙ вариант поля "${field}". Не повторяй предыдущий вариант, придумай свежий взгляд на персонажа.` : `Сгенерируй поле "${field}".`} ${instruction}
 
 Пиши на русском. Сохраняй согласованность с остальной карточкой. Верни ТОЛЬКО новое значение поля "${field}", ничего больше.`
       : `Original concept: ${concept || 'not provided'}
@@ -327,11 +330,15 @@ Current character card:
 - Description: ${character.description}
 - Personality: ${character.personality}
 
-Task: Regenerate ONLY the "${field}" field. ${instruction}
+Task: ${isRegen ? `Write a NEW, DIFFERENT version of the "${field}" field. Do not repeat the previous version, come up with a fresh take.` : `Generate the "${field}" field.`} ${instruction}
 
 Write in English. Keep it consistent with the rest of the character card. Return ONLY the new value for "${field}", nothing else.`;
 
-    const raw = await callLlm(apiServer, systemPrompt, userPrompt, { maxTokens: 1024, apiKey });
+    const raw = await callLlm(apiServer, systemPrompt, userPrompt, {
+      maxTokens: 1024,
+      temperature: isRegen ? 1.1 : 0.8,
+      apiKey,
+    });
     res.json({ field, value: raw.trim() });
   } catch (err) {
     console.error('[ai-generation/character-field]', err);

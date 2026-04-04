@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '@/api';
 import { stripThinkBlocks } from '@/lib/messageFormatting';
 import { getActiveProviderConfig, getEffectiveSamplerSettings, useAppStore } from '@/stores';
-import type { ChatMessage } from '@/types';
+import type { ChatLine, ChatMessage } from '@/types';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ interface UseChatGenerationParams {
     prompt: string;
     messages: Array<{ role: string; content: string }>;
   };
-  buildChatForSave: (msgs: ChatMessage[]) => Record<string, unknown>[];
+  buildChatForSave: (msgs: ChatMessage[]) => ChatLine[];
   updateSessionMeta: (msgs: ChatMessage[]) => void;
   maybeGenerateTitle: (msgs: ChatMessage[]) => void;
   shouldAutoScroll: React.RefObject<boolean>;
@@ -31,7 +31,7 @@ interface UseChatGenerationReturn {
   setInput: React.Dispatch<React.SetStateAction<string>>;
   handleSend: () => void;
   handleGenerate: () => void;
-  handleRegenerate: () => void;
+  handleRegenerate: (index?: number) => void;
   handleStop: () => void;
   handleEditMessage: (index: number, newText: string) => Promise<void>;
   handleDeleteMessage: (index: number) => Promise<void>;
@@ -231,19 +231,31 @@ export function useChatGeneration({
     withGenerationGuard(() => runGeneration(messagesRef.current, { generateTitle: true }));
   }, [withGenerationGuard, runGeneration]);
 
-  const handleRegenerate = useCallback(() => {
-    if (messagesRef.current.length === 0 || isGeneratingRef.current || !activeChatRef.current || !characterRef.current)
-      return;
-    const conn = useAppStore.getState().connection;
-    if (!conn.connected) return;
-    const lastMsg = messagesRef.current[messagesRef.current.length - 1];
-    if (!lastMsg || lastMsg.is_user) return;
+  const handleRegenerate = useCallback(
+    (index?: number) => {
+      if (
+        messagesRef.current.length === 0 ||
+        isGeneratingRef.current ||
+        !activeChatRef.current ||
+        !characterRef.current
+      )
+        return;
+      const conn = useAppStore.getState().connection;
+      if (!conn.connected) return;
 
-    const withoutLast = messagesRef.current.slice(0, -1);
-    setMessagesRef.current(withoutLast);
+      // Default: regenerate the last AI message
+      const targetIndex = index ?? messagesRef.current.length - 1;
+      const targetMsg = messagesRef.current[targetIndex];
+      if (!targetMsg || targetMsg.is_user) return;
 
-    withGenerationGuard(() => runGeneration(withoutLast, { preSave: true }));
-  }, [withGenerationGuard, runGeneration]);
+      // Truncate: remove target message and everything after it
+      const truncated = messagesRef.current.slice(0, targetIndex);
+      setMessagesRef.current(truncated);
+
+      withGenerationGuard(() => runGeneration(truncated, { preSave: true }));
+    },
+    [withGenerationGuard, runGeneration],
+  );
 
   const handleStop = useCallback(async () => {
     lastAbortTime.current = Date.now();

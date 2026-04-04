@@ -15,6 +15,7 @@ export async function getLlmServerStatus(): Promise<LlmServerStatus> {
 }
 
 export async function listModelFiles(modelsDirs: string[]): Promise<ModelFile[]> {
+  if (modelsDirs.length === 0) return [];
   const data = await apiPost<{ models: ModelFile[] }>('/api/llm-server/models', { modelsDirs });
   return data.models;
 }

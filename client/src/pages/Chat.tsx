@@ -131,10 +131,9 @@ export function ActiveChatView(): JSX.Element | null {
                   key={`${msg.send_date}-${i}`}
                   message={msg}
                   characterAvatar={character?.avatar}
-                  isLast={i === messages.length - 1}
                   onEdit={(newText) => handleEditMessage(i, newText)}
                   onDelete={() => handleDeleteMessage(i)}
-                  onRegenerate={handleRegenerate}
+                  onRegenerate={() => handleRegenerate(i)}
                   isGenerating={isGenerating}
                 />
               ))}

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import type { UiLanguage } from '@/i18n';
-import { DEFAULT_SAMPLER_SETTINGS, getDefaultSystemPrompt, syncToServerNow, useAppStore } from '@/stores';
+import { DEFAULT_SAMPLER_SETTINGS, getDefaultSystemPrompt, syncFieldsToServer, useAppStore } from '@/stores';
 import type { ContextTrimStrategy, SamplerPreset, SamplerSettings } from '@/types';
 
 function SamplerSlider({
@@ -124,7 +124,7 @@ export function SettingsPage() {
     setUserName(localUserName);
     setUserPersona(localPersona);
     try {
-      await syncToServerNow();
+      await syncFieldsToServer('userName', 'userPersona');
       showSaved('persona');
     } catch (err) {
       console.error('Failed to save persona to server:', err);
@@ -135,7 +135,7 @@ export function SettingsPage() {
   const handleSavePrompt = async () => {
     setSystemPromptTemplate(localPrompt);
     try {
-      await syncToServerNow();
+      await syncFieldsToServer('systemPromptTemplate');
       showSaved('prompt');
     } catch (err) {
       console.error('Failed to save prompt to server:', err);
@@ -148,7 +148,7 @@ export function SettingsPage() {
     setLocalPrompt(defaultPrompt);
     setSystemPromptTemplate(defaultPrompt);
     try {
-      await syncToServerNow();
+      await syncFieldsToServer('systemPromptTemplate');
     } catch {
       /* ignore */
     }

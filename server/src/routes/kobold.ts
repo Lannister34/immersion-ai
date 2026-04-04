@@ -12,6 +12,32 @@ function buildHeaders(apiKey?: string): Record<string, string> {
   return headers;
 }
 
+interface ChatMsg {
+  role: string;
+  content: string;
+}
+
+/**
+ * Normalize chat messages so that user/assistant roles strictly alternate.
+ * Many model chat templates (Gemma, Llama-3, etc.) require this.
+ * Consecutive messages with the same role are merged with double-newline separator.
+ * System messages are always kept as-is at the start.
+ */
+function normalizeMessages(messages: ChatMsg[]): ChatMsg[] {
+  if (messages.length === 0) return messages;
+
+  const result: ChatMsg[] = [];
+  for (const msg of messages) {
+    const prev = result[result.length - 1];
+    if (prev && msg.role === prev.role && msg.role !== 'system') {
+      prev.content += `\n\n${msg.content}`;
+    } else {
+      result.push({ ...msg });
+    }
+  }
+  return result;
+}
+
 // Track the last KoboldCpp API server URL for abort
 let lastApiServer = '';
 
@@ -126,8 +152,10 @@ router.post('/generate-chat', async (req, res) => {
   };
   res.on('close', onClose);
 
+  const normalized = normalizeMessages((req.body.messages ?? []) as ChatMsg[]);
+
   const settings: Record<string, unknown> = {
-    messages: req.body.messages,
+    messages: normalized,
     max_tokens: req.body.max_length,
     temperature: req.body.temperature,
     top_p: req.body.top_p,
@@ -158,7 +186,7 @@ router.post('/generate-chat', async (req, res) => {
       '[kobold/generate-chat] fetching %s (streaming=%s, msgCount=%d)',
       url,
       req.body.streaming,
-      (req.body.messages ?? []).length,
+      normalized.length,
     );
 
     const response = await fetch(url, {
@@ -170,6 +198,13 @@ router.post('/generate-chat', async (req, res) => {
 
     clearTimeout(timeout);
     console.log('[kobold/generate-chat] got response, status=%d', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[kobold/generate-chat] LLM returned %d: %s', response.status, errorText);
+      res.status(response.status).json({ error: { message: errorText } });
+      return;
+    }
 
     if (req.body.streaming) {
       res.statusCode = response.status;
@@ -189,10 +224,6 @@ router.post('/generate-chat', async (req, res) => {
         res.end();
       }
     } else {
-      if (!response.ok) {
-        const errorText = await response.text();
-        return res.status(400).json({ error: { message: errorText } });
-      }
       const data = await response.json();
       // Convert OpenAI chat completions response to our standard format
       // Thinking models (Qwen3.5, etc.) split output into reasoning_content + content

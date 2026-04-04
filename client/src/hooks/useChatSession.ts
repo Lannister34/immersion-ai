@@ -5,7 +5,17 @@ import * as api from '@/api';
 import { stripThinkBlocks } from '@/lib/messageFormatting';
 import { computeBaseSystemPrompt } from '@/lib/promptBuilder';
 import { getEffectiveSamplerSettings, useAppStore } from '@/stores';
-import type { Character, ChatMessage, SamplerSettings, Scenario, WorldInfo, WorldInfoEntry } from '@/types';
+import type {
+  Character,
+  ChatHeader,
+  ChatLine,
+  ChatMessage,
+  ChatMetadata,
+  SamplerSettings,
+  Scenario,
+  WorldInfo,
+  WorldInfoEntry,
+} from '@/types';
 
 // ── Hook Return Type ────────────────────────────────────────────────────────
 
@@ -27,7 +37,7 @@ interface UseChatSessionReturn {
     prompt: string;
     messages: Array<{ role: string; content: string }>;
   };
-  buildChatForSave: (msgs: ChatMessage[]) => Record<string, unknown>[];
+  buildChatForSave: (msgs: ChatMessage[]) => ChatLine[];
   updateSessionMeta: (msgs: ChatMessage[]) => void;
   maybeGenerateTitle: (msgs: ChatMessage[]) => void;
   handleSettingsChanged: () => void;
@@ -57,7 +67,7 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
   const [activeScenario, setActiveScenario] = useState<Scenario | null>(null);
 
   // Refs
-  const chatHeaderRef = useRef<Record<string, unknown> | null>(null);
+  const chatHeaderRef = useRef<ChatHeader | null>(null);
   const settingsSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullPromptLengthRef = useRef(0);
 
@@ -119,12 +129,9 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
       });
 
       const chatData = await api.getChatMessages(characterAvatar, chatFile);
-      const allLines = chatData as unknown as Array<Record<string, unknown>>;
-      const header = allLines.find((m) => 'chat_metadata' in m);
+      const header = chatData.find((m): m is ChatHeader => 'chat_metadata' in m);
       if (header) chatHeaderRef.current = header;
-      const msgs = allLines
-        .filter((m) => !('chat_metadata' in m) && m.mes !== undefined)
-        .map((m) => m as unknown as ChatMessage);
+      const msgs = chatData.filter((m): m is ChatMessage => !('chat_metadata' in m) && 'mes' in m);
       setMessages(msgs);
 
       // Restore per-chat sampler overrides from chat file metadata
@@ -231,7 +238,7 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
       // Check for per-chat system prompt override
       const sessionMeta = chatFile ? getChatSession(character.avatar ?? '', chatFile) : undefined;
       let systemText: string;
-      if (sessionMeta?.customSystemPrompt) {
+      if (sessionMeta?.customSystemPrompt != null) {
         systemText = sessionMeta.customSystemPrompt;
       } else {
         systemText = computeBaseSystemPrompt(character, sessionOverrides, activeScenario);
@@ -374,7 +381,7 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
   // ── Build chat for save ─────────────────────────────────────────────────
 
   const buildChatForSave = useCallback(
-    (msgs: ChatMessage[]): Record<string, unknown>[] => {
+    (msgs: ChatMessage[]): ChatLine[] => {
       const header = chatHeaderRef.current ?? {
         chat_metadata: {},
         user_name: '',
@@ -384,20 +391,20 @@ export function useChatSession(chatId: string | undefined): UseChatSessionReturn
       const sess = activeChat
         ? useAppStore.getState().getChatSession(activeChat.characterAvatar, activeChat.chatFile)
         : null;
-      const metadata = (header.chat_metadata ?? {}) as Record<string, unknown>;
+      const metadata: ChatMetadata = { ...(header.chat_metadata ?? {}) };
       if (sess?.customSamplerSettings && Object.keys(sess.customSamplerSettings).length > 0) {
         metadata.customSamplerSettings = sess.customSamplerSettings;
       } else {
         delete metadata.customSamplerSettings;
       }
-      if (sess?.customSystemPrompt) {
+      if (sess?.customSystemPrompt != null) {
         metadata.customSystemPrompt = sess.customSystemPrompt;
       } else {
         delete metadata.customSystemPrompt;
       }
       const updatedHeader = { ...header, chat_metadata: metadata };
       chatHeaderRef.current = updatedHeader;
-      return [updatedHeader, ...msgs] as unknown as Record<string, unknown>[];
+      return [updatedHeader, ...msgs];
     },
     [character, activeChat],
   );

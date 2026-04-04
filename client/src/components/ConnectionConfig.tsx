@@ -112,7 +112,7 @@ export function ConnectionConfig() {
     if (!activeDef) return;
     const values: Record<string, string> = {};
     for (const field of activeDef.fields) {
-      values[field.key] = (config as Record<string, string | undefined>)[field.key] ?? field.defaultValue ?? '';
+      values[field.key] = config[field.key] ?? field.defaultValue ?? '';
     }
     setFormValues(values);
   }, [activeDef, config]);
@@ -136,7 +136,7 @@ export function ConnectionConfig() {
   const handleFieldBlur = useCallback(
     (key: string) => {
       const value = formValues[key]?.trim();
-      const current = (config as Record<string, string | undefined>)[key];
+      const current = config[key];
       if (value !== current) {
         updateProviderConfig(activeProvider, { [key]: value || undefined });
       }
@@ -157,7 +157,7 @@ export function ConnectionConfig() {
         <ProviderField
           key={field.key}
           field={field}
-          label={t(FIELD_I18N_KEYS[field.key] ?? field.key)}
+          label={t((FIELD_I18N_KEYS[field.key] ?? field.key) as never)}
           value={formValues[field.key] ?? ''}
           onChange={(v) => handleFieldChange(field.key, v)}
           onBlur={() => handleFieldBlur(field.key)}

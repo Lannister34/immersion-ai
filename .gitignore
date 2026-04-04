@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
-package-lock.json
+
+# Keep lockfiles versioned for deterministic installs and CI
+!package-lock.json
+!client/package-lock.json
+!server/package-lock.json
 
 # Build output
 server/dist/
@@ -27,6 +31,7 @@ config.yaml
 
 # Dev artifacts
 .claude/
+.codex/
 .aider*
 CLAUDE.md
 ROADMAP.md
