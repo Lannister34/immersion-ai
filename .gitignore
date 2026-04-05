@@ -35,6 +35,7 @@ config.yaml
 .aider*
 CLAUDE.md
 ROADMAP.md
+/docs/
 
 # Logs
 *.log
