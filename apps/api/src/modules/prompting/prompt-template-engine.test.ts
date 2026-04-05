@@ -42,6 +42,8 @@ describe('prompt template engine', () => {
 
     expect(result.output).toBe('Static prompt body.');
     expect(result.diagnostics).toEqual({
+      cyclicVariables: [],
+      invalidVariableTemplates: [],
       unknownConditions: [],
       unresolvedVariables: [],
     });
@@ -79,6 +81,8 @@ describe('prompt template engine', () => {
 
     expect(result.output).toBe('Привет, Алекс. Это Морган. Детектив в плаще.');
     expect(result.diagnostics).toEqual({
+      cyclicVariables: [],
+      invalidVariableTemplates: [],
       unknownConditions: [],
       unresolvedVariables: [],
     });
@@ -141,6 +145,26 @@ describe('prompt template engine', () => {
     });
 
     expect(result.output).toBe('Алекс заходит в кабинет. Морган уже ждёт.');
+  });
+
+  it('records cyclic variable expansion instead of silently leaking unresolved placeholders', () => {
+    const result = renderPromptTemplate('{{user}}', {
+      'scenario.content': '{{user}}',
+      'user.name': '{{scenario}}',
+    });
+
+    expect(result.output).toBe('{{scenario}}');
+    expect(result.diagnostics.cyclicVariables).toEqual(['user.name']);
+  });
+
+  it('preserves malformed template syntax inside variable values and records diagnostics', () => {
+    const result = renderPromptTemplate('{{scenario}}', {
+      'scenario.content': 'Intro {{#if user}}broken',
+      'user.name': 'Alex',
+    });
+
+    expect(result.output).toBe('Intro {{#if user}}broken');
+    expect(result.diagnostics.invalidVariableTemplates).toEqual(['scenario.content']);
   });
 
   it('matches the current english default template rendering after whitespace normalization', () => {
