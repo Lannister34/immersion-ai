@@ -1,0 +1,67 @@
+{
+  "name": "@immersion/domain",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "files": ["dist"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./common": {
+      "types": "./dist/common/index.d.ts",
+      "default": "./dist/common/index.js"
+    },
+    "./characters": {
+      "types": "./dist/characters/index.d.ts",
+      "default": "./dist/characters/index.js"
+    },
+    "./chats": {
+      "types": "./dist/chats/index.d.ts",
+      "default": "./dist/chats/index.js"
+    },
+    "./lorebooks": {
+      "types": "./dist/lorebooks/index.d.ts",
+      "default": "./dist/lorebooks/index.js"
+    },
+    "./scenarios": {
+      "types": "./dist/scenarios/index.d.ts",
+      "default": "./dist/scenarios/index.js"
+    },
+    "./settings": {
+      "types": "./dist/settings/index.d.ts",
+      "default": "./dist/settings/index.js"
+    },
+    "./providers": {
+      "types": "./dist/providers/index.d.ts",
+      "default": "./dist/providers/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "default": "./dist/runtime/index.js"
+    },
+    "./prompting": {
+      "types": "./dist/prompting/index.d.ts",
+      "default": "./dist/prompting/index.js"
+    },
+    "./generation": {
+      "types": "./dist/generation/index.d.ts",
+      "default": "./dist/generation/index.js"
+    },
+    "./indexing": {
+      "types": "./dist/indexing/index.d.ts",
+      "default": "./dist/indexing/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --pretty false"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "typescript": "~5.9.3"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/tooling/tsconfig/react-app.json",
+  "compilerOptions": {
+    "composite": true
+  },
+  "include": ["src/**/*"],
+  "references": [
+    { "path": "../../packages/contracts" }
+  ]
+}

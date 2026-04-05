@@ -53,3 +53,31 @@ jobs:
 
       - name: Verify
         run: npm run check
+
+  rewrite-foundation:
+    name: rewrite foundation
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install rewrite workspace dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: corepack pnpm --filter @immersion/web exec playwright install --with-deps chromium
+
+      - name: Verify rewrite foundation
+        run: npm run rewrite:ci
