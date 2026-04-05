@@ -30,6 +30,8 @@ export interface ParsedPromptTemplate {
 }
 
 export interface PromptTemplateDiagnostics {
+  cyclicVariables: string[];
+  invalidVariableTemplates: string[];
   unknownConditions: string[];
   unresolvedVariables: string[];
 }
@@ -47,9 +49,17 @@ interface PromptConditionalFrame {
 
 function createDiagnostics(): PromptTemplateDiagnostics {
   return {
+    cyclicVariables: [],
+    invalidVariableTemplates: [],
     unknownConditions: [],
     unresolvedVariables: [],
   };
+}
+
+function pushUnique(values: string[], value: string) {
+  if (!values.includes(value)) {
+    values.push(value);
+  }
 }
 
 export class PromptTemplateParseError extends Error {
@@ -174,15 +184,25 @@ function renderVariableValue(
   }
 
   if (activeKeys.has(key)) {
+    pushUnique(diagnostics.cyclicVariables, key);
     return value;
   }
 
   const nextActiveKeys = new Set(activeKeys);
   nextActiveKeys.add(key);
 
-  return parsePromptTemplate(value)
-    .nodes.map((node) => renderNode(node, values, diagnostics, nextActiveKeys))
-    .join('');
+  try {
+    return parsePromptTemplate(value)
+      .nodes.map((node) => renderNode(node, values, diagnostics, nextActiveKeys))
+      .join('');
+  } catch (error) {
+    if (error instanceof PromptTemplateParseError) {
+      pushUnique(diagnostics.invalidVariableTemplates, key);
+      return value;
+    }
+
+    throw error;
+  }
 }
 
 function renderNode(
