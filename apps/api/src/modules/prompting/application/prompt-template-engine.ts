@@ -1,0 +1,17 @@
+export {
+  normalizePromptWhitespace,
+  type ParsedPromptTemplate,
+  type PromptConditionalNode,
+  type PromptTemplateDiagnostics,
+  type PromptTemplateNode,
+  PromptTemplateParseError,
+  type PromptTemplateRenderResult,
+  type PromptTextNode,
+  type PromptVariableKey,
+  type PromptVariableNode,
+  type PromptVariableValues,
+  parsePromptTemplate,
+  renderParsedPromptTemplate,
+  renderPromptTemplate,
+  resolvePromptVariableKey,
+} from '@immersion/domain/prompting';

@@ -1,0 +1,43 @@
+export const promptVariableKeys = [
+  'character.description',
+  'character.name',
+  'character.personality',
+  'scenario.content',
+  'user.name',
+  'user.persona',
+] as const;
+
+export type PromptVariableKey = (typeof promptVariableKeys)[number];
+
+const promptVariableKeySet = new Set<string>(promptVariableKeys);
+
+export const promptVariableAliases = {
+  char: 'character.name',
+  description: 'character.description',
+  personality: 'character.personality',
+  scenario: 'scenario.content',
+  user: 'user.name',
+  userPersona: 'user.persona',
+} as const satisfies Record<string, PromptVariableKey>;
+
+export type PromptVariableAlias = keyof typeof promptVariableAliases;
+
+export type PromptVariableValues = Partial<Record<PromptVariableKey, string | null | undefined>>;
+
+export function isPromptVariableKey(value: string): value is PromptVariableKey {
+  return promptVariableKeySet.has(value);
+}
+
+export function resolvePromptVariableKey(value: string): PromptVariableKey | null {
+  if (isPromptVariableKey(value)) {
+    return value;
+  }
+
+  return promptVariableAliases[value as PromptVariableAlias] ?? null;
+}
+
+export function readPromptVariable(values: PromptVariableValues, key: PromptVariableKey): string {
+  const value = values[key];
+
+  return typeof value === 'string' ? value : '';
+}
