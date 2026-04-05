@@ -1,0 +1,41 @@
+{
+  "userName": "Тестер",
+  "userPersona": "Инженер, который проверяет rewrite.",
+  "systemPromptTemplate": "Пиши как {{char}} и не говори за {{user}}.",
+  "uiLanguage": "ru",
+  "responseLanguage": "ru",
+  "streamingEnabled": true,
+  "thinkingEnabled": false,
+  "samplerPresets": [
+    {
+      "id": "default",
+      "name": "Default",
+      "max_context_length": 8192
+    }
+  ],
+  "activePresetId": "default",
+  "modelPresetMap": {
+    "sandbox.gguf": "default"
+  },
+  "backendMode": "external",
+  "activeProvider": "custom",
+  "providerConfigs": {
+    "koboldcpp": {
+      "url": "http://127.0.0.1:5001"
+    },
+    "custom": {
+      "url": "http://127.0.0.1:6006",
+      "apiKey": "secret-token"
+    }
+  },
+  "llmServerConfig": {
+    "modelsDirs": [
+      "models"
+    ],
+    "port": 5001,
+    "gpuLayers": 99,
+    "contextSize": 16384,
+    "flashAttention": true,
+    "threads": 8
+  }
+}

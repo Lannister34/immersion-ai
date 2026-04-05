@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "license": "AGPL-3.0",
   "engines": {
     "node": ">= 18"
@@ -26,6 +27,17 @@
     "check": "npm run lint && npm run typecheck && npm run build:client && npm run build:server",
     "validate": "npm run check",
     "ci:verify": "npm run check",
+    "rewrite:install": "corepack pnpm install",
+    "rewrite:dev:api": "corepack pnpm --filter @immersion/api dev",
+    "rewrite:dev:web": "corepack pnpm --filter @immersion/web dev",
+    "rewrite:lint": "biome check ./apps ./packages",
+    "rewrite:lint:fix": "biome check --write ./apps ./packages",
+    "rewrite:typecheck": "corepack pnpm -r typecheck",
+    "rewrite:build": "corepack pnpm -r build",
+    "rewrite:test": "corepack pnpm -r --if-present test",
+    "rewrite:smoke": "corepack pnpm --filter @immersion/web test:smoke",
+    "rewrite:check": "npm run rewrite:lint && npm run rewrite:typecheck && npm run rewrite:build && npm run rewrite:test",
+    "rewrite:ci": "npm run rewrite:check && npm run rewrite:smoke",
     "install:all": "cd server && npm install && cd ../client && npm install",
     "prepare": "husky"
   },

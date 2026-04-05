@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.pnpm-store/
 
 # Keep lockfiles versioned for deterministic installs and CI
 !package-lock.json
@@ -9,6 +10,12 @@ node_modules/
 # Build output
 server/dist/
 client/dist/
+apps/*/dist/
+packages/*/dist/
+apps/web/playwright-report/
+apps/web/test-results/
+*.tsbuildinfo
+.turbo/
 
 # User data (chats, characters, settings, etc.)
 /data/
