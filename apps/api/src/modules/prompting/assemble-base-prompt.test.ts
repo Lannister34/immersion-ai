@@ -100,6 +100,121 @@ describe('assemble base prompt', () => {
     expect(result.prompt).toBe('Hello Morgan and Alex.');
   });
 
+  it('uses the character override when chat overrides are absent', () => {
+    const snapshot = buildPromptInputSnapshot({
+      character: {
+        description: 'Private detective.',
+        mesExample: null,
+        name: 'Morgan',
+        personality: 'Reserved',
+        systemPrompt: '{{char}} distrusts {{user}}.',
+      },
+      chat: {
+        id: 'chat-character-override',
+      },
+      generation: {
+        maxContextTokens: 8192,
+        replyMaxTokens: 600,
+        trimStrategy: 'trim_middle',
+      },
+      settings: {
+        defaultSystemPromptTemplate: 'DEFAULT_PROMPT',
+        knownDefaultSystemPromptTemplates: ['DEFAULT_PROMPT'],
+        responseLanguage: 'en',
+        systemPromptTemplate: 'SETTINGS_PROMPT',
+        thinkingEnabled: true,
+      },
+      user: {
+        name: 'Alex',
+      },
+    });
+
+    const result = assembleBasePrompt(snapshot);
+
+    expect(result.source).toEqual({
+      kind: 'character-override',
+      template: '{{char}} distrusts {{user}}.',
+    });
+    expect(result.prompt).toBe('Morgan distrusts Alex.');
+  });
+
+  it('uses the custom settings template when it is not a known default', () => {
+    const snapshot = buildPromptInputSnapshot({
+      character: {
+        description: 'Private detective.',
+        mesExample: null,
+        name: 'Morgan',
+        personality: 'Reserved',
+        systemPrompt: null,
+      },
+      chat: {
+        id: 'chat-settings-template',
+      },
+      generation: {
+        maxContextTokens: 8192,
+        replyMaxTokens: 600,
+        trimStrategy: 'trim_middle',
+      },
+      settings: {
+        defaultSystemPromptTemplate: 'DEFAULT_PROMPT',
+        knownDefaultSystemPromptTemplates: ['DEFAULT_PROMPT', 'LEGACY_PROMPT'],
+        responseLanguage: 'en',
+        systemPromptTemplate: 'Settings: {{char}} meets {{user}}.',
+        thinkingEnabled: true,
+      },
+      user: {
+        name: 'Alex',
+      },
+    });
+
+    const result = assembleBasePrompt(snapshot);
+
+    expect(result.source).toEqual({
+      kind: 'settings-template',
+      template: 'Settings: {{char}} meets {{user}}.',
+    });
+    expect(result.prompt).toBe('Settings: Morgan meets Alex.');
+  });
+
+  it('keeps an explicit empty chat override as the selected prompt source', () => {
+    const snapshot = buildPromptInputSnapshot({
+      character: {
+        description: 'Private detective.',
+        mesExample: null,
+        name: 'Morgan',
+        personality: 'Reserved',
+        systemPrompt: '{{char}} distrusts {{user}}.',
+      },
+      chat: {
+        customSystemPrompt: '',
+        id: 'chat-empty-override',
+      },
+      generation: {
+        maxContextTokens: 8192,
+        replyMaxTokens: 600,
+        trimStrategy: 'trim_middle',
+      },
+      settings: {
+        defaultSystemPromptTemplate: 'DEFAULT_PROMPT',
+        knownDefaultSystemPromptTemplates: ['DEFAULT_PROMPT'],
+        responseLanguage: 'en',
+        systemPromptTemplate: 'SETTINGS_PROMPT',
+        thinkingEnabled: true,
+      },
+      user: {
+        name: 'Alex',
+      },
+    });
+
+    const result = assembleBasePrompt(snapshot);
+
+    expect(result.source).toEqual({
+      kind: 'chat-override',
+      template: '',
+    });
+    expect(result.prompt).toBe('');
+  });
+
   it('preserves renderer diagnostics for unresolved variables', () => {
     const snapshot = buildPromptInputSnapshot({
       chat: {
@@ -176,5 +291,6 @@ describe('assemble base prompt', () => {
     expect(Object.isFrozen(result.source)).toBe(true);
     expect(Object.isFrozen(result.diagnostics)).toBe(true);
     expect(Object.isFrozen(result.diagnostics.unresolvedVariables)).toBe(true);
+    expect(Object.isFrozen(result.variableValues)).toBe(true);
   });
 });
