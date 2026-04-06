@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { buildPromptInputSnapshot } from './application/prompt-input-snapshot.js';
 
 describe('prompt input snapshot', () => {
-  it('normalizes optional fields to explicit nulls and clones mutable inputs', () => {
+  it('normalizes optional fields, preserves user data, and clones mutable inputs', () => {
     const transcript = [
       {
-        content: 'Привет.',
+        content: 'Hello.',
         id: 'm1',
         role: 'user' as const,
       },
@@ -29,9 +29,13 @@ describe('prompt input snapshot', () => {
         responseLanguage: 'ru',
         thinkingEnabled: true,
       },
+      user: {
+        name: 'Alex',
+        persona: 'Detective',
+      },
     });
 
-    transcript[0]!.content = 'Изменено';
+    transcript[0]!.content = 'Mutated';
     knownDefaultTemplates.push('LEGACY_PROMPT');
 
     expect(snapshot).toEqual({
@@ -44,7 +48,7 @@ describe('prompt input snapshot', () => {
         title: null,
         transcript: [
           {
-            content: 'Привет.',
+            content: 'Hello.',
             id: 'm1',
             role: 'user',
           },
@@ -64,27 +68,31 @@ describe('prompt input snapshot', () => {
         systemPromptTemplate: null,
         thinkingEnabled: true,
       },
+      user: {
+        name: 'Alex',
+        persona: 'Detective',
+      },
     });
   });
 
-  it('preserves chat overrides and optional character, scenario, and lorebook snapshots', () => {
+  it('preserves overrides and optional character, scenario, lorebook, and user snapshots', () => {
     const snapshot = buildPromptInputSnapshot({
       character: {
-        description: 'Частный детектив.',
-        mesExample: '<START>\n{{char}}: Тише.',
-        name: 'Морган',
-        personality: 'Сдержанный',
-        systemPrompt: '{{char}} не доверяет {{user}}.',
+        description: 'Private detective.',
+        mesExample: '<START>\n{{char}}: Quiet.',
+        name: 'Morgan',
+        personality: 'Reserved',
+        systemPrompt: '{{char}} does not trust {{user}}.',
       },
       chat: {
         customSystemPrompt: '',
-        customUserName: 'Алекс',
-        customUserPersona: 'Свидетель',
+        customUserName: 'Alex',
+        customUserPersona: 'Witness',
         id: 'chat-2',
-        title: 'Ночной допрос',
+        title: 'Night Interrogation',
         transcript: [
           {
-            content: 'Кто вы?',
+            content: 'Who are you?',
             id: 'm2',
             role: 'assistant',
           },
@@ -98,17 +106,17 @@ describe('prompt input snapshot', () => {
       lorebook: {
         entries: [
           {
-            content: 'Подвал пахнет сыростью.',
+            content: 'The basement smells damp.',
             id: 'entry-1',
             isEnabled: true,
-            keywords: ['подвал', 'сырость'],
+            keywords: ['basement', 'damp'],
             order: 10,
           },
         ],
       },
       scenario: {
-        content: '{{user}} приходит на ночной допрос к {{char}}.',
-        name: 'Допрос',
+        content: '{{user}} arrives for a late-night interrogation with {{char}}.',
+        name: 'Interrogation',
       },
       settings: {
         defaultSystemPromptTemplate: 'DEFAULT_PROMPT',
@@ -116,26 +124,30 @@ describe('prompt input snapshot', () => {
         responseLanguage: 'ru',
         systemPromptTemplate: 'CUSTOM_PROMPT',
         thinkingEnabled: false,
+      },
+      user: {
+        name: 'Global Alex',
+        persona: 'Negotiator',
       },
     });
 
     expect(snapshot).toEqual({
       character: {
-        description: 'Частный детектив.',
-        mesExample: '<START>\n{{char}}: Тише.',
-        name: 'Морган',
-        personality: 'Сдержанный',
-        systemPrompt: '{{char}} не доверяет {{user}}.',
+        description: 'Private detective.',
+        mesExample: '<START>\n{{char}}: Quiet.',
+        name: 'Morgan',
+        personality: 'Reserved',
+        systemPrompt: '{{char}} does not trust {{user}}.',
       },
       chat: {
         customSystemPrompt: '',
-        customUserName: 'Алекс',
-        customUserPersona: 'Свидетель',
+        customUserName: 'Alex',
+        customUserPersona: 'Witness',
         id: 'chat-2',
-        title: 'Ночной допрос',
+        title: 'Night Interrogation',
         transcript: [
           {
-            content: 'Кто вы?',
+            content: 'Who are you?',
             id: 'm2',
             role: 'assistant',
           },
@@ -149,17 +161,17 @@ describe('prompt input snapshot', () => {
       lorebook: {
         entries: [
           {
-            content: 'Подвал пахнет сыростью.',
+            content: 'The basement smells damp.',
             id: 'entry-1',
             isEnabled: true,
-            keywords: ['подвал', 'сырость'],
+            keywords: ['basement', 'damp'],
             order: 10,
           },
         ],
       },
       scenario: {
-        content: '{{user}} приходит на ночной допрос к {{char}}.',
-        name: 'Допрос',
+        content: '{{user}} arrives for a late-night interrogation with {{char}}.',
+        name: 'Interrogation',
       },
       settings: {
         defaultSystemPromptTemplate: 'DEFAULT_PROMPT',
@@ -167,6 +179,10 @@ describe('prompt input snapshot', () => {
         responseLanguage: 'ru',
         systemPromptTemplate: 'CUSTOM_PROMPT',
         thinkingEnabled: false,
+      },
+      user: {
+        name: 'Global Alex',
+        persona: 'Negotiator',
       },
     });
   });
@@ -186,6 +202,9 @@ describe('prompt input snapshot', () => {
         responseLanguage: 'en',
         thinkingEnabled: true,
       },
+      user: {
+        name: 'User',
+      },
     });
 
     expect(Object.isFrozen(snapshot)).toBe(true);
@@ -193,5 +212,6 @@ describe('prompt input snapshot', () => {
     expect(Object.isFrozen(snapshot.chat.transcript)).toBe(true);
     expect(Object.isFrozen(snapshot.settings)).toBe(true);
     expect(Object.isFrozen(snapshot.generation)).toBe(true);
+    expect(Object.isFrozen(snapshot.user)).toBe(true);
   });
 });

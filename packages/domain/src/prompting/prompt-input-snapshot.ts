@@ -32,6 +32,11 @@ export interface PromptScenarioSnapshot {
   name: string | null;
 }
 
+export interface PromptUserSnapshot {
+  name: string | null;
+  persona: string | null;
+}
+
 export interface PromptLorebookEntrySnapshot {
   content: string;
   id: string;
@@ -65,6 +70,7 @@ export interface PromptInputSnapshot {
   lorebook: PromptLorebookSnapshot | null;
   scenario: PromptScenarioSnapshot | null;
   settings: PromptSettingsSnapshot;
+  user: PromptUserSnapshot;
 }
 
 export interface BuildPromptInputSnapshotInput {
@@ -86,6 +92,10 @@ export interface BuildPromptInputSnapshotInput {
     responseLanguage: PromptResponseLanguage;
     systemPromptTemplate?: string | null;
     thinkingEnabled: boolean;
+  };
+  user?: {
+    name?: string | null;
+    persona?: string | null;
   };
 }
 
@@ -115,6 +125,13 @@ function cloneScenarioSnapshot(scenario: PromptScenarioSnapshot): PromptScenario
   return Object.freeze({
     content: scenario.content ?? null,
     name: scenario.name ?? null,
+  });
+}
+
+function cloneUserSnapshot(user?: BuildPromptInputSnapshotInput['user']): PromptUserSnapshot {
+  return Object.freeze({
+    name: user?.name ?? null,
+    persona: user?.persona ?? null,
   });
 }
 
@@ -159,6 +176,7 @@ export function buildPromptInputSnapshot(input: BuildPromptInputSnapshotInput): 
       systemPromptTemplate: input.settings.systemPromptTemplate ?? null,
       thinkingEnabled: input.settings.thinkingEnabled,
     }),
+    user: cloneUserSnapshot(input.user),
   };
 
   return Object.freeze(snapshot);
