@@ -63,6 +63,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -70,14 +76,11 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Enable Corepack
-        run: corepack enable
-
       - name: Install rewrite workspace dependencies
-        run: corepack pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: corepack pnpm --filter @immersion/web exec playwright install --with-deps chromium
+        run: pnpm --filter @immersion/web exec playwright install --with-deps chromium
 
       - name: Verify rewrite foundation
         run: npm run rewrite:ci
