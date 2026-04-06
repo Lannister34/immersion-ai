@@ -13,4 +13,5 @@ export {
   type PromptSettingsSnapshot,
   type PromptTranscriptMessage,
   type PromptTranscriptRole,
+  type PromptUserSnapshot,
 } from '@immersion/domain/prompting';
