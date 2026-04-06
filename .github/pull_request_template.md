@@ -27,6 +27,7 @@
 ## Verification
 
 - [ ] `npm run check`
+- [ ] `npm run verify:prepush` for rewrite, CI, workspace, hooks, lockfile, or fixture changes
 - [ ] Manual verification documented below
 - [ ] Migration and compatibility impact checked
 
