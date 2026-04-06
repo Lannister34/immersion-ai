@@ -38,6 +38,8 @@
     "rewrite:smoke": "corepack pnpm --filter @immersion/web test:smoke",
     "rewrite:check": "npm run rewrite:lint && npm run rewrite:typecheck && npm run rewrite:build && npm run rewrite:test",
     "rewrite:ci": "npm run rewrite:check && npm run rewrite:smoke",
+    "rewrite:ci:clean": "node ./scripts/rewrite-ci-clean.mjs",
+    "verify:prepush": "node ./scripts/pre-push-verify.mjs",
     "install:all": "cd server && npm install && cd ../client && npm install",
     "prepare": "husky"
   },
