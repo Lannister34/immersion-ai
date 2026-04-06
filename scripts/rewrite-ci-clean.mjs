@@ -3,8 +3,32 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+function quoteWindowsArg(arg) {
+  if (!arg.length) {
+    return '""';
+  }
+
+  if (!/[\s"]/u.test(arg)) {
+    return arg;
+  }
+
+  return `"${arg.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/g, '$1$1')}"`;
+}
+
+function resolveCommand(command, args) {
+  if (process.platform !== 'win32') {
+    return { command, args };
+  }
+
+  return {
+    command: 'cmd.exe',
+    args: ['/d', '/s', '/c', [command, ...args].map(quoteWindowsArg).join(' ')],
+  };
+}
+
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
+  const resolved = resolveCommand(command, args);
+  const result = spawnSync(resolved.command, resolved.args, {
     stdio: 'inherit',
     shell: false,
     env: {
@@ -14,9 +38,28 @@ function run(command, args, options = {}) {
     ...options,
   });
 
+  if (result.error) {
+    throw result.error;
+  }
+
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(' ')} exited with ${result.status ?? 1}`);
   }
+}
+
+function runQuiet(command, args, options = {}) {
+  const resolved = resolveCommand(command, args);
+
+  return spawnSync(resolved.command, resolved.args, {
+    stdio: 'pipe',
+    shell: false,
+    env: {
+      ...process.env,
+      HUSKY: '0',
+    },
+    encoding: 'utf8',
+    ...options,
+  });
 }
 
 const tempDir = mkdtempSync(path.join(os.tmpdir(), 'immersion-rewrite-ci-'));
@@ -27,21 +70,20 @@ try {
   run('git', ['worktree', 'add', '--detach', tempDir, 'HEAD']);
   worktreeAdded = true;
 
-  const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
   console.log('[rewrite-ci-clean] Installing dependencies from lockfile in clean checkout...');
-  run(pnpm, ['install', '--frozen-lockfile'], { cwd: tempDir });
+  run('corepack', ['pnpm', 'install', '--frozen-lockfile'], { cwd: tempDir });
 
   console.log('[rewrite-ci-clean] Running rewrite CI in clean checkout...');
   run(npm, ['run', 'rewrite:ci'], { cwd: tempDir });
 } finally {
   if (worktreeAdded) {
-    console.log('[rewrite-ci-clean] Removing temporary worktree...');
-    try {
-      run('git', ['worktree', 'remove', tempDir, '--force']);
-    } catch {
+  console.log('[rewrite-ci-clean] Removing temporary worktree...');
+    const removal = runQuiet('git', ['worktree', 'remove', tempDir, '--force']);
+    if (removal.status !== 0) {
       rmSync(tempDir, { force: true, recursive: true });
+      runQuiet('git', ['worktree', 'prune']);
     }
   } else {
     rmSync(tempDir, { force: true, recursive: true });

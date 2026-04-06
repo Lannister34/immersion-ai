@@ -13,8 +13,32 @@ const REWRITE_FILES = new Set([
   'tsconfig.rewrite.json',
 ]);
 
+function quoteWindowsArg(arg) {
+  if (!arg.length) {
+    return '""';
+  }
+
+  if (!/[\s"]/u.test(arg)) {
+    return arg;
+  }
+
+  return `"${arg.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/g, '$1$1')}"`;
+}
+
+function resolveCommand(command, args) {
+  if (process.platform !== 'win32') {
+    return { command, args };
+  }
+
+  return {
+    command: 'cmd.exe',
+    args: ['/d', '/s', '/c', [command, ...args].map(quoteWindowsArg).join(' ')],
+  };
+}
+
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
+  const resolved = resolveCommand(command, args);
+  const result = spawnSync(resolved.command, resolved.args, {
     stdio: 'inherit',
     shell: false,
     env: {
@@ -23,6 +47,10 @@ function run(command, args, options = {}) {
     },
     ...options,
   });
+
+  if (result.error) {
+    throw result.error;
+  }
 
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
