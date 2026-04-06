@@ -24,6 +24,8 @@ apps/web/test-results/
 bin/
 *.exe
 models/
+!apps/api/testdata/smoke-data/models/
+!apps/api/testdata/smoke-data/models/**
 
 # Environment & secrets
 .env
