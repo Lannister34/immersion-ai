@@ -1,3 +1,4 @@
+export * from './assemble-base-prompt.js';
 export * from './prompt-input-snapshot.js';
 export * from './prompt-source.js';
 export * from './prompt-template.js';
