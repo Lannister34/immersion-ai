@@ -6,6 +6,7 @@ import { expect, test } from '@playwright/test';
 const smokeUserSettingsPath = fileURLToPath(
   new URL('../../api/testdata/smoke-data/user-settings.json', import.meta.url),
 );
+const smokeChatsPath = fileURLToPath(new URL('../../api/testdata/smoke-data/chats', import.meta.url));
 
 let baselineUserSettings = '';
 
@@ -17,6 +18,7 @@ test.beforeAll(async () => {
 
 test.afterEach(async () => {
   await fs.writeFile(smokeUserSettingsPath, baselineUserSettings, 'utf8');
+  await fs.rm(smokeChatsPath, { recursive: true, force: true });
 });
 
 test('loads canonical overview screens from backend routes', async ({ page }) => {
@@ -66,4 +68,22 @@ test('shows a route-level not-found screen for unknown paths', async ({ page }) 
 
   await expect(page.getByRole('heading', { name: 'Страница не найдена' })).toBeVisible();
   await expect(page.getByText('Маршрут не существует в текущем rewrite-shell.')).toBeVisible();
+});
+
+test('creates a chat, opens it, and restores it after reload', async ({ page }) => {
+  await page.goto('/chat');
+
+  await expect(page.getByRole('heading', { name: 'Создать новый чат' })).toBeVisible();
+  await page.getByLabel('Название чата').fill('Smoke MVP chat');
+  await page.getByRole('button', { name: 'Создать чат' }).click();
+
+  await expect(page).toHaveURL(/\/chat\/[A-Za-z0-9_-]+$/);
+  await expect(page.getByRole('heading', { name: 'Smoke MVP chat' })).toBeVisible();
+  await expect(page.getByText('Сообщений пока нет. Этот чат уже существует на диске')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Smoke MVP chat' })).toBeVisible();
+
+  await page.goto('/chat');
+  await expect(page.getByRole('link', { name: /Smoke MVP chat/i })).toBeVisible();
 });

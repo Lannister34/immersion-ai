@@ -65,3 +65,24 @@ export async function apiPut<TRequest, TResponse>(
 
   return parseResponse(response, responseSchema);
 }
+
+export async function apiPost<TRequest, TResponse>(
+  path: string,
+  body: TRequest,
+  requestSchema: ZodType<TRequest>,
+  responseSchema: ZodType<TResponse>,
+) {
+  const payload = requestSchema.parse(body);
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+  const requestUrl = apiBaseUrl ? new URL(path, apiBaseUrl).toString() : path;
+  const response = await fetch(requestUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseResponse(response, responseSchema);
+}
