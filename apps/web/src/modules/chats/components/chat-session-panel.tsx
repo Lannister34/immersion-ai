@@ -21,12 +21,11 @@ function getMessageRoleLabel(role: ChatSessionDto['messages'][number]['role']) {
 export function ChatSessionPanel({ session }: ChatSessionPanelProps) {
   return (
     <div className="stack">
-      <section className="panel">
+      <section className="panel panel--hero">
         <div className="panel__eyebrow">сессия</div>
         <h1 className="panel__title">{session.chat.title}</h1>
         <p className="panel__description">
-          Этот экран уже читает каноническую session snapshot с backend. Следующий срез добавит append user message и
-          provider-backed generation.
+          Сессия загружается напрямую из backend и отражает текущее содержимое канонического chat-файла.
         </p>
         <dl className="summary-list">
           <div className="summary-list__row">
@@ -55,7 +54,7 @@ export function ChatSessionPanel({ session }: ChatSessionPanelProps) {
       <SummaryCard
         eyebrow="transcript"
         title="Сообщения"
-        description="Read-only transcript из канонического chat file. Composer и generation появятся следующим отдельным срезом."
+        description="История текущей сессии в том виде, в котором её отдал backend."
       >
         {session.messages.length > 0 ? (
           <ol className="message-list">
@@ -70,9 +69,7 @@ export function ChatSessionPanel({ session }: ChatSessionPanelProps) {
             ))}
           </ol>
         ) : (
-          <div className="note">
-            Сообщений пока нет. Этот чат уже существует на диске, но generation loop ещё не подключён.
-          </div>
+          <div className="note">В этом чате пока нет сообщений.</div>
         )}
       </SummaryCard>
     </div>

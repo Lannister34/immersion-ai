@@ -9,13 +9,13 @@ export function ChatCreatePanel({ isCreating, onCreate }: ChatCreatePanelProps) 
   const [title, setTitle] = useState('');
 
   return (
-    <section className="panel">
-      <div className="panel__eyebrow">старт чата</div>
-      <h1 className="panel__title">Создать новый чат</h1>
+    <section className="panel panel--hero">
+      <div className="panel__eyebrow">новый чат</div>
+      <h1 className="panel__title">Создать чат</h1>
       <p className="panel__description">
-        Первый MVP-срез уже хранит rewrite-чаты канонически на backend. Здесь можно создать generic chat и сразу открыть
-        его через route-driven session view.
+        Создайте новую сессию, чтобы сразу перейти в её экран и работать с ней как с отдельным ресурсом.
       </p>
+
       <form
         className="form-grid"
         onSubmit={async (event) => {

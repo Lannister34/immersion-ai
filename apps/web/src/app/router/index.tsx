@@ -1,11 +1,8 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 
-import { CharactersScreen } from '../../modules/characters';
 import { HomeScreen } from '../../modules/chat-shell';
 import { ChatListScreen, ChatSessionScreen } from '../../modules/chats';
-import { LorebooksScreen } from '../../modules/lorebooks';
-import { ScenariosScreen } from '../../modules/scenarios';
 import { ServerControlScreen } from '../../modules/server-control';
 import { SettingsScreen } from '../../modules/settings';
 import { RouteStatusScreen } from '../../shared/ui/route-status-screen';
@@ -22,9 +19,9 @@ function RootRouteComponent() {
 function NotFoundRouteComponent() {
   return (
     <RouteStatusScreen
-      eyebrow="маршрутизация"
+      eyebrow="маршрут"
       title="Страница не найдена"
-      description="Маршрут не существует в текущем rewrite-shell. Проверьте ссылку или вернитесь в доступный раздел."
+      description="Проверьте адрес или вернитесь в доступные разделы приложения."
     />
   );
 }
@@ -32,9 +29,9 @@ function NotFoundRouteComponent() {
 function RouteErrorComponent() {
   return (
     <RouteStatusScreen
-      eyebrow="ошибка маршрута"
-      title="Не удалось открыть экран"
-      description="Route boundary перехватил ошибку до падения всего shell. Для текущего этапа это ожидаемая защитная деградация."
+      eyebrow="ошибка"
+      title="Не удалось открыть раздел"
+      description="Во время загрузки страницы произошла ошибка. Обновите экран и попробуйте снова."
     />
   );
 }
@@ -69,24 +66,6 @@ const chatSessionRoute = createRoute({
   component: ChatSessionRouteComponent,
 });
 
-const charactersRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/characters',
-  component: CharactersScreen,
-});
-
-const lorebooksRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/lorebooks',
-  component: LorebooksScreen,
-});
-
-const scenariosRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/scenarios',
-  component: ScenariosScreen,
-});
-
 const serverRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/server',
@@ -99,16 +78,7 @@ const settingsRoute = createRoute({
   component: SettingsScreen,
 });
 
-const routeTree = rootRoute.addChildren([
-  homeRoute,
-  chatIndexRoute,
-  chatSessionRoute,
-  charactersRoute,
-  lorebooksRoute,
-  scenariosRoute,
-  serverRoute,
-  settingsRoute,
-]);
+const routeTree = rootRoute.addChildren([homeRoute, chatIndexRoute, chatSessionRoute, serverRoute, settingsRoute]);
 
 export function createAppRouter(queryClient: QueryClient) {
   return createRouter({

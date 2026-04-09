@@ -13,9 +13,7 @@ export function ChatListPanel({ chats }: ChatListPanelProps) {
       <section className="panel">
         <div className="panel__eyebrow">список</div>
         <h2 className="panel__title panel__title--secondary">Чатов пока нет</h2>
-        <p className="panel__description">
-          Создайте первый generic chat. После этого этот экран станет канонической точкой входа для списка сессий.
-        </p>
+        <p className="panel__description">Создайте первую сессию, и она появится здесь сразу после сохранения.</p>
       </section>
     );
   }
@@ -24,11 +22,7 @@ export function ChatListPanel({ chats }: ChatListPanelProps) {
     <section className="stack">
       {chats.map((chat) => (
         <Link className="chat-link" key={chat.id} params={{ chatId: chat.id }} to="/chat/$chatId">
-          <SummaryCard
-            eyebrow="чат"
-            title={chat.title}
-            description={chat.lastMessagePreview ?? 'Сообщений пока нет. Следующий срез добавит отправку и generation.'}
-          >
+          <SummaryCard eyebrow="чат" title={chat.title} description={chat.lastMessagePreview ?? 'Сообщений пока нет.'}>
             <dl className="summary-list">
               <div className="summary-list__row">
                 <dt>ID</dt>

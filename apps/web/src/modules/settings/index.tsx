@@ -9,6 +9,10 @@ function renderBoolean(value: boolean) {
   return value ? 'Включено' : 'Выключено';
 }
 
+function renderOptionalText(value: string) {
+  return value.trim().length > 0 ? value : 'Не задано';
+}
+
 export function SettingsScreen() {
   const settingsQuery = useQuery({
     queryKey: ['settings-overview'],
@@ -19,8 +23,8 @@ export function SettingsScreen() {
     return (
       <PlaceholderScreen
         eyebrow="настройки"
-        title="Настройки"
-        description="Загрузка канонического snapshot настроек из backend. Редактирование придёт отдельными typed mutation-срезами без возврата frontend ownership."
+        title="Загрузка настроек"
+        description="Получаем текущую конфигурацию профиля и системного шаблона из backend."
       />
     );
   }
@@ -30,7 +34,7 @@ export function SettingsScreen() {
       <RouteStatusScreen
         eyebrow="настройки"
         title="Не удалось загрузить настройки"
-        description="Экран уже опирается на backend-owned read model. Проверьте rewrite API и состояние source-файлов."
+        description="Проверьте доступность rewrite API и состояние файлов с настройками."
       />
     );
   }
@@ -43,26 +47,29 @@ export function SettingsScreen() {
 
   return (
     <div className="stack">
-      <PlaceholderScreen
-        eyebrow="настройки"
-        title="Настройки"
-        description="Этот экран уже читает канонические настройки с backend. Формы профиля, prompt editing, toggles и sampler CRUD придут следующими отдельными срезами."
-      />
+      <section className="panel panel--hero">
+        <div className="panel__eyebrow">настройки</div>
+        <h1 className="panel__title">Текущая конфигурация профиля</h1>
+        <p className="panel__description">
+          Экран показывает активные пользовательские настройки, системный шаблон и sampler preset, которые backend
+          читает из канонических файлов.
+        </p>
+      </section>
 
       <div className="overview-grid">
         <SummaryCard
           eyebrow="профиль"
           title="Пользователь и поведение"
-          description="Канонический snapshot file-backed user settings."
+          description="Текущие значения, которые участвуют в prompt и работе интерфейса."
         >
           <dl className="summary-list">
             <div className="summary-list__row">
               <dt>Имя</dt>
-              <dd>{profile.userName || 'User'}</dd>
+              <dd>{renderOptionalText(profile.userName)}</dd>
             </div>
             <div className="summary-list__row">
               <dt>Персона</dt>
-              <dd>{profile.userPersona ? 'Задана' : 'Пусто'}</dd>
+              <dd>{profile.userPersona ? 'Задана' : 'Не задана'}</dd>
             </div>
             <div className="summary-list__row">
               <dt>Язык UI</dt>
@@ -77,7 +84,7 @@ export function SettingsScreen() {
               <dd>{renderBoolean(profile.streamingEnabled)}</dd>
             </div>
             <div className="summary-list__row">
-              <dt>Thinking</dt>
+              <dt>Размышления</dt>
               <dd>{renderBoolean(profile.thinkingEnabled)}</dd>
             </div>
           </dl>
@@ -86,23 +93,23 @@ export function SettingsScreen() {
         <SummaryCard
           eyebrow="prompt"
           title="Системный шаблон"
-          description="Пока здесь только read-only preview, чтобы не тащить формы поверх незавершённых boundaries."
+          description="Текущий шаблон, который backend использует как основу для сборки prompt."
         >
           <p className="summary-card__mono">{promptPreview.slice(0, 420)}</p>
         </SummaryCard>
 
         <SummaryCard
-          eyebrow="семплеры"
-          title="Sampler presets"
-          description="CRUD для presets и model bindings пойдёт отдельным typed sub-slice."
+          eyebrow="sampler"
+          title="Активный preset"
+          description="Текущая sampler-конфигурация и количество привязок к моделям."
         >
           <dl className="summary-list">
             <div className="summary-list__row">
-              <dt>Активный preset</dt>
+              <dt>Preset</dt>
               <dd>{activePreset?.name ?? sampler.activePresetId}</dd>
             </div>
             <div className="summary-list__row">
-              <dt>Количество presets</dt>
+              <dt>Всего presets</dt>
               <dd>{sampler.presets.length}</dd>
             </div>
             <div className="summary-list__row">

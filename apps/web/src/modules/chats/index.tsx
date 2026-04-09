@@ -35,11 +35,7 @@ export function ChatListScreen() {
 
   if (chatListQuery.isLoading) {
     return (
-      <PlaceholderScreen
-        eyebrow="чаты"
-        title="Загрузка чатов"
-        description="Список generic chat sessions запрашивается из backend-owned file storage."
-      />
+      <PlaceholderScreen eyebrow="чаты" title="Загрузка чатов" description="Получаем сохранённые сессии из backend." />
     );
   }
 
@@ -48,7 +44,7 @@ export function ChatListScreen() {
       <RouteStatusScreen
         eyebrow="чаты"
         title="Не удалось загрузить список чатов"
-        description="Rewrite UI больше не хранит summaries локально и читает их напрямую через backend query layer."
+        description="Проверьте backend и повторите попытку."
       />
     );
   }
@@ -64,7 +60,7 @@ export function ChatListScreen() {
         }}
       />
       {createMutation.isError ? (
-        <div className="note note--danger">Создать чат не удалось. Проверьте rewrite API и попробуйте ещё раз.</div>
+        <div className="note note--danger">Не удалось создать чат. Проверьте backend и попробуйте ещё раз.</div>
       ) : null}
       <ChatListPanel chats={chatListQuery.data.items} />
     </div>
@@ -76,11 +72,7 @@ export function ChatSessionScreen({ chatId }: ChatSessionScreenProps) {
 
   if (chatSessionQuery.isLoading) {
     return (
-      <PlaceholderScreen
-        eyebrow="сессия"
-        title="Загрузка чата"
-        description="Канонический transcript и metadata загружаются из backend-owned chat session."
-      />
+      <PlaceholderScreen eyebrow="сессия" title="Загрузка чата" description="Получаем сохранённую сессию из backend." />
     );
   }
 
@@ -89,7 +81,7 @@ export function ChatSessionScreen({ chatId }: ChatSessionScreenProps) {
       <RouteStatusScreen
         eyebrow="сессия"
         title="Не удалось открыть чат"
-        description="Чат либо не найден, либо backend не смог прочитать канонический chat file."
+        description="Чат не найден или backend не смог прочитать его файл."
       />
     );
   }
