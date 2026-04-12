@@ -10,21 +10,7 @@ import {
 import { resolveDataRoot } from '../../../lib/data-root.js';
 import { getEngineInfo, getState } from '../../../lib/llm-process.js';
 import { readLegacyUserSettingsSource } from '../../../shared/infrastructure/legacy-settings-source.js';
-
-function normalizeModelsDirs(value: unknown, defaultModelsDir: string) {
-  const rawDirectories =
-    Array.isArray(value) && value.length > 0
-      ? value.filter((item): item is string => typeof item === 'string')
-      : [defaultModelsDir];
-
-  return rawDirectories.map((directory) => {
-    if (path.isAbsolute(directory)) {
-      return directory;
-    }
-
-    return path.resolve(resolveDataRoot(), directory);
-  });
-}
+import { normalizeRuntimeConfig } from './runtime-config.js';
 
 function scanModels(modelsDirs: string[]): RuntimeModelSummary[] {
   const models: RuntimeModelSummary[] = [];
@@ -86,24 +72,23 @@ function scanModels(modelsDirs: string[]): RuntimeModelSummary[] {
 
 export function getRuntimeOverview(): RuntimeOverviewResponse {
   const source = readLegacyUserSettingsSource();
-  const configSource =
-    source.llmServerConfig && typeof source.llmServerConfig === 'object' && !Array.isArray(source.llmServerConfig)
-      ? (source.llmServerConfig as Record<string, unknown>)
-      : {};
   const engine = getEngineInfo();
   const serverStatus = getState();
-  const modelsDirs = normalizeModelsDirs(configSource.modelsDirs, engine.defaultModelsDir);
+  const runtimeConfig = normalizeRuntimeConfig(source.llmServerConfig);
+  const modelsDirs = runtimeConfig.modelsDirs.map((directory) => {
+    if (path.isAbsolute(directory)) {
+      return directory;
+    }
+
+    return path.resolve(resolveDataRoot(), directory);
+  });
 
   return RuntimeOverviewResponseSchema.parse({
     engine,
     serverStatus,
     serverConfig: {
+      ...runtimeConfig,
       modelsDirs,
-      port: typeof configSource.port === 'number' ? configSource.port : serverStatus.port,
-      gpuLayers: typeof configSource.gpuLayers === 'number' ? configSource.gpuLayers : 0,
-      contextSize: typeof configSource.contextSize === 'number' ? configSource.contextSize : 8192,
-      flashAttention: typeof configSource.flashAttention === 'boolean' ? configSource.flashAttention : false,
-      threads: typeof configSource.threads === 'number' ? configSource.threads : 0,
     },
     models: scanModels(modelsDirs),
   });

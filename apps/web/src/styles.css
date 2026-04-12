@@ -369,6 +369,10 @@ textarea {
   padding: 12px 18px;
 }
 
+.action-button--compact {
+  padding: 8px 12px;
+}
+
 .action-button:disabled {
   cursor: default;
   opacity: 0.55;
@@ -401,6 +405,213 @@ textarea {
 
 .form-status--error {
   color: var(--danger);
+}
+
+.ghost-button {
+  border: 1px solid var(--border);
+  background: rgba(8, 16, 25, 0.62);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  padding: 10px 14px;
+}
+
+.ghost-button:hover {
+  border-color: var(--border-strong);
+}
+
+.ghost-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.server-card {
+  display: grid;
+  gap: 18px;
+}
+
+.server-header,
+.server-toolbar,
+.model-list-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.server-header .panel__title {
+  margin-bottom: 0;
+}
+
+.runtime-status {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.runtime-status strong,
+.runtime-status span {
+  display: block;
+}
+
+.runtime-status span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 2px;
+}
+
+.runtime-status__dot {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  height: 12px;
+  width: 12px;
+}
+
+.runtime-status__dot--idle {
+  background: var(--muted);
+}
+
+.runtime-status__dot--running {
+  background: var(--accent);
+  box-shadow: 0 0 16px rgba(78, 211, 180, 0.6);
+}
+
+.runtime-status__dot--starting,
+.runtime-status__dot--stopping {
+  animation: pulse 1.2s ease-in-out infinite;
+  background: #f0bd61;
+  box-shadow: 0 0 16px rgba(240, 189, 97, 0.48);
+}
+
+.runtime-status__dot--error {
+  background: var(--danger);
+  box-shadow: 0 0 16px rgba(255, 125, 136, 0.52);
+}
+
+.current-model {
+  align-items: center;
+  border: 1px solid rgba(78, 211, 180, 0.2);
+  background: rgba(78, 211, 180, 0.08);
+  border-radius: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.current-model span {
+  color: var(--muted);
+}
+
+.current-model strong {
+  font-family: Consolas, "Courier New", monospace;
+  word-break: break-word;
+}
+
+.runtime-settings {
+  border: 1px solid var(--border);
+  background: rgba(8, 16, 25, 0.5);
+  border-radius: 18px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  padding: 18px;
+}
+
+.field__input--textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.checkbox-field {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  gap: 10px;
+}
+
+.checkbox-field input {
+  accent-color: var(--accent);
+}
+
+.model-list-header h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.model-list-header span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.model-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.model-row {
+  align-items: center;
+  border: 1px solid var(--border);
+  background: rgba(8, 16, 25, 0.62);
+  border-radius: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 12px;
+}
+
+.model-row--current {
+  border-color: rgba(78, 211, 180, 0.28);
+  background: rgba(78, 211, 180, 0.08);
+}
+
+.model-row__body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.model-row__body strong,
+.model-row__body span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-row__body span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.model-row__badge {
+  border: 1px solid rgba(78, 211, 180, 0.24);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  padding: 6px 10px;
+}
+
+.empty-state {
+  border: 1px dashed var(--border-strong);
+  border-radius: 16px;
+  color: var(--muted);
+  padding: 18px;
+  text-align: center;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .message-list {
@@ -489,5 +700,15 @@ textarea {
 
   .summary-list__row dd {
     text-align: left;
+  }
+
+  .model-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .model-row__body strong,
+  .model-row__body span {
+    white-space: normal;
   }
 }

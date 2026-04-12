@@ -1,28 +1,40 @@
+import type {
+  ProviderMode,
+  ProviderSettingsSnapshot,
+  UpdateProviderSettingsCommand,
+} from '@immersion/contracts/providers';
+import type { RuntimeConfigCommand, RuntimeOverviewResponse, RuntimeStartCommand } from '@immersion/contracts/runtime';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 
 import { PlaceholderScreen } from '../../shared/ui/placeholder-screen';
 import { RouteStatusScreen } from '../../shared/ui/route-status-screen';
-import { SummaryCard } from '../../shared/ui/summary-card';
-import { getProvidersOverview } from './api/get-providers-overview';
 import { getRuntimeOverview } from './api/get-runtime-overview';
 import { saveProviderSettings } from './api/save-provider-settings';
+import { saveRuntimeConfig } from './api/save-runtime-config';
+import { startRuntime } from './api/start-runtime';
+import { stopRuntime } from './api/stop-runtime';
 import { ProviderSettingsForm } from './components/provider-settings-form';
-import { ProvidersOverviewCard } from './components/providers-overview-card';
-import { RuntimeOverviewCard } from './components/runtime-overview-card';
+import { RuntimeControlPanel } from './components/runtime-control-panel';
 import { providerSettingsQueryKey, providerSettingsQueryOptions } from './queries/provider-settings-query';
+
+function toProviderCommand(snapshot: ProviderSettingsSnapshot, mode: ProviderMode): UpdateProviderSettingsCommand {
+  return {
+    mode,
+    activeProvider: snapshot.activeProvider,
+    providerConfigs: snapshot.providerConfigs,
+  };
+}
 
 export function ServerControlScreen() {
   const queryClient = useQueryClient();
   const providerSettingsQuery = useQuery(providerSettingsQueryOptions());
-  const providersOverviewQuery = useQuery({
-    queryKey: ['providers', 'overview'],
-    queryFn: getProvidersOverview,
-  });
   const runtimeOverviewQuery = useQuery({
     queryKey: ['runtime', 'overview'],
     queryFn: getRuntimeOverview,
+    refetchInterval: 2500,
   });
-  const saveMutation = useMutation({
+  const saveProviderMutation = useMutation({
     mutationFn: saveProviderSettings,
     onSuccess: async (snapshot) => {
       queryClient.setQueryData(providerSettingsQueryKey, snapshot);
@@ -31,89 +43,132 @@ export function ServerControlScreen() {
       });
     },
   });
+  const saveRuntimeConfigMutation = useMutation({
+    mutationFn: saveRuntimeConfig,
+    onSuccess: (overview: RuntimeOverviewResponse) => {
+      queryClient.setQueryData(['runtime', 'overview'], overview);
+    },
+  });
+  const startRuntimeMutation = useMutation({
+    mutationFn: startRuntime,
+    onSuccess: (overview: RuntimeOverviewResponse) => {
+      queryClient.setQueryData(['runtime', 'overview'], overview);
+    },
+  });
+  const stopRuntimeMutation = useMutation({
+    mutationFn: stopRuntime,
+    onSuccess: (overview: RuntimeOverviewResponse) => {
+      queryClient.setQueryData(['runtime', 'overview'], overview);
+    },
+  });
 
   if (providerSettingsQuery.isLoading) {
-    return (
-      <PlaceholderScreen
-        eyebrow="провайдеры"
-        title="Загрузка подключения к LLM"
-        description="Получаем текущую конфигурацию провайдера и состояние встроенного runtime."
-      />
-    );
+    return <PlaceholderScreen eyebrow="бэкенд" title="Загрузка настроек" description="Проверяем режим подключения." />;
   }
 
   if (providerSettingsQuery.isError || !providerSettingsQuery.data) {
     return (
       <RouteStatusScreen
-        eyebrow="провайдеры"
-        title="Не удалось загрузить настройки подключения"
-        description="Проверьте rewrite API и состояние канонических файлов настроек."
+        eyebrow="бэкенд"
+        title="Не удалось загрузить настройки"
+        description="Проверьте rewrite API и повторите попытку."
       />
     );
   }
 
   const snapshot = providerSettingsQuery.data;
+  const activeMode = snapshot.mode;
+
+  const handleModeChange = async (mode: ProviderMode) => {
+    if (mode === activeMode || saveProviderMutation.isPending) {
+      return;
+    }
+
+    await saveProviderMutation.mutateAsync(toProviderCommand(snapshot, mode));
+  };
+
+  const handleExternalSubmit = async (command: UpdateProviderSettingsCommand) => {
+    await saveProviderMutation.mutateAsync(command);
+  };
+
+  const handleRuntimeConfigSave = async (command: RuntimeConfigCommand) => {
+    await saveRuntimeConfigMutation.mutateAsync(command);
+  };
+
+  const handleRuntimeStart = async (command: RuntimeStartCommand) => {
+    await startRuntimeMutation.mutateAsync(command);
+  };
+
+  const handleRuntimeStop = async () => {
+    await stopRuntimeMutation.mutateAsync();
+  };
+
+  let serverContent: ReactNode;
+
+  if (activeMode === 'builtin' && runtimeOverviewQuery.data) {
+    serverContent = (
+      <RuntimeControlPanel
+        isSavingConfig={saveRuntimeConfigMutation.isPending}
+        isStarting={startRuntimeMutation.isPending}
+        isStopping={stopRuntimeMutation.isPending}
+        key={JSON.stringify(runtimeOverviewQuery.data.serverConfig)}
+        onSaveConfig={handleRuntimeConfigSave}
+        onStart={handleRuntimeStart}
+        onStop={handleRuntimeStop}
+        overview={runtimeOverviewQuery.data}
+      />
+    );
+  } else if (activeMode === 'builtin') {
+    serverContent = (
+      <RouteStatusScreen
+        eyebrow="встроенный сервер"
+        title={runtimeOverviewQuery.isError ? 'Не удалось загрузить runtime' : 'Загрузка runtime'}
+        description={
+          runtimeOverviewQuery.isError
+            ? 'Проверьте rewrite API и состояние встроенного сервера.'
+            : 'Получаем список моделей и состояние сервера.'
+        }
+      />
+    );
+  } else {
+    serverContent = (
+      <ProviderSettingsForm
+        isSaving={saveProviderMutation.isPending}
+        onSubmit={handleExternalSubmit}
+        snapshot={snapshot}
+      />
+    );
+  }
 
   return (
     <div className="stack">
-      <section className="panel panel--hero">
-        <div className="panel__eyebrow">провайдеры</div>
-        <h1 className="panel__title">Подключение к LLM</h1>
-        <p className="panel__description">
-          Здесь настраивается источник ответов модели. Конфигурация сохраняется на backend и сразу становится
-          канонической для приложения.
-        </p>
+      <section className="panel server-card">
+        <div className="server-header">
+          <h1 className="panel__title">Бэкенд</h1>
+          <div aria-label="Режим backend" className="segmented" role="group">
+            <button
+              aria-pressed={activeMode === 'builtin'}
+              className={`segmented__button ${activeMode === 'builtin' ? 'segmented__button--active' : ''}`}
+              disabled={saveProviderMutation.isPending}
+              onClick={() => void handleModeChange('builtin')}
+              type="button"
+            >
+              Встроенный сервер
+            </button>
+            <button
+              aria-pressed={activeMode === 'external'}
+              className={`segmented__button ${activeMode === 'external' ? 'segmented__button--active' : ''}`}
+              disabled={saveProviderMutation.isPending}
+              onClick={() => void handleModeChange('external')}
+              type="button"
+            >
+              Внешний API
+            </button>
+          </div>
+        </div>
       </section>
 
-      <div className="overview-grid">
-        {providersOverviewQuery.data ? (
-          <ProvidersOverviewCard overview={providersOverviewQuery.data} />
-        ) : (
-          <SummaryCard
-            eyebrow="провайдер"
-            title="Сводка подключения"
-            description={
-              providersOverviewQuery.isError
-                ? 'Не удалось загрузить обзор провайдеров.'
-                : 'Загружаем обзор текущего подключения.'
-            }
-          >
-            <div className="note">
-              {providersOverviewQuery.isError
-                ? 'Проверьте backend и повторите попытку.'
-                : 'Данные появятся автоматически после ответа API.'}
-            </div>
-          </SummaryCard>
-        )}
-
-        {runtimeOverviewQuery.data ? (
-          <RuntimeOverviewCard overview={runtimeOverviewQuery.data} />
-        ) : (
-          <SummaryCard
-            eyebrow="runtime"
-            title="Встроенный runtime"
-            description={
-              runtimeOverviewQuery.isError
-                ? 'Не удалось загрузить состояние встроенного runtime.'
-                : 'Загружаем состояние встроенного runtime.'
-            }
-          >
-            <div className="note">
-              {runtimeOverviewQuery.isError
-                ? 'Проверьте runtime API и повторите попытку.'
-                : 'Состояние и список моделей появятся после ответа API.'}
-            </div>
-          </SummaryCard>
-        )}
-      </div>
-
-      <ProviderSettingsForm
-        isSaving={saveMutation.isPending}
-        onSubmit={async (command) => {
-          await saveMutation.mutateAsync(command);
-        }}
-        snapshot={snapshot}
-      />
+      {serverContent}
     </div>
   );
 }

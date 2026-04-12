@@ -24,9 +24,7 @@ export function ChatSessionPanel({ session }: ChatSessionPanelProps) {
       <section className="panel panel--hero">
         <div className="panel__eyebrow">сессия</div>
         <h1 className="panel__title">{session.chat.title}</h1>
-        <p className="panel__description">
-          Сессия загружается напрямую из backend и отражает текущее содержимое канонического chat-файла.
-        </p>
+        <p className="panel__description">История, настройки и сообщения этого чата.</p>
         <dl className="summary-list">
           <div className="summary-list__row">
             <dt>ID</dt>
@@ -51,11 +49,7 @@ export function ChatSessionPanel({ session }: ChatSessionPanelProps) {
         </dl>
       </section>
 
-      <SummaryCard
-        eyebrow="transcript"
-        title="Сообщения"
-        description="История текущей сессии в том виде, в котором её отдал backend."
-      >
+      <SummaryCard eyebrow="transcript" title="Сообщения" description="История текущей сессии.">
         {session.messages.length > 0 ? (
           <ol className="message-list">
             {session.messages.map((message) => (

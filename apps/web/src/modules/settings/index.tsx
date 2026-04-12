@@ -24,7 +24,7 @@ export function SettingsScreen() {
       <PlaceholderScreen
         eyebrow="настройки"
         title="Загрузка настроек"
-        description="Получаем текущую конфигурацию профиля и системного шаблона из backend."
+        description="Получаем текущую конфигурацию профиля и системного шаблона."
       />
     );
   }
@@ -34,7 +34,7 @@ export function SettingsScreen() {
       <RouteStatusScreen
         eyebrow="настройки"
         title="Не удалось загрузить настройки"
-        description="Проверьте доступность rewrite API и состояние файлов с настройками."
+        description="Проверьте доступность приложения и повторите попытку."
       />
     );
   }
@@ -50,10 +50,7 @@ export function SettingsScreen() {
       <section className="panel panel--hero">
         <div className="panel__eyebrow">настройки</div>
         <h1 className="panel__title">Текущая конфигурация профиля</h1>
-        <p className="panel__description">
-          Экран показывает активные пользовательские настройки, системный шаблон и sampler preset, которые backend
-          читает из канонических файлов.
-        </p>
+        <p className="panel__description">Профиль пользователя, системный шаблон и активный sampler preset.</p>
       </section>
 
       <div className="overview-grid">
@@ -90,11 +87,7 @@ export function SettingsScreen() {
           </dl>
         </SummaryCard>
 
-        <SummaryCard
-          eyebrow="prompt"
-          title="Системный шаблон"
-          description="Текущий шаблон, который backend использует как основу для сборки prompt."
-        >
+        <SummaryCard eyebrow="prompt" title="Системный шаблон" description="Текущий шаблон для сборки prompt.">
           <p className="summary-card__mono">{promptPreview.slice(0, 420)}</p>
         </SummaryCard>
 

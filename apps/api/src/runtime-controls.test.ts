@@ -1,0 +1,115 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import { type RuntimeConfigCommand, RuntimeOverviewResponseSchema } from '@immersion/contracts/runtime';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { buildApiApp } from './app.js';
+
+describe('runtime control routes', () => {
+  let dataRoot = '';
+
+  beforeEach(async () => {
+    dataRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'immersion-runtime-'));
+    process.env.IMMERSION_DATA_ROOT = dataRoot;
+  });
+
+  afterEach(async () => {
+    delete process.env.IMMERSION_DATA_ROOT;
+    await fs.rm(dataRoot, { force: true, recursive: true });
+  });
+
+  it('updates runtime config without overwriting unrelated user settings', async () => {
+    await fs.writeFile(
+      path.join(dataRoot, 'user-settings.json'),
+      JSON.stringify(
+        {
+          userName: 'Misha',
+          llmServerConfig: {
+            modelsDirs: ['old-models'],
+            port: 5001,
+            gpuLayers: 0,
+            contextSize: 8192,
+            flashAttention: false,
+            threads: 0,
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    const command: RuntimeConfigCommand = {
+      modelsDirs: ['models'],
+      port: 5010,
+      gpuLayers: 42,
+      contextSize: 16384,
+      flashAttention: true,
+      threads: 8,
+    };
+
+    const app = buildApiApp();
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/runtime/config',
+      payload: command,
+    });
+    const overview = RuntimeOverviewResponseSchema.parse(response.json());
+    const stored = JSON.parse(await fs.readFile(path.join(dataRoot, 'user-settings.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+
+    expect(response.statusCode).toBe(200);
+    expect(overview.serverConfig).toMatchObject({
+      port: 5010,
+      gpuLayers: 42,
+      contextSize: 16384,
+      flashAttention: true,
+      threads: 8,
+    });
+    expect(stored.userName).toBe('Misha');
+    expect(stored.llmServerConfig).toMatchObject(command);
+
+    await app.close();
+  });
+
+  it('rejects model start when the requested model path does not exist', async () => {
+    const app = buildApiApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/runtime/start',
+      payload: {
+        modelPath: path.join(dataRoot, 'missing.gguf'),
+        port: 5001,
+        gpuLayers: 0,
+        contextSize: 8192,
+        flashAttention: false,
+        threads: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      code: 'validation_error',
+    });
+
+    await app.close();
+  });
+
+  it('returns runtime overview after stop on an idle server', async () => {
+    const app = buildApiApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/runtime/stop',
+      payload: {},
+    });
+    const overview = RuntimeOverviewResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(200);
+    expect(overview.serverStatus.status).toBe('idle');
+
+    await app.close();
+  });
+});

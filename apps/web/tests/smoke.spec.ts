@@ -27,7 +27,7 @@ test('redirects root to chats and hides unfinished sections from navigation', as
   await expect(page).toHaveURL(/\/chat$/);
   await expect(page.getByRole('heading', { name: 'Создать чат' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Чаты' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Провайдеры' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Бэкенд' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Обзор' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Персонажи' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Лорбуки' })).toHaveCount(0);
@@ -35,16 +35,15 @@ test('redirects root to chats and hides unfinished sections from navigation', as
   await expect(page.getByRole('link', { name: 'Настройки' })).toHaveCount(0);
 });
 
-test('loads provider and runtime overview from backend routes', async ({ page }) => {
+test('shows a focused external API panel without provider summary noise', async ({ page }) => {
   await page.goto('/server');
 
-  await expect(page.getByRole('heading', { name: 'Подключение к LLM' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Сводка подключения' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Встроенный runtime' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Режим провайдера и подключение' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Бэкенд' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Внешний API' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'Внешний API' })).toBeVisible();
   await expect(page.getByLabel('URL')).toHaveValue('http://127.0.0.1:6006');
-  await expect(page.getByText('sandbox.gguf')).toBeVisible();
-  await expect(page.getByText('nested/secondary.gguf')).toBeVisible();
+  await expect(page.getByText('Сводка подключения')).toHaveCount(0);
+  await expect(page.getByText(/каноничес/i)).toHaveCount(0);
 });
 
 test('persists external provider settings and restores them after reload', async ({ page }) => {
@@ -54,24 +53,23 @@ test('persists external provider settings and restores them after reload', async
   await expect(urlInput).toHaveValue('http://127.0.0.1:6006');
 
   await urlInput.fill('http://127.0.0.1:6010');
-  await page.getByRole('button', { name: 'Сохранить конфигурацию' }).click();
-  await expect(page.getByText('Каноническая конфигурация провайдера сохранена.')).toBeVisible();
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+  await expect(page.getByText('Настройки внешнего API сохранены.')).toBeVisible();
 
   await page.reload();
   await expect(urlInput).toHaveValue('http://127.0.0.1:6010');
 });
 
-test('switches to builtin mode and keeps runtime overview visible', async ({ page }) => {
+test('switches to builtin mode and exposes model launch controls', async ({ page }) => {
   await page.goto('/server');
 
-  await page.getByRole('button', { name: 'Встроенный' }).click();
-  await page.getByRole('button', { name: 'Сохранить конфигурацию' }).click();
-  await expect(page.getByText('Каноническая конфигурация провайдера сохранена.')).toBeVisible();
-
-  await page.reload();
-  await expect(page.getByRole('button', { name: 'Встроенный' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('heading', { name: 'Встроенный runtime' })).toBeVisible();
+  await page.getByRole('button', { name: 'Встроенный сервер' }).click();
+  await expect(page.getByRole('button', { name: 'Встроенный сервер' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('sandbox.gguf')).toBeVisible();
+  await expect(page.getByText('nested/secondary.gguf')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Запустить' }).first()).toBeVisible();
+  await expect(page.getByText('KoboldCpp')).toHaveCount(0);
+  await expect(page.getByText('Сводка подключения')).toHaveCount(0);
 });
 
 test('loads settings overview from backend route', async ({ page }) => {

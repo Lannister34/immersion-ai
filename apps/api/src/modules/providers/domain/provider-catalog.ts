@@ -3,7 +3,7 @@ import type { ProviderDefinition } from '@immersion/contracts/providers';
 export const providerDefinitions: ProviderDefinition[] = [
   {
     type: 'koboldcpp',
-    label: 'KoboldCpp',
+    label: 'KoboldCpp API',
     fields: [
       {
         key: 'url',
@@ -16,7 +16,7 @@ export const providerDefinitions: ProviderDefinition[] = [
   },
   {
     type: 'custom',
-    label: 'Custom',
+    label: 'OpenAI-совместимый API',
     fields: [
       {
         key: 'url',
