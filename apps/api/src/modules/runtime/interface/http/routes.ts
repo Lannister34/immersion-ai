@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { ZodError } from 'zod';
 
 import { getRuntimeOverview } from '../../application/get-runtime-overview.js';
+import { installRuntime } from '../../application/install-runtime.js';
 import { startRuntime } from '../../application/start-runtime.js';
 import { stopRuntime } from '../../application/stop-runtime.js';
 import { updateRuntimeConfig } from '../../application/update-runtime-config.js';
@@ -32,6 +33,16 @@ function toProblem(error: unknown) {
       statusCode: 409,
       body: {
         code: 'runtime_unavailable',
+        message: error.message,
+      },
+    };
+  }
+
+  if (error instanceof Error && error.message.includes('llama.cpp')) {
+    return {
+      statusCode: 502,
+      body: {
+        code: 'runtime_install_failed',
         message: error.message,
       },
     };
@@ -72,6 +83,16 @@ export const runtimeRoutes: FastifyPluginAsync = async (app) => {
   app.post('/stop', async (_request, reply) => {
     try {
       return await stopRuntime();
+    } catch (error) {
+      const problem = toProblem(error);
+
+      return reply.status(problem.statusCode).send(problem.body);
+    }
+  });
+
+  app.post('/install', async (request, reply) => {
+    try {
+      return await installRuntime(request.body);
     } catch (error) {
       const problem = toProblem(error);
 

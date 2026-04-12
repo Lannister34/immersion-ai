@@ -1,6 +1,8 @@
 import {
   type RuntimeConfigCommand,
   RuntimeConfigCommandSchema,
+  type RuntimeInstallCommand,
+  type RuntimeInstallVariant,
   type RuntimeModelSummary,
   type RuntimeOverviewResponse,
   type RuntimeServerStatus,
@@ -47,14 +49,43 @@ function toModelsDirs(value: string) {
 }
 
 interface RuntimeControlPanelProps {
+  isInstalling: boolean;
   isSavingConfig: boolean;
   isStarting: boolean;
   isStopping: boolean;
+  onInstall: (command: RuntimeInstallCommand) => Promise<void>;
   onSaveConfig: (command: RuntimeConfigCommand) => Promise<void>;
   onStart: (command: RuntimeStartCommand) => Promise<void>;
   onStop: () => Promise<void>;
   overview: RuntimeOverviewResponse;
 }
+
+const runtimeInstallVariants: Array<{
+  description: string;
+  label: string;
+  value: RuntimeInstallVariant;
+}> = [
+  {
+    value: 'cpu',
+    label: 'CPU',
+    description: 'Самый совместимый вариант, работает без CUDA.',
+  },
+  {
+    value: 'cuda-12.4',
+    label: 'CUDA 12.4',
+    description: 'Для NVIDIA-драйверов с поддержкой CUDA 12.x.',
+  },
+  {
+    value: 'cuda-13.1',
+    label: 'CUDA 13.1',
+    description: 'Для новых NVIDIA-драйверов с поддержкой CUDA 13.x.',
+  },
+  {
+    value: 'vulkan',
+    label: 'Vulkan',
+    description: 'Альтернатива CUDA для совместимых GPU.',
+  },
+];
 
 interface RuntimeConfigDraft {
   contextSize: number;
@@ -120,9 +151,11 @@ function RuntimeModelRow({ canStart, isCurrent, isStarting, model, onStart }: Ru
 }
 
 export function RuntimeControlPanel({
+  isInstalling,
   isSavingConfig,
   isStarting,
   isStopping,
+  onInstall,
   onSaveConfig,
   onStart,
   onStop,
@@ -130,6 +163,7 @@ export function RuntimeControlPanel({
 }: RuntimeControlPanelProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [draft, setDraft] = useState(() => createDraft(overview.serverConfig));
+  const [installVariant, setInstallVariant] = useState<RuntimeInstallVariant>('cpu');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const status = overview.serverStatus.status;
@@ -190,6 +224,20 @@ export function RuntimeControlPanel({
     }
   };
 
+  const handleInstall = async () => {
+    setStatusMessage(null);
+    setErrorMessage(null);
+
+    try {
+      await onInstall({
+        variant: installVariant,
+      });
+      setStatusMessage('llama-server установлен.');
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : 'Не удалось установить llama-server.');
+    }
+  };
+
   return (
     <section className="panel server-card">
       <div className="server-toolbar">
@@ -219,9 +267,33 @@ export function RuntimeControlPanel({
       </div>
 
       {!overview.engine.found ? (
-        <div className="note note--danger">
-          `llama-server` не найден. Положите бинарник в папку `bin/` проекта или установите llama.cpp перед запуском
-          встроенного сервера.
+        <div className="install-panel">
+          <div className="install-panel__message">
+            <strong>llama-server не найден</strong>
+            <span>Установите локальный сервер, чтобы запускать `.gguf` модели из приложения.</span>
+          </div>
+
+          <label className="field install-panel__variant">
+            <span className="field__label">Версия</span>
+            <select
+              className="field__input"
+              onChange={(event) => setInstallVariant(event.target.value as RuntimeInstallVariant)}
+              value={installVariant}
+            >
+              {runtimeInstallVariants.map((variant) => (
+                <option key={variant.value} value={variant.value}>
+                  {variant.label}
+                </option>
+              ))}
+            </select>
+            <span className="field__hint">
+              {runtimeInstallVariants.find((variant) => variant.value === installVariant)?.description}
+            </span>
+          </label>
+
+          <button className="action-button" disabled={isInstalling} onClick={handleInstall} type="button">
+            {isInstalling ? 'Установка...' : 'Установить'}
+          </button>
         </div>
       ) : null}
 

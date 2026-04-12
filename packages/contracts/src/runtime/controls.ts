@@ -19,3 +19,11 @@ export const RuntimeActionResponseSchema = z.object({
   ok: z.literal(true),
 });
 export type RuntimeActionResponse = z.infer<typeof RuntimeActionResponseSchema>;
+
+export const RuntimeInstallVariantSchema = z.enum(['cpu', 'cuda-12.4', 'cuda-13.1', 'vulkan']);
+export type RuntimeInstallVariant = z.infer<typeof RuntimeInstallVariantSchema>;
+
+export const RuntimeInstallCommandSchema = z.object({
+  variant: RuntimeInstallVariantSchema,
+});
+export type RuntimeInstallCommand = z.infer<typeof RuntimeInstallCommandSchema>;

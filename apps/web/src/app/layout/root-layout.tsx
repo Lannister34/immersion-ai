@@ -2,7 +2,7 @@ import { Link, Outlet } from '@tanstack/react-router';
 
 const navItems = [
   { to: '/chat', label: 'Чаты' },
-  { to: '/server', label: 'Бэкенд' },
+  { to: '/server', label: 'API' },
 ] as const;
 
 export function RootLayout() {

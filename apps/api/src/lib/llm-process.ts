@@ -9,7 +9,7 @@ import { resolveDataRoot } from './data-root.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
 const PID_FILE_NAME = '.llm-server.json';
 
 type RuntimeLifecycleStatus = RuntimeStatusSnapshot['status'];
@@ -30,7 +30,7 @@ interface RuntimeBinaryLocation {
   runtimeRoot: string;
 }
 
-function resolveProjectRoots() {
+export function resolveRuntimeRoots() {
   const roots = [PROJECT_ROOT];
   const basename = path.basename(PROJECT_ROOT);
   const legacySiblingName = basename.endsWith('_engineering') ? basename.replace(/_engineering$/, '') : null;
@@ -46,8 +46,12 @@ function resolveProjectRoots() {
   return roots;
 }
 
+export function getPrimaryRuntimeRoot() {
+  return PROJECT_ROOT;
+}
+
 function findBinary(): RuntimeBinaryLocation | null {
-  for (const runtimeRoot of resolveProjectRoots()) {
+  for (const runtimeRoot of resolveRuntimeRoots()) {
     const searchPaths = [
       path.join(runtimeRoot, 'bin', 'llama-server.exe'),
       path.join(runtimeRoot, 'bin', 'llama-server'),

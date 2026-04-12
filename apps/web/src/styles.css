@@ -305,6 +305,12 @@ textarea {
   font-size: 0.9rem;
 }
 
+.field__hint {
+  color: rgba(158, 176, 194, 0.78);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .field__input {
   width: 100%;
   border: 1px solid var(--border);
@@ -509,6 +515,35 @@ textarea {
   word-break: break-word;
 }
 
+.install-panel {
+  align-items: center;
+  border: 1px solid rgba(255, 125, 136, 0.25);
+  background: rgba(255, 125, 136, 0.1);
+  border-radius: 18px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px) auto;
+  padding: 16px;
+}
+
+.install-panel__message {
+  display: grid;
+  gap: 4px;
+}
+
+.install-panel__message strong {
+  color: #ffd8dd;
+}
+
+.install-panel__message span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.install-panel__variant {
+  min-width: 0;
+}
+
 .runtime-settings {
   border: 1px solid var(--border);
   background: rgba(8, 16, 25, 0.5);
@@ -703,6 +738,11 @@ textarea {
   }
 
   .model-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .install-panel {
     align-items: stretch;
     grid-template-columns: 1fr;
   }

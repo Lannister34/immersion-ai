@@ -6,6 +6,7 @@ import { type RuntimeConfigCommand, RuntimeOverviewResponseSchema } from '@immer
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApiApp } from './app.js';
+import { selectRuntimeInstallPlan } from './modules/runtime/application/install-runtime.js';
 
 describe('runtime control routes', () => {
   let dataRoot = '';
@@ -111,5 +112,51 @@ describe('runtime control routes', () => {
     expect(overview.serverStatus.status).toBe('idle');
 
     await app.close();
+  });
+});
+
+describe('runtime installer planning', () => {
+  it('selects CPU release asset by latest release tag', () => {
+    const plan = selectRuntimeInstallPlan(
+      {
+        tag_name: 'b8766',
+        assets: [
+          {
+            name: 'llama-b8766-bin-win-cpu-x64.zip',
+            browser_download_url: 'https://example.test/cpu.zip',
+            size: 1,
+          },
+        ],
+      },
+      'cpu',
+    );
+
+    expect(plan.assets.map((asset) => asset.name)).toEqual(['llama-b8766-bin-win-cpu-x64.zip']);
+  });
+
+  it('selects CUDA runtime and cudart assets together', () => {
+    const plan = selectRuntimeInstallPlan(
+      {
+        tag_name: 'b8766',
+        assets: [
+          {
+            name: 'llama-b8766-bin-win-cuda-12.4-x64.zip',
+            browser_download_url: 'https://example.test/cuda.zip',
+            size: 1,
+          },
+          {
+            name: 'cudart-llama-bin-win-cuda-12.4-x64.zip',
+            browser_download_url: 'https://example.test/cudart.zip',
+            size: 1,
+          },
+        ],
+      },
+      'cuda-12.4',
+    );
+
+    expect(plan.assets.map((asset) => asset.name)).toEqual([
+      'llama-b8766-bin-win-cuda-12.4-x64.zip',
+      'cudart-llama-bin-win-cuda-12.4-x64.zip',
+    ]);
   });
 });

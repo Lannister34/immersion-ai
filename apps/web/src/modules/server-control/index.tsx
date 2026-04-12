@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { PlaceholderScreen } from '../../shared/ui/placeholder-screen';
 import { RouteStatusScreen } from '../../shared/ui/route-status-screen';
 import { getRuntimeOverview } from './api/get-runtime-overview';
+import { installRuntime } from './api/install-runtime';
 import { saveProviderSettings } from './api/save-provider-settings';
 import { saveRuntimeConfig } from './api/save-runtime-config';
 import { startRuntime } from './api/start-runtime';
@@ -61,15 +62,21 @@ export function ServerControlScreen() {
       queryClient.setQueryData(['runtime', 'overview'], overview);
     },
   });
+  const installRuntimeMutation = useMutation({
+    mutationFn: installRuntime,
+    onSuccess: (overview: RuntimeOverviewResponse) => {
+      queryClient.setQueryData(['runtime', 'overview'], overview);
+    },
+  });
 
   if (providerSettingsQuery.isLoading) {
-    return <PlaceholderScreen eyebrow="бэкенд" title="Загрузка настроек" description="Проверяем режим подключения." />;
+    return <PlaceholderScreen eyebrow="api" title="Загрузка настроек" description="Проверяем режим подключения." />;
   }
 
   if (providerSettingsQuery.isError || !providerSettingsQuery.data) {
     return (
       <RouteStatusScreen
-        eyebrow="бэкенд"
+        eyebrow="api"
         title="Не удалось загрузить настройки"
         description="Проверьте rewrite API и повторите попытку."
       />
@@ -103,15 +110,21 @@ export function ServerControlScreen() {
     await stopRuntimeMutation.mutateAsync();
   };
 
+  const handleRuntimeInstall = async (command: Parameters<typeof installRuntime>[0]) => {
+    await installRuntimeMutation.mutateAsync(command);
+  };
+
   let serverContent: ReactNode;
 
   if (activeMode === 'builtin' && runtimeOverviewQuery.data) {
     serverContent = (
       <RuntimeControlPanel
+        isInstalling={installRuntimeMutation.isPending}
         isSavingConfig={saveRuntimeConfigMutation.isPending}
         isStarting={startRuntimeMutation.isPending}
         isStopping={stopRuntimeMutation.isPending}
         key={JSON.stringify(runtimeOverviewQuery.data.serverConfig)}
+        onInstall={handleRuntimeInstall}
         onSaveConfig={handleRuntimeConfigSave}
         onStart={handleRuntimeStart}
         onStop={handleRuntimeStop}
@@ -144,7 +157,7 @@ export function ServerControlScreen() {
     <div className="stack">
       <section className="panel server-card">
         <div className="server-header">
-          <h1 className="panel__title">Бэкенд</h1>
+          <h1 className="panel__title">API</h1>
           <div aria-label="Режим backend" className="segmented" role="group">
             <button
               aria-pressed={activeMode === 'builtin'}
