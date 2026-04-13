@@ -1,11 +1,46 @@
-import { PlaceholderScreen } from '../../shared/ui/placeholder-screen';
+import { useState } from 'react';
 
-export function ChatComposerPanel() {
+interface ChatComposerPanelProps {
+  isSending: boolean;
+  onSend: (message: string) => Promise<void>;
+}
+
+export function ChatComposerPanel({ isSending, onSend }: ChatComposerPanelProps) {
+  const [message, setMessage] = useState('');
+  const trimmedMessage = message.trim();
+
   return (
-    <PlaceholderScreen
-      eyebrow="черновик"
-      title="Черновик и локальное состояние"
-      description="Этот модуль будет владеть только локальным состоянием ввода и UX отправки, без владения самим transcript."
-    />
+    <section className="panel composer-panel" aria-label="Композитор чата">
+      <form
+        className="composer-form"
+        onSubmit={async (event) => {
+          event.preventDefault();
+
+          if (trimmedMessage.length === 0 || isSending) {
+            return;
+          }
+
+          await onSend(trimmedMessage);
+          setMessage('');
+        }}
+      >
+        <label className="field">
+          <span className="field__label">Сообщение</span>
+          <textarea
+            className="field__input field__input--textarea composer-form__input"
+            disabled={isSending}
+            maxLength={20_000}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="Напишите сообщение для модели..."
+            value={message}
+          />
+        </label>
+        <div className="actions composer-form__actions">
+          <button className="action-button" disabled={isSending || trimmedMessage.length === 0} type="submit">
+            {isSending ? 'Генерация...' : 'Отправить'}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }

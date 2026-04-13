@@ -690,6 +690,24 @@ textarea {
   margin-bottom: 10px;
 }
 
+.composer-panel {
+  position: sticky;
+  bottom: 18px;
+}
+
+.composer-form {
+  display: grid;
+  gap: 14px;
+}
+
+.composer-form__input {
+  min-height: 124px;
+}
+
+.composer-form__actions {
+  justify-content: flex-end;
+}
+
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;

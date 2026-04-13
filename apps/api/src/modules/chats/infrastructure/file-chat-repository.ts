@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { resolveDataRoot } from '../../../lib/data-root.js';
 import type {
+  AppendChatMessageInput,
   ChatMessageRecord,
   ChatMessageRoleRecord,
   ChatSessionRecord,
@@ -89,6 +90,19 @@ function parseStoredHeader(line: string, filePath: string) {
   } satisfies StoredChatHeader;
 }
 
+function parseStoredHeaderRecord(line: string, filePath: string) {
+  const parsed = parseJsonRecord(line, filePath, 1);
+  if (!parsed) {
+    return null;
+  }
+
+  if (!('chat_metadata' in parsed) && !('user_name' in parsed) && !('character_name' in parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function parseStoredChatLine(line: string, filePath: string, lineNumber: number) {
   const parsed = parseJsonRecord(line, filePath, lineNumber);
   if (!parsed) {
@@ -115,6 +129,50 @@ function getMessageRole(line: StoredChatLine): ChatMessageRoleRecord {
   }
 
   return line.is_user ? 'user' : 'assistant';
+}
+
+function createStoredChatLine(message: AppendChatMessageInput): StoredChatLine {
+  if (message.role === 'system') {
+    return {
+      extra: {
+        type: 'system',
+      },
+      is_user: false,
+      mes: message.content,
+      send_date: message.createdAt,
+    };
+  }
+
+  return {
+    is_user: message.role === 'user',
+    mes: message.content,
+    send_date: message.createdAt,
+  };
+}
+
+function getRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function updateHeaderRecord(
+  existingHeader: Record<string, unknown> | null,
+  session: ChatSessionRecord,
+  updatedAt: string,
+) {
+  const header = existingHeader ?? {};
+  const metadata = getRecord(header.chat_metadata);
+
+  return {
+    ...header,
+    chat_metadata: {
+      ...metadata,
+      createdAt: getString(metadata.createdAt, session.chat.createdAt),
+      title: getString(metadata.title, session.chat.title),
+      updatedAt,
+    },
+    character_name: getString(header.character_name, session.characterName ?? ''),
+    user_name: getString(header.user_name, session.userName ?? ''),
+  } satisfies StoredChatHeader;
 }
 
 function getFallbackTitle(chatId: string, messages: ChatMessageRecord[]) {
@@ -192,6 +250,37 @@ async function readChatFile(chatId: string): Promise<ChatSessionRecord | null> {
 }
 
 export class FileChatRepository implements ChatRepository {
+  async appendGenericChatMessages(chatId: string, messages: AppendChatMessageInput[]) {
+    const currentSession = await readChatFile(chatId);
+
+    if (!currentSession) {
+      return null;
+    }
+
+    if (messages.length === 0) {
+      return currentSession;
+    }
+
+    const filePath = resolveChatFilePath(chatId);
+    const rawContent = await fs.readFile(filePath, 'utf8');
+    const lines = rawContent
+      .split(/\r?\n/u)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    const existingHeader = lines[0] ? parseStoredHeaderRecord(lines[0], filePath) : null;
+    const existingMessageLines = existingHeader ? lines.slice(1) : lines;
+    const updatedAt = messages[messages.length - 1]!.createdAt;
+    const nextLines = [
+      JSON.stringify(updateHeaderRecord(existingHeader, currentSession, updatedAt)),
+      ...existingMessageLines,
+      ...messages.map((message) => JSON.stringify(createStoredChatLine(message))),
+    ];
+
+    await fs.writeFile(filePath, `${nextLines.join('\n')}\n`, 'utf8');
+
+    return readChatFile(chatId);
+  }
+
   async createGenericChat(input: CreateGenericChatInput): Promise<ChatSummaryRecord> {
     const header: StoredChatHeader = {
       chat_metadata: {

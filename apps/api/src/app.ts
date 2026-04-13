@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 
 import { buildApiLogger } from './lib/logger.js';
 import { chatsRoutes } from './modules/chats/interface/http/routes.js';
+import { generationRoutes } from './modules/generation/interface/http/routes.js';
 import { providersRoutes } from './modules/providers/interface/http/routes.js';
 import { runtimeRoutes } from './modules/runtime/interface/http/routes.js';
 import { settingsRoutes } from './modules/settings/interface/http/routes.js';
@@ -20,6 +21,7 @@ export function buildApiApp() {
   app.register(rootRoute);
   app.register(healthRoute, { prefix: '/health' });
   app.register(chatsRoutes, { prefix: '/api/chats' });
+  app.register(generationRoutes, { prefix: '/api/generation' });
   app.register(settingsRoutes, { prefix: '/api/settings' });
   app.register(providersRoutes, { prefix: '/api/providers' });
   app.register(runtimeRoutes, { prefix: '/api/runtime' });

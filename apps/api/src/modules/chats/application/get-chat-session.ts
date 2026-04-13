@@ -1,7 +1,7 @@
-import { type GetChatSessionResponse, GetChatSessionResponseSchema } from '@immersion/contracts/chats';
+import type { GetChatSessionResponse } from '@immersion/contracts/chats';
 
 import { FileChatRepository } from '../infrastructure/file-chat-repository.js';
-import { getDefaultUserName } from './default-user-name.js';
+import { toChatSessionResponse } from './chat-session-response.js';
 
 export async function getChatSession(chatId: string): Promise<GetChatSessionResponse | null> {
   const chatRepository = new FileChatRepository();
@@ -10,8 +10,5 @@ export async function getChatSession(chatId: string): Promise<GetChatSessionResp
     return null;
   }
 
-  return GetChatSessionResponseSchema.parse({
-    ...session,
-    userName: session.userName ?? getDefaultUserName(),
-  });
+  return toChatSessionResponse(session);
 }

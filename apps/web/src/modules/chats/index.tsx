@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-
 import { PlaceholderScreen } from '../../shared/ui/placeholder-screen';
 import { RouteStatusScreen } from '../../shared/ui/route-status-screen';
+import { ChatComposerPanel } from '../chat-composer';
+import { generateChatReply } from '../generation/api/generate-chat-reply';
 import { createChat } from './api/create-chat';
 import { ChatCreatePanel } from './components/chat-create-panel';
 import { ChatListPanel } from './components/chat-list-panel';
 import { ChatSessionPanel } from './components/chat-session-panel';
 import { chatListQueryKey, chatListQueryOptions } from './queries/chat-list-query';
-import { chatSessionQueryOptions } from './queries/chat-session-query';
+import { chatSessionQueryKey, chatSessionQueryOptions } from './queries/chat-session-query';
 
 interface ChatSessionScreenProps {
   chatId: string;
@@ -68,7 +69,27 @@ export function ChatListScreen() {
 }
 
 export function ChatSessionScreen({ chatId }: ChatSessionScreenProps) {
+  const queryClient = useQueryClient();
   const chatSessionQuery = useQuery(chatSessionQueryOptions(chatId));
+  const generateMutation = useMutation({
+    mutationFn: generateChatReply,
+    onError: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: chatListQueryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: chatSessionQueryKey(chatId),
+        }),
+      ]);
+    },
+    onSuccess: async (response) => {
+      queryClient.setQueryData(chatSessionQueryKey(chatId), response.session);
+      await queryClient.invalidateQueries({
+        queryKey: chatListQueryKey,
+      });
+    },
+  });
 
   if (chatSessionQuery.isLoading) {
     return (
@@ -86,5 +107,23 @@ export function ChatSessionScreen({ chatId }: ChatSessionScreenProps) {
     );
   }
 
-  return <ChatSessionPanel session={chatSessionQuery.data} />;
+  return (
+    <div className="stack">
+      <ChatSessionPanel session={chatSessionQuery.data} />
+      {generateMutation.isError ? (
+        <div className="note note--danger">
+          Не удалось получить ответ модели. Проверьте, что локальный сервер запущен.
+        </div>
+      ) : null}
+      <ChatComposerPanel
+        isSending={generateMutation.isPending}
+        onSend={async (message) => {
+          await generateMutation.mutateAsync({
+            chatId,
+            message,
+          });
+        }}
+      />
+    </div>
+  );
 }
