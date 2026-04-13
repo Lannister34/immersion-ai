@@ -96,7 +96,15 @@ describe('generation routes', () => {
   }
 
   function mockProviderFailure() {
+    const requests: ProviderRequestRecord[] = [];
+
     globalThis.fetch = vi.fn(async () => {
+      requests.push({
+        authorization: null,
+        body: null,
+        url: 'mock-provider-failure',
+      });
+
       return new Response(JSON.stringify({ error: 'provider failed' }), {
         headers: {
           'Content-Type': 'application/json',
@@ -104,6 +112,8 @@ describe('generation routes', () => {
         status: 500,
       });
     }) as typeof fetch;
+
+    return requests;
   }
 
   async function createChat(app: ReturnType<typeof buildApiApp>) {
@@ -153,7 +163,7 @@ describe('generation routes', () => {
     );
   }
 
-  it('appends the user message, calls the active provider, and persists the assistant reply', async () => {
+  it('calls the active provider and persists the user message with the assistant reply', async () => {
     const providerRequests = mockProviderSuccess('Assistant reply from provider.');
     const app = buildApiApp();
     const chat = await createChat(app);
@@ -185,6 +195,12 @@ describe('generation routes', () => {
     });
     expect(providerRequests[0]?.body).toMatchObject({
       max_tokens: 512,
+      messages: expect.arrayContaining([
+        {
+          role: 'user',
+          content: 'Hello model.',
+        },
+      ]),
       model: 'local-model',
       stream: false,
     });
@@ -200,8 +216,8 @@ describe('generation routes', () => {
     await app.close();
   });
 
-  it('keeps the user message when the provider fails after append', async () => {
-    mockProviderFailure();
+  it('does not mutate the chat transcript when the provider fails', async () => {
+    const providerRequests = mockProviderFailure();
     const app = buildApiApp();
     const chat = await createChat(app);
     const response = await app.inject({
@@ -217,6 +233,7 @@ describe('generation routes', () => {
     expect(response.json()).toMatchObject({
       code: 'provider_generation_failed',
     });
+    expect(providerRequests).toHaveLength(1);
 
     const sessionResponse = await app.inject({
       method: 'GET',
@@ -224,12 +241,7 @@ describe('generation routes', () => {
     });
     const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
 
-    expect(getMessagesByRole(sessionPayload.messages)).toEqual([
-      {
-        role: 'user',
-        content: 'Persist this before provider failure.',
-      },
-    ]);
+    expect(getMessagesByRole(sessionPayload.messages)).toEqual([]);
 
     await app.close();
   });

@@ -1,10 +1,12 @@
+import type { ChatSessionDto } from '@immersion/contracts/chats';
 import {
   type ChatReplyGenerationResponse,
   ChatReplyGenerationResponseSchema,
   StartChatReplyGenerationCommandSchema,
 } from '@immersion/contracts/generation';
 
-import { appendChatMessages } from '../../chats/application/append-chat-messages.js';
+import { appendChatMessages, ChatNotFoundError } from '../../chats/application/append-chat-messages.js';
+import { getChatSession } from '../../chats/application/get-chat-session.js';
 import { buildChatReplyPrompt } from '../../prompting/application/build-chat-reply-prompt.js';
 import { getSettingsOverview } from '../../settings/application/get-settings-overview.js';
 import { OpenAiCompatibleChatCompletionsClient } from '../infrastructure/openai-compatible-chat-completions-client.js';
@@ -15,6 +17,21 @@ export interface GenerateChatReplyDependencies {
   now?: () => Date;
 }
 
+function withTransientUserMessage(session: ChatSessionDto, content: string, createdAt: string): ChatSessionDto {
+  return {
+    ...session,
+    messages: [
+      ...session.messages,
+      {
+        id: `${session.chat.id}:pending-user`,
+        role: 'user',
+        content,
+        createdAt,
+      },
+    ],
+  };
+}
+
 export async function generateChatReply(
   input: unknown,
   dependencies: GenerateChatReplyDependencies = {},
@@ -22,16 +39,15 @@ export async function generateChatReply(
   const command = StartChatReplyGenerationCommandSchema.parse(input);
   const now = dependencies.now ?? (() => new Date());
   const userMessageCreatedAt = now().toISOString();
-  const sessionAfterUserMessage = await appendChatMessages(command.chatId, [
-    {
-      role: 'user',
-      content: command.message,
-      createdAt: userMessageCreatedAt,
-    },
-  ]);
+  const session = await getChatSession(command.chatId);
+
+  if (!session) {
+    throw new ChatNotFoundError(command.chatId);
+  }
+
   const settings = getSettingsOverview();
   const promptMessages = buildChatReplyPrompt({
-    session: sessionAfterUserMessage,
+    session: withTransientUserMessage(session, command.message, userMessageCreatedAt),
     settings,
   });
   const chatCompletionClient = dependencies.chatCompletionClient ?? new OpenAiCompatibleChatCompletionsClient();
@@ -39,7 +55,12 @@ export async function generateChatReply(
     maxTokens: 512,
     messages: promptMessages,
   });
-  const sessionAfterAssistantReply = await appendChatMessages(command.chatId, [
+  const sessionAfterGeneratedExchange = await appendChatMessages(command.chatId, [
+    {
+      role: 'user',
+      content: command.message,
+      createdAt: userMessageCreatedAt,
+    },
     {
       role: 'assistant',
       content: completion.content,
@@ -48,6 +69,6 @@ export async function generateChatReply(
   ]);
 
   return ChatReplyGenerationResponseSchema.parse({
-    session: sessionAfterAssistantReply,
+    session: sessionAfterGeneratedExchange,
   });
 }
