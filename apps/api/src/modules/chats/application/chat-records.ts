@@ -30,3 +30,9 @@ export interface CreateGenericChatInput {
   title: string;
   userName: string;
 }
+
+export interface AppendChatMessageInput {
+  content: string;
+  createdAt: string;
+  role: ChatMessageRoleRecord;
+}

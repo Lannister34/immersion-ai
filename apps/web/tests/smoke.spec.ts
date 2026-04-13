@@ -132,6 +132,46 @@ test('shows a route-level not-found screen for unknown paths', async ({ page }) 
 });
 
 test('creates a chat, opens it, and restores it after reload', async ({ page }) => {
+  await page.route('**/api/generation/chat-reply', async (route) => {
+    const body = route.request().postDataJSON() as {
+      chatId: string;
+      message: string;
+    };
+    const createdAt = new Date().toISOString();
+
+    await route.fulfill({
+      json: {
+        session: {
+          chat: {
+            id: body.chatId,
+            title: 'Smoke MVP chat',
+            createdAt,
+            updatedAt: createdAt,
+            messageCount: 2,
+            lastMessagePreview: 'Smoke assistant reply',
+            characterName: null,
+          },
+          userName: 'Tester',
+          characterName: null,
+          messages: [
+            {
+              id: `${body.chatId}:1`,
+              role: 'user',
+              content: body.message,
+              createdAt,
+            },
+            {
+              id: `${body.chatId}:2`,
+              role: 'assistant',
+              content: 'Smoke assistant reply',
+              createdAt,
+            },
+          ],
+        },
+      },
+    });
+  });
+
   await page.goto('/chat');
 
   await expect(page.getByRole('heading', { name: 'Создать чат' })).toBeVisible();
@@ -144,6 +184,11 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Smoke MVP chat' })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Сообщение' }).fill('Smoke user message');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+
+  await expect(page.getByText('Smoke user message')).toBeVisible();
+  await expect(page.getByText('Smoke assistant reply')).toBeVisible();
 
   await page.goto('/chat');
   await expect(page.getByRole('link', { name: /Smoke MVP chat/i })).toBeVisible();
