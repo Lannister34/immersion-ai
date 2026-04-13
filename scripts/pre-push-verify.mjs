@@ -71,12 +71,18 @@ function capture(command, args) {
 }
 
 function resolveBaseRef() {
+  const currentBranch = capture('git', ['branch', '--show-current']);
+  const originDev = capture('git', ['rev-parse', '--verify', 'origin/dev']);
+
+  if (originDev && currentBranch && currentBranch !== 'dev') {
+    return 'origin/dev';
+  }
+
   const upstream = capture('git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']);
   if (upstream) {
     return upstream;
   }
 
-  const originDev = capture('git', ['rev-parse', '--verify', 'origin/dev']);
   if (originDev) {
     return 'origin/dev';
   }
