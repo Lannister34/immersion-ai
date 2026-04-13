@@ -45,8 +45,9 @@ export interface StoredUserSettingsRecord extends Record<string, unknown> {
 export function createDefaultProviderSettings(): UpdateProviderSettingsCommand {
   return {
     mode: 'builtin',
-    activeProvider: 'koboldcpp',
+    activeProvider: 'custom',
     providerConfigs: {
+      custom: defaultProviderConfig,
       koboldcpp: defaultProviderConfig,
     },
   };
@@ -67,7 +68,7 @@ function migrateLegacyConnectionPresets(
     return null;
   }
 
-  const activeProvider = activePreset.provider ?? 'koboldcpp';
+  const activeProvider = activePreset.provider ?? 'custom';
 
   return {
     activeProvider,

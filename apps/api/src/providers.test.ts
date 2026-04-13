@@ -84,10 +84,10 @@ describe('provider settings routes', () => {
 
     const command: UpdateProviderSettingsCommand = {
       mode: 'builtin',
-      activeProvider: 'koboldcpp',
+      activeProvider: 'custom',
       providerConfigs: {
-        koboldcpp: {
-          url: 'http://127.0.0.1:5001',
+        custom: {
+          url: 'http://127.0.0.1:6001',
         },
       },
     };
@@ -102,10 +102,10 @@ describe('provider settings routes', () => {
     expect(response.statusCode).toBe(200);
     expect(ProviderSettingsSnapshotSchema.parse(response.json())).toMatchObject({
       mode: 'builtin',
-      activeProvider: 'koboldcpp',
+      activeProvider: 'custom',
       providerConfigs: {
-        koboldcpp: {
-          url: 'http://127.0.0.1:5001',
+        custom: {
+          url: 'http://127.0.0.1:6001',
         },
       },
     });
@@ -117,10 +117,10 @@ describe('provider settings routes', () => {
 
     expect(stored.userName).toBe('Misha');
     expect(stored.backendMode).toBe('builtin');
-    expect(stored.activeProvider).toBe('koboldcpp');
+    expect(stored.activeProvider).toBe('custom');
     expect(stored.providerConfigs).toMatchObject({
-      koboldcpp: {
-        url: 'http://127.0.0.1:5001',
+      custom: {
+        url: 'http://127.0.0.1:6001',
       },
     });
 

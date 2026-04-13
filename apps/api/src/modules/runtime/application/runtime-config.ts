@@ -1,0 +1,22 @@
+import { type RuntimeConfigCommand, RuntimeConfigCommandSchema } from '@immersion/contracts/runtime';
+
+import { getEngineInfo, getState } from '../../../lib/llm-process.js';
+
+export function normalizeRuntimeConfig(raw: unknown): RuntimeConfigCommand {
+  const configSource = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const engine = getEngineInfo();
+  const state = getState();
+  const modelsDirs =
+    Array.isArray(configSource.modelsDirs) && configSource.modelsDirs.length > 0
+      ? configSource.modelsDirs.filter((value): value is string => typeof value === 'string')
+      : [engine.defaultModelsDir];
+
+  return RuntimeConfigCommandSchema.parse({
+    modelsDirs,
+    port: typeof configSource.port === 'number' ? configSource.port : state.port,
+    gpuLayers: typeof configSource.gpuLayers === 'number' ? configSource.gpuLayers : 0,
+    contextSize: typeof configSource.contextSize === 'number' ? configSource.contextSize : 8192,
+    flashAttention: typeof configSource.flashAttention === 'boolean' ? configSource.flashAttention : false,
+    threads: typeof configSource.threads === 'number' ? configSource.threads : 0,
+  });
+}

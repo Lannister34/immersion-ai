@@ -1,6 +1,8 @@
 import { buildApiApp } from './app.js';
+import { setupGracefulShutdown } from './lib/llm-process.js';
 
 const app = buildApiApp();
+setupGracefulShutdown();
 
 async function startServer() {
   try {
