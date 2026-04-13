@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -14,6 +15,7 @@ import type { ChatRepository } from '../application/chat-repository.js';
 
 // MVP scope: rewrite chats are generic-only until the character-backed slice lands.
 const GENERIC_CHAT_DIRECTORY = '_no_character_';
+const chatWriteQueues = new Map<string, Promise<unknown>>();
 const DEFAULT_CHAT_TITLE_PREFIX = 'Новый чат';
 
 interface StoredChatMetadata {
@@ -45,6 +47,36 @@ function resolveChatsDirectory() {
 
 function resolveChatFilePath(chatId: string) {
   return path.join(resolveChatsDirectory(), `${chatId}.jsonl`);
+}
+
+async function withChatWriteQueue<T>(chatId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = chatWriteQueues.get(chatId) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(operation);
+
+  chatWriteQueues.set(chatId, next);
+
+  try {
+    return await next;
+  } finally {
+    if (chatWriteQueues.get(chatId) === next) {
+      chatWriteQueues.delete(chatId);
+    }
+  }
+}
+
+async function writeChatFileAtomically(filePath: string, content: string) {
+  const temporaryPath = path.join(
+    path.dirname(filePath),
+    `.${path.basename(filePath)}.${process.pid}.${randomUUID()}.tmp`,
+  );
+
+  try {
+    await fs.writeFile(temporaryPath, content, 'utf8');
+    await fs.rename(temporaryPath, filePath);
+  } catch (error) {
+    await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+    throw error;
+  }
 }
 
 function parseJsonRecord(line: string, filePath: string, lineNumber: number) {
@@ -251,34 +283,36 @@ async function readChatFile(chatId: string): Promise<ChatSessionRecord | null> {
 
 export class FileChatRepository implements ChatRepository {
   async appendGenericChatMessages(chatId: string, messages: AppendChatMessageInput[]) {
-    const currentSession = await readChatFile(chatId);
+    return withChatWriteQueue(chatId, async () => {
+      const currentSession = await readChatFile(chatId);
 
-    if (!currentSession) {
-      return null;
-    }
+      if (!currentSession) {
+        return null;
+      }
 
-    if (messages.length === 0) {
-      return currentSession;
-    }
+      if (messages.length === 0) {
+        return currentSession;
+      }
 
-    const filePath = resolveChatFilePath(chatId);
-    const rawContent = await fs.readFile(filePath, 'utf8');
-    const lines = rawContent
-      .split(/\r?\n/u)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    const existingHeader = lines[0] ? parseStoredHeaderRecord(lines[0], filePath) : null;
-    const existingMessageLines = existingHeader ? lines.slice(1) : lines;
-    const updatedAt = messages[messages.length - 1]!.createdAt;
-    const nextLines = [
-      JSON.stringify(updateHeaderRecord(existingHeader, currentSession, updatedAt)),
-      ...existingMessageLines,
-      ...messages.map((message) => JSON.stringify(createStoredChatLine(message))),
-    ];
+      const filePath = resolveChatFilePath(chatId);
+      const rawContent = await fs.readFile(filePath, 'utf8');
+      const lines = rawContent
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      const existingHeader = lines[0] ? parseStoredHeaderRecord(lines[0], filePath) : null;
+      const existingMessageLines = existingHeader ? lines.slice(1) : lines;
+      const updatedAt = messages[messages.length - 1]!.createdAt;
+      const nextLines = [
+        JSON.stringify(updateHeaderRecord(existingHeader, currentSession, updatedAt)),
+        ...existingMessageLines,
+        ...messages.map((message) => JSON.stringify(createStoredChatLine(message))),
+      ];
 
-    await fs.writeFile(filePath, `${nextLines.join('\n')}\n`, 'utf8');
+      await writeChatFileAtomically(filePath, `${nextLines.join('\n')}\n`);
 
-    return readChatFile(chatId);
+      return readChatFile(chatId);
+    });
   }
 
   async createGenericChat(input: CreateGenericChatInput): Promise<ChatSummaryRecord> {
