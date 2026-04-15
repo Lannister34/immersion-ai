@@ -1,8 +1,8 @@
 import { Link, Outlet } from '@tanstack/react-router';
 
 const navItems = [
-  { to: '/chat', label: 'Чаты' },
-  { to: '/server', label: 'API' },
+  { to: '/chat', label: 'Чаты', marker: '●' },
+  { to: '/server', label: 'API', marker: '◆' },
 ] as const;
 
 export function RootLayout() {
@@ -12,13 +12,13 @@ export function RootLayout() {
         <div className="shell__header">
           <div className="shell__brand">
             <strong>Immersion AI</strong>
-            <span>Чаты и подключение к LLM</span>
           </div>
         </div>
 
         <nav className="shell__nav">
           {navItems.map((item) => (
             <Link key={item.to} activeProps={{ 'data-status': 'active' }} className="shell__link" to={item.to}>
+              <span aria-hidden="true">{item.marker}</span>
               {item.label}
             </Link>
           ))}
