@@ -8,7 +8,7 @@ import {
   CreateChatResponseSchema,
   GetChatSessionResponseSchema,
 } from '@immersion/contracts/chats';
-import { ChatReplyGenerationResponseSchema } from '@immersion/contracts/generation';
+import { ChatReplyGenerationResponseSchema, GenerationReadinessResponseSchema } from '@immersion/contracts/generation';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildApiApp } from './app.js';
@@ -162,6 +162,126 @@ describe('generation routes', () => {
       'utf8',
     );
   }
+
+  async function writeProviderSettings(patch: SmokeUserSettingsFixture) {
+    const settingsPath = path.join(temporaryDataRoot, 'user-settings.json');
+    const settings = JSON.parse(await fs.readFile(settingsPath, 'utf8')) as SmokeUserSettingsFixture;
+
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify(
+        {
+          ...settings,
+          ...patch,
+          providerConfigs: {
+            ...settings.providerConfigs,
+            ...patch.providerConfigs,
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  }
+
+  it('reports generation readiness for a configured external provider', async () => {
+    const app = buildApiApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/generation/readiness',
+    });
+    const payload = GenerationReadinessResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(200);
+    expect(payload).toMatchObject({
+      activeProvider: 'custom',
+      issue: null,
+      mode: 'external',
+      runtime: null,
+      status: 'ready',
+    });
+
+    await app.close();
+  });
+
+  it('blocks generation readiness when the external provider URL is missing', async () => {
+    await writeProviderSettings({
+      activeProvider: 'custom',
+      backendMode: 'external',
+      providerConfigs: {
+        custom: {
+          url: '   ',
+        },
+      },
+    });
+    const app = buildApiApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/generation/readiness',
+    });
+    const payload = GenerationReadinessResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(200);
+    expect(payload).toMatchObject({
+      issue: {
+        code: 'external_provider_url_missing',
+      },
+      mode: 'external',
+      status: 'blocked',
+    });
+
+    await app.close();
+  });
+
+  it('blocks generation readiness when the external provider URL is invalid', async () => {
+    await writeProviderSettings({
+      activeProvider: 'custom',
+      backendMode: 'external',
+      providerConfigs: {
+        custom: {
+          url: 'not-a-url',
+        },
+      },
+    });
+    const app = buildApiApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/generation/readiness',
+    });
+    const payload = GenerationReadinessResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(200);
+    expect(payload).toMatchObject({
+      issue: {
+        code: 'external_provider_url_invalid',
+      },
+      mode: 'external',
+      status: 'blocked',
+    });
+
+    await app.close();
+  });
+
+  it('blocks generation readiness when builtin runtime is not running', async () => {
+    await writeProviderSettings({
+      backendMode: 'builtin',
+    });
+    const app = buildApiApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/generation/readiness',
+    });
+    const payload = GenerationReadinessResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(200);
+    expect(payload.mode).toBe('builtin');
+    expect(payload.status).toBe('blocked');
+    expect(payload.issue?.code).toMatch(/^builtin_/u);
+    expect(payload.runtime).not.toBeNull();
+
+    await app.close();
+  });
 
   it('calls the active provider and persists the user message with the assistant reply', async () => {
     const providerRequests = mockProviderSuccess('Assistant reply from provider.');

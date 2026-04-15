@@ -6,6 +6,7 @@ import { ChatNotFoundError } from '../../../chats/application/append-chat-messag
 import { GenerationProviderUnavailableError } from '../../../providers/application/generation-provider.js';
 import { generateChatReply } from '../../application/generate-chat-reply.js';
 import { ProviderGenerationError } from '../../application/generation-errors.js';
+import { getGenerationReadiness } from '../../application/get-generation-readiness.js';
 
 function toProblem(error: unknown) {
   if (error instanceof ZodError) {
@@ -58,6 +59,8 @@ function toProblem(error: unknown) {
 }
 
 export const generationRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/readiness', async () => getGenerationReadiness());
+
   app.post('/chat-reply', async (request, reply) => {
     try {
       return await generateChatReply(request.body);
