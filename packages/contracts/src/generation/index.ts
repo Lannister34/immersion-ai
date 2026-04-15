@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { ChatIdSchema, ChatSessionDtoSchema } from '../chats/index.js';
+import { ApiProblemSchema } from '../common/index.js';
 import { ProviderModeSchema, ProviderTypeSchema } from '../providers/settings.js';
 import { RuntimeServerStatusSchema } from '../runtime/overview.js';
 
@@ -51,3 +52,8 @@ export const ChatReplyGenerationResponseSchema = z.object({
   session: ChatSessionDtoSchema,
 });
 export type ChatReplyGenerationResponse = z.infer<typeof ChatReplyGenerationResponseSchema>;
+
+export const ChatReplyGenerationErrorResponseSchema = ApiProblemSchema.extend({
+  session: ChatSessionDtoSchema,
+});
+export type ChatReplyGenerationErrorResponse = z.infer<typeof ChatReplyGenerationErrorResponseSchema>;

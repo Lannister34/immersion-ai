@@ -1,11 +1,12 @@
 import { ApiProblemSchema } from '@immersion/contracts/common';
+import { ChatReplyGenerationErrorResponseSchema } from '@immersion/contracts/generation';
 import type { FastifyPluginAsync } from 'fastify';
 import { ZodError } from 'zod';
 
 import { ChatNotFoundError } from '../../../chats/application/append-chat-messages.js';
 import { GenerationProviderUnavailableError } from '../../../providers/application/generation-provider.js';
 import { generateChatReply } from '../../application/generate-chat-reply.js';
-import { ProviderGenerationError } from '../../application/generation-errors.js';
+import { ChatReplyGenerationFailedError, ProviderGenerationError } from '../../application/generation-errors.js';
 import { getGenerationReadiness } from '../../application/get-generation-readiness.js';
 
 function toProblem(error: unknown) {
@@ -35,6 +36,17 @@ function toProblem(error: unknown) {
       body: ApiProblemSchema.parse({
         code: 'generation_provider_unavailable',
         message: error.message,
+      }),
+    };
+  }
+
+  if (error instanceof ChatReplyGenerationFailedError) {
+    return {
+      statusCode: error.statusCode,
+      body: ChatReplyGenerationErrorResponseSchema.parse({
+        code: error.code,
+        message: error.message,
+        session: error.session,
       }),
     };
   }

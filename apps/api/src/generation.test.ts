@@ -8,7 +8,11 @@ import {
   CreateChatResponseSchema,
   GetChatSessionResponseSchema,
 } from '@immersion/contracts/chats';
-import { ChatReplyGenerationResponseSchema, GenerationReadinessResponseSchema } from '@immersion/contracts/generation';
+import {
+  ChatReplyGenerationErrorResponseSchema,
+  ChatReplyGenerationResponseSchema,
+  GenerationReadinessResponseSchema,
+} from '@immersion/contracts/generation';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildApiApp } from './app.js';
@@ -19,6 +23,15 @@ interface ProviderRequestRecord {
   authorization: string | null;
   body: unknown;
   url: string;
+}
+
+interface ProviderRequestMessageRecord {
+  content?: string;
+  role?: string;
+}
+
+interface ProviderRequestBodyRecord {
+  messages?: ProviderRequestMessageRecord[];
 }
 
 interface SmokeUserSettingsFixture {
@@ -133,6 +146,14 @@ describe('generation routes', () => {
       content: message.content,
       role: message.role,
     }));
+  }
+
+  function getProviderRequestBody(request: ProviderRequestRecord | undefined): ProviderRequestBodyRecord {
+    if (!request?.body || typeof request.body !== 'object' || Array.isArray(request.body)) {
+      throw new Error('Provider request body was not recorded.');
+    }
+
+    return request.body as ProviderRequestBodyRecord;
   }
 
   async function writeExternalProviderSettings(url: string) {
@@ -324,6 +345,11 @@ describe('generation routes', () => {
       model: 'local-model',
       stream: false,
     });
+    const requestBody = getProviderRequestBody(providerRequests[0]);
+    const submittedMessages =
+      requestBody.messages?.filter((message) => message.role === 'user' && message.content === 'Hello model.') ?? [];
+
+    expect(submittedMessages).toHaveLength(1);
 
     const sessionResponse = await app.inject({
       method: 'GET',
@@ -336,7 +362,7 @@ describe('generation routes', () => {
     await app.close();
   });
 
-  it('does not mutate the chat transcript when the provider fails', async () => {
+  it('persists the user message without an assistant reply when the provider fails', async () => {
     const providerRequests = mockProviderFailure();
     const app = buildApiApp();
     const chat = await createChat(app);
@@ -348,10 +374,19 @@ describe('generation routes', () => {
         message: 'Persist this before provider failure.',
       },
     });
+    const errorPayload = ChatReplyGenerationErrorResponseSchema.parse(response.json());
 
     expect(response.statusCode).toBe(502);
-    expect(response.json()).toMatchObject({
+    expect(errorPayload).toMatchObject({
       code: 'provider_generation_failed',
+      session: {
+        messages: [
+          {
+            role: 'user',
+            content: 'Persist this before provider failure.',
+          },
+        ],
+      },
     });
     expect(providerRequests).toHaveLength(1);
 
@@ -361,7 +396,59 @@ describe('generation routes', () => {
     });
     const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
 
-    expect(getMessagesByRole(sessionPayload.messages)).toEqual([]);
+    expect(getMessagesByRole(sessionPayload.messages)).toEqual([
+      {
+        role: 'user',
+        content: 'Persist this before provider failure.',
+      },
+    ]);
+
+    await app.close();
+  });
+
+  it('persists the user message when provider endpoint resolution is unavailable', async () => {
+    await writeProviderSettings({
+      backendMode: 'builtin',
+    });
+    const providerRequests = mockProviderSuccess('Should not be called.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Keep this while provider is offline.',
+      },
+    });
+    const errorPayload = ChatReplyGenerationErrorResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(409);
+    expect(errorPayload).toMatchObject({
+      code: 'generation_provider_unavailable',
+      session: {
+        messages: [
+          {
+            role: 'user',
+            content: 'Keep this while provider is offline.',
+          },
+        ],
+      },
+    });
+    expect(providerRequests).toHaveLength(0);
+
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: `/api/chats/${chat.id}`,
+    });
+    const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
+
+    expect(getMessagesByRole(sessionPayload.messages)).toEqual([
+      {
+        role: 'user',
+        content: 'Keep this while provider is offline.',
+      },
+    ]);
 
     await app.close();
   });
