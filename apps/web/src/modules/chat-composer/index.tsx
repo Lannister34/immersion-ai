@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 interface ChatComposerPanelProps {
-  disabledMessage: string | undefined;
-  isDisabled: boolean;
   isSending: boolean;
   onSend: (message: string) => Promise<void>;
+  sendBlockReason: string | undefined;
 }
 
-export function ChatComposerPanel({ disabledMessage, isDisabled, isSending, onSend }: ChatComposerPanelProps) {
+export function ChatComposerPanel({ isSending, onSend, sendBlockReason }: ChatComposerPanelProps) {
+  const blockReasonId = useId();
   const [message, setMessage] = useState('');
   const trimmedMessage = message.trim();
-  const isComposerDisabled = isSending || isDisabled;
+  const isSendBlocked = sendBlockReason !== undefined;
+  const isSubmitDisabled = isSending || isSendBlocked || trimmedMessage.length === 0;
+  const sendButtonTitle = !isSending && isSendBlocked ? sendBlockReason : undefined;
 
   return (
     <section className="panel composer-panel" aria-label="Композитор чата">
@@ -19,7 +21,7 @@ export function ChatComposerPanel({ disabledMessage, isDisabled, isSending, onSe
         onSubmit={async (event) => {
           event.preventDefault();
 
-          if (trimmedMessage.length === 0 || isComposerDisabled) {
+          if (isSubmitDisabled) {
             return;
           }
 
@@ -31,18 +33,30 @@ export function ChatComposerPanel({ disabledMessage, isDisabled, isSending, onSe
           <span className="field__label sr-only">Сообщение</span>
           <textarea
             className="field__input field__input--textarea composer-form__input"
-            disabled={isComposerDisabled}
+            disabled={isSending}
             maxLength={20_000}
             onChange={(event) => setMessage(event.target.value)}
             placeholder="Напишите сообщение для модели..."
             value={message}
           />
         </label>
-        {disabledMessage && !isSending ? <p className="composer-form__status">{disabledMessage}</p> : null}
         <div className="actions composer-form__actions">
-          <button className="action-button" disabled={isComposerDisabled || trimmedMessage.length === 0} type="submit">
-            {isSending ? 'Генерация...' : 'Отправить'}
-          </button>
+          {sendBlockReason ? (
+            <span className="sr-only" id={blockReasonId}>
+              {sendBlockReason}
+            </span>
+          ) : null}
+          <span className="composer-form__send-control" title={sendButtonTitle}>
+            <button
+              aria-describedby={sendBlockReason ? blockReasonId : undefined}
+              className="action-button"
+              disabled={isSubmitDisabled}
+              title={sendButtonTitle}
+              type="submit"
+            >
+              {isSending ? 'Генерация...' : 'Отправить'}
+            </button>
+          </span>
         </div>
       </form>
     </section>

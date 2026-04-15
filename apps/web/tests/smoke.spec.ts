@@ -233,9 +233,15 @@ test('blocks chat sending when generation readiness is blocked', async ({ page }
 
   await expect(page).toHaveURL(/\/chat\/[A-Za-z0-9_-]+$/);
   await expect(page.getByRole('heading', { name: 'Blocked generation chat' })).toBeVisible();
-  await expect(page.getByText('Встроенный сервер не запущен. Запустите модель на странице API.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Открыть API' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Сообщение' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Отправить' })).toBeDisabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Открыть API' })).toHaveCount(0);
+
+  const messageInput = page.getByRole('textbox', { name: 'Сообщение' });
+  await expect(messageInput).toBeEnabled();
+  await messageInput.fill('Сообщение можно подготовить до запуска модели');
+
+  const sendButton = page.getByRole('button', { name: 'Отправить' });
+  await expect(sendButton).toBeDisabled();
+  await expect(sendButton).toHaveAttribute('title', 'Встроенный сервер не запущен. Запустите модель на странице API.');
   expect(generationRequestCount).toBe(0);
 });
