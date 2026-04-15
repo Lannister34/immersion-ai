@@ -15,6 +15,7 @@ module.exports = {
       env: {
         NODE_ENV: 'development',
         IMMERSION_API_PORT: 4787,
+        IMMERSION_WEB_PORT: 4788,
         IMMERSION_DATA_ROOT: 'D:\\Neuro\\Immersion AI\\data',
       },
     },
