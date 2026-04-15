@@ -193,3 +193,49 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
   await page.goto('/chat');
   await expect(page.getByRole('link', { name: /Smoke MVP chat/i })).toBeVisible();
 });
+
+test('blocks chat sending when generation readiness is blocked', async ({ page }) => {
+  let generationRequestCount = 0;
+
+  await page.route('**/api/generation/readiness', async (route) => {
+    await route.fulfill({
+      json: {
+        activeProvider: 'custom',
+        issue: {
+          code: 'builtin_runtime_not_running',
+          message: 'Встроенный сервер не запущен. Запустите модель на странице API.',
+        },
+        mode: 'builtin',
+        runtime: {
+          model: null,
+          port: 5001,
+          status: 'idle',
+        },
+        status: 'blocked',
+      },
+    });
+  });
+
+  await page.route('**/api/generation/chat-reply', async (route) => {
+    generationRequestCount += 1;
+    await route.fulfill({
+      json: {
+        code: 'unexpected_generation_call',
+        message: 'Generation should stay blocked by readiness.',
+      },
+      status: 500,
+    });
+  });
+
+  await page.goto('/chat');
+  await page.getByLabel('Название чата').fill('Blocked generation chat');
+  await page.getByRole('button', { name: 'Создать чат' }).click();
+
+  await expect(page).toHaveURL(/\/chat\/[A-Za-z0-9_-]+$/);
+  await expect(page.getByRole('heading', { name: 'Blocked generation chat' })).toBeVisible();
+  await expect(page.getByText('Встроенный сервер не запущен. Запустите модель на странице API.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Открыть API' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Сообщение' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Отправить' })).toBeDisabled();
+  expect(generationRequestCount).toBe(0);
+});

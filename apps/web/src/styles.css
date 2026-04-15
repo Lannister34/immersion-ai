@@ -404,6 +404,18 @@ textarea {
   color: #ffd8dd;
 }
 
+.readiness-note {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.readiness-note p {
+  margin: 4px 0 0;
+}
+
 .form-status {
   color: var(--accent);
   font-size: 0.92rem;
@@ -706,6 +718,12 @@ textarea {
 
 .composer-form__actions {
   justify-content: flex-end;
+}
+
+.composer-form__status {
+  color: var(--danger);
+  line-height: 1.5;
+  margin: 0;
 }
 
 @media (max-width: 900px) {

@@ -22,7 +22,7 @@ function trimTrailingSlashes(value: string) {
   return value.replace(/\/+$/u, '');
 }
 
-function normalizeBaseUrl(value: string) {
+export function normalizeGenerationProviderBaseUrl(value: string) {
   const trimmed = trimTrailingSlashes(value.trim());
 
   if (!trimmed) {
@@ -30,14 +30,20 @@ function normalizeBaseUrl(value: string) {
   }
 
   try {
-    return trimTrailingSlashes(new URL(trimmed).toString());
+    const url = new URL(trimmed);
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error('Unsupported provider URL protocol.');
+    }
+
+    return trimTrailingSlashes(url.toString());
   } catch {
     throw new GenerationProviderUnavailableError(`Provider URL is invalid: ${value}`);
   }
 }
 
 export function resolveChatCompletionsUrl(endpoint: GenerationProviderEndpoint) {
-  const normalized = normalizeBaseUrl(endpoint.baseUrl);
+  const normalized = normalizeGenerationProviderBaseUrl(endpoint.baseUrl);
 
   return normalized.endsWith('/v1') ? `${normalized}/chat/completions` : `${normalized}/v1/chat/completions`;
 }
