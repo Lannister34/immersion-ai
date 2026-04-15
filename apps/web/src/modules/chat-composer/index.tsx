@@ -28,7 +28,7 @@ export function ChatComposerPanel({ disabledMessage, isDisabled, isSending, onSe
         }}
       >
         <label className="field">
-          <span className="field__label">Сообщение</span>
+          <span className="field__label sr-only">Сообщение</span>
           <textarea
             className="field__input field__input--textarea composer-form__input"
             disabled={isComposerDisabled}
