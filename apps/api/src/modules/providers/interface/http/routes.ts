@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { ZodError } from 'zod';
 import { getProviderSettings } from '../../application/get-provider-settings.js';
 import { getProvidersOverview } from '../../application/get-providers-overview.js';
+import { testProviderConnection } from '../../application/test-provider-connection.js';
 import { updateProviderSettings } from '../../application/update-provider-settings.js';
 import { providerDefinitions } from '../../domain/provider-catalog.js';
 
@@ -32,6 +33,16 @@ export const providersRoutes: FastifyPluginAsync = async (app) => {
     return {
       items: providerDefinitions,
     };
+  });
+
+  app.get('/connection', async (_request, reply) => {
+    try {
+      return await testProviderConnection();
+    } catch (error) {
+      const problem = toProblem(error);
+
+      return reply.status(problem.statusCode).send(problem.body);
+    }
   });
 
   app.get('/settings', async (_request, reply) => {
