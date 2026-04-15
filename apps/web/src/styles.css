@@ -487,18 +487,6 @@ select:disabled {
   color: #fecaca;
 }
 
-.readiness-note {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: space-between;
-}
-
-.readiness-note p {
-  margin: 4px 0 0;
-}
-
 .form-status {
   color: var(--accent);
   font-size: 0.86rem;
@@ -723,11 +711,17 @@ select:disabled {
   justify-content: flex-end;
 }
 
-.composer-form__status {
-  color: #fca5a5;
-  font-size: 0.84rem;
-  line-height: 1.45;
-  margin: 0;
+.composer-form__send-control {
+  cursor: not-allowed;
+  display: inline-flex;
+}
+
+.composer-form__send-control .action-button:not(:disabled) {
+  cursor: pointer;
+}
+
+.composer-form__send-control .action-button:disabled {
+  pointer-events: none;
 }
 
 .server-card {

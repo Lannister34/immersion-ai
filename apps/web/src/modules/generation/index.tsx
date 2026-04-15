@@ -1,5 +1,12 @@
 import { PlaceholderScreen } from '../../shared/ui/placeholder-screen';
 
+export { generateChatReply } from './api/generate-chat-reply';
+export {
+  generationReadinessQueryKey,
+  generationReadinessQueryOptions,
+} from './queries/generation-readiness-query';
+export { toGenerationAvailabilityViewModel } from './view-models/generation-availability';
+
 export function GenerationPanel() {
   return (
     <PlaceholderScreen
