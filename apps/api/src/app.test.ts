@@ -43,6 +43,22 @@ describe('buildApiApp', () => {
     await app.close();
   });
 
+  it('redirects the API root to the web chat route', async () => {
+    const app = buildApiApp();
+    const response = await app.inject({
+      headers: {
+        host: '192.168.31.216:4787',
+      },
+      method: 'GET',
+      url: '/',
+    });
+
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toBe('http://192.168.31.216:4788/chat');
+
+    await app.close();
+  });
+
   it('serves the settings overview contract from canonical files', async () => {
     const app = buildApiApp();
     const response = await app.inject({
