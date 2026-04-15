@@ -1,4 +1,3 @@
-import type { ChatSessionDto } from '@immersion/contracts/chats';
 import {
   type ChatReplyGenerationResponse,
   ChatReplyGenerationResponseSchema,
@@ -8,28 +7,15 @@ import {
 import { appendChatMessages, ChatNotFoundError } from '../../chats/application/append-chat-messages.js';
 import { getChatSession } from '../../chats/application/get-chat-session.js';
 import { buildChatReplyPrompt } from '../../prompting/application/build-chat-reply-prompt.js';
+import { GenerationProviderUnavailableError } from '../../providers/application/generation-provider.js';
 import { getSettingsOverview } from '../../settings/application/get-settings-overview.js';
 import { OpenAiCompatibleChatCompletionsClient } from '../infrastructure/openai-compatible-chat-completions-client.js';
 import type { ChatCompletionClient } from './chat-completion-client.js';
+import { ChatReplyGenerationFailedError, ProviderGenerationError } from './generation-errors.js';
 
 export interface GenerateChatReplyDependencies {
   chatCompletionClient?: ChatCompletionClient;
   now?: () => Date;
-}
-
-function withTransientUserMessage(session: ChatSessionDto, content: string, createdAt: string): ChatSessionDto {
-  return {
-    ...session,
-    messages: [
-      ...session.messages,
-      {
-        id: `${session.chat.id}:pending-user`,
-        role: 'user',
-        content,
-        createdAt,
-      },
-    ],
-  };
 }
 
 export async function generateChatReply(
@@ -45,22 +31,48 @@ export async function generateChatReply(
     throw new ChatNotFoundError(command.chatId);
   }
 
-  const settings = getSettingsOverview();
-  const promptMessages = buildChatReplyPrompt({
-    session: withTransientUserMessage(session, command.message, userMessageCreatedAt),
-    settings,
-  });
-  const chatCompletionClient = dependencies.chatCompletionClient ?? new OpenAiCompatibleChatCompletionsClient();
-  const completion = await chatCompletionClient.completeChat({
-    maxTokens: 512,
-    messages: promptMessages,
-  });
-  const sessionAfterGeneratedExchange = await appendChatMessages(command.chatId, [
+  const sessionAfterUserMessage = await appendChatMessages(command.chatId, [
     {
       role: 'user',
       content: command.message,
       createdAt: userMessageCreatedAt,
     },
+  ]);
+  const settings = getSettingsOverview();
+  const promptMessages = buildChatReplyPrompt({
+    session: sessionAfterUserMessage,
+    settings,
+  });
+  const chatCompletionClient = dependencies.chatCompletionClient ?? new OpenAiCompatibleChatCompletionsClient();
+  let completion: Awaited<ReturnType<ChatCompletionClient['completeChat']>>;
+
+  try {
+    completion = await chatCompletionClient.completeChat({
+      maxTokens: 512,
+      messages: promptMessages,
+    });
+  } catch (error) {
+    if (error instanceof GenerationProviderUnavailableError) {
+      throw new ChatReplyGenerationFailedError(
+        409,
+        'generation_provider_unavailable',
+        error.message,
+        sessionAfterUserMessage,
+      );
+    }
+
+    if (error instanceof ProviderGenerationError) {
+      throw new ChatReplyGenerationFailedError(
+        502,
+        'provider_generation_failed',
+        error.message,
+        sessionAfterUserMessage,
+      );
+    }
+
+    throw error;
+  }
+  const sessionAfterGeneratedExchange = await appendChatMessages(command.chatId, [
     {
       role: 'assistant',
       content: completion.content,
