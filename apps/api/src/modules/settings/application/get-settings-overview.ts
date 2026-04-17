@@ -2,6 +2,21 @@ import { type SettingsOverviewResponse, SettingsOverviewResponseSchema } from '@
 
 import { readLegacyUserSettingsSource } from '../../../shared/infrastructure/legacy-settings-source.js';
 
+const DEFAULT_SAMPLER_PRESET = {
+  contextTrimStrategy: 'trim_middle',
+  id: 'default',
+  maxContextLength: 8192,
+  maxTokens: 600,
+  minP: 0.02,
+  name: 'Default',
+  presencePenalty: 0,
+  repeatPenalty: 1.05,
+  repeatPenaltyRange: 2048,
+  temperature: 1,
+  topK: 0,
+  topP: 1,
+} satisfies SettingsOverviewResponse['sampler']['presets'][number];
+
 function getString(value: unknown, fallback = '') {
   return typeof value === 'string' ? value : fallback;
 }
@@ -18,6 +33,32 @@ function getResponseLanguage(value: unknown) {
   return value === 'en' || value === 'none' ? value : 'ru';
 }
 
+function getFiniteNumber(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function getNonNegativeInteger(value: unknown, fallback: number) {
+  const parsed = getFiniteNumber(value, fallback);
+
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function getPositiveInteger(value: unknown, fallback: number) {
+  const parsed = getFiniteNumber(value, fallback);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getNonNegativeNumber(value: unknown, fallback: number) {
+  const parsed = getFiniteNumber(value, fallback);
+
+  return parsed >= 0 ? parsed : fallback;
+}
+
+function getContextTrimStrategy(value: unknown) {
+  return value === 'trim_start' ? 'trim_start' : 'trim_middle';
+}
+
 export function getSettingsOverview(): SettingsOverviewResponse {
   const source = readLegacyUserSettingsSource();
 
@@ -30,19 +71,38 @@ export function getSettingsOverview(): SettingsOverviewResponse {
     const candidate = preset as Record<string, unknown>;
     const id = getString(candidate.id);
     const name = getString(candidate.name);
-    const maxContextLength = typeof candidate.max_context_length === 'number' ? candidate.max_context_length : 0;
 
     if (!id || !name) {
       return [];
     }
 
-    return [{ id, name, maxContextLength }];
+    return [
+      {
+        contextTrimStrategy: getContextTrimStrategy(candidate.context_trim_strategy),
+        id,
+        maxContextLength: getNonNegativeInteger(candidate.max_context_length, DEFAULT_SAMPLER_PRESET.maxContextLength),
+        maxTokens: getPositiveInteger(candidate.max_length, DEFAULT_SAMPLER_PRESET.maxTokens),
+        minP: getNonNegativeNumber(candidate.min_p, DEFAULT_SAMPLER_PRESET.minP),
+        name,
+        presencePenalty: getFiniteNumber(candidate.presence_penalty, DEFAULT_SAMPLER_PRESET.presencePenalty),
+        repeatPenalty: getNonNegativeNumber(candidate.rep_pen, DEFAULT_SAMPLER_PRESET.repeatPenalty),
+        repeatPenaltyRange: getNonNegativeInteger(candidate.rep_pen_range, DEFAULT_SAMPLER_PRESET.repeatPenaltyRange),
+        temperature: getNonNegativeNumber(candidate.temperature, DEFAULT_SAMPLER_PRESET.temperature),
+        topK: getNonNegativeInteger(candidate.top_k, DEFAULT_SAMPLER_PRESET.topK),
+        topP: getNonNegativeNumber(candidate.top_p, DEFAULT_SAMPLER_PRESET.topP),
+      },
+    ];
   });
+  const normalizedPresets = presets.length > 0 ? presets : [DEFAULT_SAMPLER_PRESET];
 
   const modelPresetMap =
     source.modelPresetMap && typeof source.modelPresetMap === 'object' && !Array.isArray(source.modelPresetMap)
       ? (source.modelPresetMap as Record<string, unknown>)
       : {};
+  const requestedActivePresetId = getString(source.activePresetId);
+  const activePresetId = normalizedPresets.some((preset) => preset.id === requestedActivePresetId)
+    ? requestedActivePresetId
+    : normalizedPresets[0]!.id;
 
   return SettingsOverviewResponseSchema.parse({
     profile: {
@@ -55,8 +115,8 @@ export function getSettingsOverview(): SettingsOverviewResponse {
       thinkingEnabled: getBoolean(source.thinkingEnabled, true),
     },
     sampler: {
-      activePresetId: getString(source.activePresetId, presets[0]?.id ?? 'default'),
-      presets,
+      activePresetId,
+      presets: normalizedPresets,
       modelBindingCount: Object.keys(modelPresetMap).length,
     },
   });

@@ -1,8 +1,19 @@
 import type { ChatReplyPromptMessage } from '../../prompting/application/build-chat-reply-prompt.js';
 
+export interface ChatCompletionSamplingOptions {
+  minP: number;
+  presencePenalty: number;
+  repeatPenalty: number;
+  repeatPenaltyRange: number;
+  temperature: number;
+  topK: number;
+  topP: number;
+}
+
 export interface ChatCompletionRequest {
   maxTokens: number;
   messages: ChatReplyPromptMessage[];
+  sampling: ChatCompletionSamplingOptions;
 }
 
 export interface ChatCompletionResponse {

@@ -1,6 +1,7 @@
 import type { ChatSessionDto } from '@immersion/contracts/chats';
 import type { SettingsOverviewResponse } from '@immersion/contracts/settings';
 
+import { resolveActiveSamplerPreset } from '../../settings/application/active-sampler-preset.js';
 import { assembleBasePrompt } from './assemble-base-prompt.js';
 import { buildPromptInputSnapshot, type PromptTranscriptRole } from './prompt-input-snapshot.js';
 
@@ -23,12 +24,6 @@ function toPromptTranscriptRole(role: ChatSessionDto['messages'][number]['role']
   return role;
 }
 
-function getActiveContextLength(settings: SettingsOverviewResponse) {
-  const activePreset = settings.sampler.presets.find((preset) => preset.id === settings.sampler.activePresetId);
-
-  return activePreset?.maxContextLength && activePreset.maxContextLength > 0 ? activePreset.maxContextLength : 8192;
-}
-
 function getLanguageInstruction(responseLanguage: SettingsOverviewResponse['profile']['responseLanguage']) {
   if (responseLanguage === 'ru') {
     return 'Answer in Russian unless the user explicitly asks for another language.';
@@ -42,6 +37,7 @@ function getLanguageInstruction(responseLanguage: SettingsOverviewResponse['prof
 }
 
 export function buildChatReplyPrompt(input: BuildChatReplyPromptInput): ChatReplyPromptMessage[] {
+  const activePreset = resolveActiveSamplerPreset(input.settings);
   const snapshot = buildPromptInputSnapshot({
     chat: {
       id: input.session.chat.id,
@@ -53,9 +49,9 @@ export function buildChatReplyPrompt(input: BuildChatReplyPromptInput): ChatRepl
       })),
     },
     generation: {
-      maxContextTokens: getActiveContextLength(input.settings),
-      replyMaxTokens: 512,
-      trimStrategy: 'trim_start',
+      maxContextTokens: activePreset.maxContextLength,
+      replyMaxTokens: activePreset.maxTokens,
+      trimStrategy: activePreset.contextTrimStrategy,
     },
     settings: {
       defaultSystemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
