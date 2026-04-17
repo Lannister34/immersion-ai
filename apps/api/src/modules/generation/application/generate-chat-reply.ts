@@ -8,6 +8,7 @@ import { appendChatMessages, ChatNotFoundError } from '../../chats/application/a
 import { getChatSession } from '../../chats/application/get-chat-session.js';
 import { buildChatReplyPrompt } from '../../prompting/application/build-chat-reply-prompt.js';
 import { GenerationProviderUnavailableError } from '../../providers/application/generation-provider.js';
+import { resolveActiveSamplerPreset } from '../../settings/application/active-sampler-preset.js';
 import { getSettingsOverview } from '../../settings/application/get-settings-overview.js';
 import { OpenAiCompatibleChatCompletionsClient } from '../infrastructure/openai-compatible-chat-completions-client.js';
 import type { ChatCompletionClient } from './chat-completion-client.js';
@@ -39,6 +40,7 @@ export async function generateChatReply(
     },
   ]);
   const settings = getSettingsOverview();
+  const activePreset = resolveActiveSamplerPreset(settings);
   const promptMessages = buildChatReplyPrompt({
     session: sessionAfterUserMessage,
     settings,
@@ -48,8 +50,17 @@ export async function generateChatReply(
 
   try {
     completion = await chatCompletionClient.completeChat({
-      maxTokens: 512,
+      maxTokens: activePreset.maxTokens,
       messages: promptMessages,
+      sampling: {
+        minP: activePreset.minP,
+        presencePenalty: activePreset.presencePenalty,
+        repeatPenalty: activePreset.repeatPenalty,
+        repeatPenaltyRange: activePreset.repeatPenaltyRange,
+        temperature: activePreset.temperature,
+        topK: activePreset.topK,
+        topP: activePreset.topP,
+      },
     });
   } catch (error) {
     if (error instanceof GenerationProviderUnavailableError) {

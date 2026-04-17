@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const UiLanguageSchema = z.enum(['ru', 'en']);
 export const ResponseLanguageSchema = z.enum(['ru', 'en', 'none']);
+export const ContextTrimStrategySchema = z.enum(['trim_middle', 'trim_start']);
 
 export const SettingsProfileSchema = z.object({
   userName: z.string(),
@@ -14,9 +15,18 @@ export const SettingsProfileSchema = z.object({
 });
 
 export const SamplerPresetSummarySchema = z.object({
+  contextTrimStrategy: ContextTrimStrategySchema,
   id: z.string(),
-  name: z.string(),
   maxContextLength: z.number().int().nonnegative(),
+  maxTokens: z.number().int().positive(),
+  minP: z.number().nonnegative(),
+  name: z.string(),
+  presencePenalty: z.number(),
+  repeatPenalty: z.number().nonnegative(),
+  repeatPenaltyRange: z.number().int().nonnegative(),
+  temperature: z.number().nonnegative(),
+  topK: z.number().int().nonnegative(),
+  topP: z.number().nonnegative(),
 });
 
 export const SettingsSamplerOverviewSchema = z.object({

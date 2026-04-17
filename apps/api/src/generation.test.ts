@@ -31,7 +31,15 @@ interface ProviderRequestMessageRecord {
 }
 
 interface ProviderRequestBodyRecord {
+  max_tokens?: number;
   messages?: ProviderRequestMessageRecord[];
+  min_p?: number;
+  presence_penalty?: number;
+  rep_pen?: number;
+  rep_pen_range?: number;
+  temperature?: number;
+  top_k?: number;
+  top_p?: number;
 }
 
 interface SmokeUserSettingsFixture {
@@ -338,15 +346,22 @@ describe('generation routes', () => {
       url: 'http://127.0.0.1:6006/v1/chat/completions',
     });
     expect(providerRequests[0]?.body).toMatchObject({
-      max_tokens: 512,
+      max_tokens: 640,
       messages: expect.arrayContaining([
         {
           role: 'user',
           content: 'Hello model.',
         },
       ]),
+      min_p: 0.03,
       model: 'smoke-model',
+      presence_penalty: 0.15,
+      rep_pen: 1.08,
+      rep_pen_range: 1024,
       stream: false,
+      temperature: 0.72,
+      top_k: 42,
+      top_p: 0.91,
     });
     const requestBody = getProviderRequestBody(providerRequests[0]);
     const submittedMessages =

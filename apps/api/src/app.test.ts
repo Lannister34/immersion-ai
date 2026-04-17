@@ -72,6 +72,16 @@ describe('buildApiApp', () => {
         userName: 'Тестер',
         uiLanguage: 'ru',
       },
+      sampler: {
+        activePresetId: 'default',
+        presets: [
+          {
+            maxTokens: 640,
+            temperature: 0.72,
+            topP: 0.91,
+          },
+        ],
+      },
     });
 
     await app.close();
