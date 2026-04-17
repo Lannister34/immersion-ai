@@ -20,11 +20,26 @@
       "max_length": 640,
       "max_context_length": 8192,
       "context_trim_strategy": "trim_middle"
+    },
+    {
+      "id": "smoke-model-preset",
+      "name": "Smoke Model",
+      "temperature": 0.44,
+      "top_p": 0.82,
+      "top_k": 7,
+      "min_p": 0.04,
+      "rep_pen": 1.11,
+      "rep_pen_range": 512,
+      "presence_penalty": 0.2,
+      "max_length": 777,
+      "max_context_length": 12288,
+      "context_trim_strategy": "trim_start"
     }
   ],
   "activePresetId": "default",
   "modelPresetMap": {
-    "sandbox.gguf": "default"
+    "sandbox.gguf": "default",
+    "smoke-model": "smoke-model-preset"
   },
   "backendMode": "external",
   "activeProvider": "custom",

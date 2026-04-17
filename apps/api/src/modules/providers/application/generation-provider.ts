@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { getRunningRuntimeBaseUrl } from '../../runtime/application/get-running-runtime-base-url.js';
+import { getRunningRuntimeEndpoint } from '../../runtime/application/get-running-runtime-base-url.js';
 import { DEFAULT_OPENAI_COMPATIBLE_MODEL } from '../domain/provider-settings.js';
 import { getProviderSettings } from './get-provider-settings.js';
 
@@ -51,16 +51,16 @@ export async function resolveGenerationProviderEndpoint(): Promise<GenerationPro
   const settings = await getProviderSettings();
 
   if (settings.mode === 'builtin') {
-    const runtimeBaseUrl = getRunningRuntimeBaseUrl();
+    const runtimeEndpoint = getRunningRuntimeEndpoint();
 
-    if (!runtimeBaseUrl) {
+    if (!runtimeEndpoint) {
       throw new GenerationProviderUnavailableError('Встроенный сервер не запущен.');
     }
 
     return {
       apiKey: null,
-      baseUrl: runtimeBaseUrl,
-      model: DEFAULT_OPENAI_COMPATIBLE_MODEL,
+      baseUrl: runtimeEndpoint.baseUrl,
+      model: runtimeEndpoint.model?.trim() || DEFAULT_OPENAI_COMPATIBLE_MODEL,
     };
   }
 

@@ -65,23 +65,38 @@ describe('buildApiApp', () => {
       method: 'GET',
       url: '/api/settings/overview',
     });
+    const overview = SettingsOverviewResponseSchema.parse(response.json());
 
     expect(response.statusCode).toBe(200);
-    expect(SettingsOverviewResponseSchema.parse(response.json())).toMatchObject({
+    expect(overview).toMatchObject({
       profile: {
         userName: 'Тестер',
         uiLanguage: 'ru',
       },
       sampler: {
         activePresetId: 'default',
-        presets: [
-          {
-            maxTokens: 640,
-            temperature: 0.72,
-            topP: 0.91,
-          },
-        ],
+        modelBindingCount: 2,
       },
+    });
+    expect(overview.sampler.modelBindings).toEqual([
+      {
+        modelName: 'sandbox.gguf',
+        presetId: 'default',
+      },
+      {
+        modelName: 'smoke-model',
+        presetId: 'smoke-model-preset',
+      },
+    ]);
+    expect(overview.sampler.presets.find((preset) => preset.id === 'default')).toMatchObject({
+      maxTokens: 640,
+      temperature: 0.72,
+      topP: 0.91,
+    });
+    expect(overview.sampler.presets.find((preset) => preset.id === 'smoke-model-preset')).toMatchObject({
+      maxTokens: 777,
+      temperature: 0.44,
+      topP: 0.82,
     });
 
     await app.close();

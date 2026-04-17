@@ -7,8 +7,11 @@ import {
 import { appendChatMessages, ChatNotFoundError } from '../../chats/application/append-chat-messages.js';
 import { getChatSession } from '../../chats/application/get-chat-session.js';
 import { buildChatReplyPrompt } from '../../prompting/application/build-chat-reply-prompt.js';
-import { GenerationProviderUnavailableError } from '../../providers/application/generation-provider.js';
-import { resolveActiveSamplerPreset } from '../../settings/application/active-sampler-preset.js';
+import {
+  GenerationProviderUnavailableError,
+  resolveGenerationProviderEndpoint,
+} from '../../providers/application/generation-provider.js';
+import { resolveSamplerPresetForModel } from '../../settings/application/active-sampler-preset.js';
 import { getSettingsOverview } from '../../settings/application/get-settings-overview.js';
 import { OpenAiCompatibleChatCompletionsClient } from '../infrastructure/openai-compatible-chat-completions-client.js';
 import type { ChatCompletionClient } from './chat-completion-client.js';
@@ -40,16 +43,20 @@ export async function generateChatReply(
     },
   ]);
   const settings = getSettingsOverview();
-  const activePreset = resolveActiveSamplerPreset(settings);
-  const promptMessages = buildChatReplyPrompt({
-    session: sessionAfterUserMessage,
-    settings,
-  });
   const chatCompletionClient = dependencies.chatCompletionClient ?? new OpenAiCompatibleChatCompletionsClient();
   let completion: Awaited<ReturnType<ChatCompletionClient['completeChat']>>;
 
   try {
+    const endpoint = await resolveGenerationProviderEndpoint();
+    const activePreset = resolveSamplerPresetForModel(settings, endpoint.model);
+    const promptMessages = buildChatReplyPrompt({
+      samplerPreset: activePreset,
+      session: sessionAfterUserMessage,
+      settings,
+    });
+
     completion = await chatCompletionClient.completeChat({
+      endpoint,
       maxTokens: activePreset.maxTokens,
       messages: promptMessages,
       sampling: {

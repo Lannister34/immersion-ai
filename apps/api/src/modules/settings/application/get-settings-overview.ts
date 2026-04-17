@@ -55,8 +55,37 @@ function getNonNegativeNumber(value: unknown, fallback: number) {
   return parsed >= 0 ? parsed : fallback;
 }
 
-function getContextTrimStrategy(value: unknown) {
+function getContextTrimStrategy(
+  value: unknown,
+): SettingsOverviewResponse['sampler']['presets'][number]['contextTrimStrategy'] {
   return value === 'trim_start' ? 'trim_start' : 'trim_middle';
+}
+
+function getModelBindings(
+  value: unknown,
+  presets: SettingsOverviewResponse['sampler']['presets'],
+): SettingsOverviewResponse['sampler']['modelBindings'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return [];
+  }
+
+  const presetIds = new Set(presets.map((preset) => preset.id));
+
+  return Object.entries(value).flatMap(([rawModelName, rawPresetId]) => {
+    const modelName = rawModelName.trim();
+    const presetId = getString(rawPresetId).trim();
+
+    if (!modelName || !presetId || !presetIds.has(presetId)) {
+      return [];
+    }
+
+    return [
+      {
+        modelName,
+        presetId,
+      },
+    ];
+  });
 }
 
 export function getSettingsOverview(): SettingsOverviewResponse {
@@ -95,10 +124,7 @@ export function getSettingsOverview(): SettingsOverviewResponse {
   });
   const normalizedPresets = presets.length > 0 ? presets : [DEFAULT_SAMPLER_PRESET];
 
-  const modelPresetMap =
-    source.modelPresetMap && typeof source.modelPresetMap === 'object' && !Array.isArray(source.modelPresetMap)
-      ? (source.modelPresetMap as Record<string, unknown>)
-      : {};
+  const modelBindings = getModelBindings(source.modelPresetMap, normalizedPresets);
   const requestedActivePresetId = getString(source.activePresetId);
   const activePresetId = normalizedPresets.some((preset) => preset.id === requestedActivePresetId)
     ? requestedActivePresetId
@@ -116,8 +142,9 @@ export function getSettingsOverview(): SettingsOverviewResponse {
     },
     sampler: {
       activePresetId,
+      modelBindings,
       presets: normalizedPresets,
-      modelBindingCount: Object.keys(modelPresetMap).length,
+      modelBindingCount: modelBindings.length,
     },
   });
 }

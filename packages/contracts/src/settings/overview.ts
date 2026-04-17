@@ -29,8 +29,14 @@ export const SamplerPresetSummarySchema = z.object({
   topP: z.number().nonnegative(),
 });
 
+export const ModelPresetBindingDtoSchema = z.object({
+  modelName: z.string().min(1),
+  presetId: z.string().min(1),
+});
+
 export const SettingsSamplerOverviewSchema = z.object({
   activePresetId: z.string(),
+  modelBindings: z.array(ModelPresetBindingDtoSchema),
   presets: z.array(SamplerPresetSummarySchema),
   modelBindingCount: z.number().int().nonnegative(),
 });
