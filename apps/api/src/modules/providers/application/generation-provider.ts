@@ -1,9 +1,8 @@
 import { z } from 'zod';
 
 import { getRunningRuntimeBaseUrl } from '../../runtime/application/get-running-runtime-base-url.js';
+import { DEFAULT_OPENAI_COMPATIBLE_MODEL } from '../domain/provider-settings.js';
 import { getProviderSettings } from './get-provider-settings.js';
-
-const DEFAULT_OPENAI_COMPATIBLE_MODEL = 'local-model';
 
 export class GenerationProviderUnavailableError extends Error {
   constructor(message: string) {
@@ -69,6 +68,7 @@ export async function resolveGenerationProviderEndpoint(): Promise<GenerationPro
   const parsedConfig = z
     .object({
       apiKey: z.string().min(1).optional(),
+      model: z.string().min(1).optional(),
       url: z.string().min(1),
     })
     .parse(config);
@@ -76,6 +76,6 @@ export async function resolveGenerationProviderEndpoint(): Promise<GenerationPro
   return {
     apiKey: parsedConfig.apiKey ?? null,
     baseUrl: parsedConfig.url,
-    model: DEFAULT_OPENAI_COMPATIBLE_MODEL,
+    model: parsedConfig.model?.trim() || DEFAULT_OPENAI_COMPATIBLE_MODEL,
   };
 }

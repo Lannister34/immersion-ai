@@ -40,9 +40,11 @@ interface SmokeUserSettingsFixture {
   providerConfigs?: {
     custom?: {
       apiKey?: string;
+      model?: string;
       url?: string;
     };
     koboldcpp?: {
+      model?: string;
       url?: string;
     };
   };
@@ -156,7 +158,7 @@ describe('generation routes', () => {
     return request.body as ProviderRequestBodyRecord;
   }
 
-  async function writeExternalProviderSettings(url: string) {
+  async function writeExternalProviderSettings(url: string, model = 'smoke-model') {
     const settingsPath = path.join(temporaryDataRoot, 'user-settings.json');
     const settings = JSON.parse(await fs.readFile(settingsPath, 'utf8')) as SmokeUserSettingsFixture;
     const providerConfigs = settings.providerConfigs ?? {};
@@ -173,6 +175,7 @@ describe('generation routes', () => {
             custom: {
               ...providerConfigs.custom,
               apiKey: 'secret-token',
+              model,
               url,
             },
           },
@@ -342,7 +345,7 @@ describe('generation routes', () => {
           content: 'Hello model.',
         },
       ]),
-      model: 'local-model',
+      model: 'smoke-model',
       stream: false,
     });
     const requestBody = getProviderRequestBody(providerRequests[0]);

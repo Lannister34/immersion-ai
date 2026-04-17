@@ -11,7 +11,10 @@ import { z } from 'zod';
 
 import { providerDefinitions } from './provider-catalog.js';
 
+export const DEFAULT_OPENAI_COMPATIBLE_MODEL = 'local-model';
+
 const defaultProviderConfig: ProviderConfig = {
+  model: DEFAULT_OPENAI_COMPATIBLE_MODEL,
   url: 'http://127.0.0.1:5001',
 };
 
@@ -27,6 +30,7 @@ const storedProviderSettingsSchema = z
           provider: ProviderTypeSchema.optional(),
           url: z.string().min(1).optional(),
           apiKey: z.string().min(1).optional(),
+          model: z.string().min(1).optional(),
         }),
       )
       .optional(),
@@ -76,9 +80,38 @@ function migrateLegacyConnectionPresets(
       [activeProvider]: {
         url: activePreset.url,
         ...(activePreset.apiKey ? { apiKey: activePreset.apiKey } : {}),
+        ...(activePreset.model ? { model: activePreset.model } : {}),
       },
     },
   };
+}
+
+function mergeProviderConfigs(
+  defaults: UpdateProviderSettingsCommand['providerConfigs'],
+  ...overrides: Array<UpdateProviderSettingsCommand['providerConfigs'] | undefined>
+): UpdateProviderSettingsCommand['providerConfigs'] {
+  const result = {
+    ...defaults,
+  };
+
+  for (const configs of overrides) {
+    if (!configs) {
+      continue;
+    }
+
+    for (const provider of ProviderTypeSchema.options) {
+      if (!configs[provider]) {
+        continue;
+      }
+
+      result[provider] = {
+        ...(result[provider] ?? defaultProviderConfig),
+        ...configs[provider],
+      };
+    }
+  }
+
+  return result;
 }
 
 export function normalizeStoredProviderSettings(raw: StoredUserSettingsRecord | null): UpdateProviderSettingsCommand {
@@ -93,11 +126,11 @@ export function normalizeStoredProviderSettings(raw: StoredUserSettingsRecord | 
 
   const mode = stored.backendMode ?? defaults.mode;
   const activeProvider = stored.activeProvider ?? migrated?.activeProvider ?? defaults.activeProvider;
-  const providerConfigs = {
-    ...defaults.providerConfigs,
-    ...(migrated?.providerConfigs ?? {}),
-    ...(stored.providerConfigs ?? {}),
-  };
+  const providerConfigs = mergeProviderConfigs(
+    defaults.providerConfigs,
+    migrated?.providerConfigs,
+    stored.providerConfigs,
+  );
 
   providerConfigs[activeProvider] ??= defaultProviderConfig;
 

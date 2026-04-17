@@ -42,6 +42,7 @@ test('shows a focused external API panel without provider summary noise', async 
   await expect(page.getByRole('button', { name: 'Внешний API' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { name: 'Внешний API' })).toBeVisible();
   await expect(page.getByLabel('URL')).toHaveValue('http://127.0.0.1:6006');
+  await expect(page.getByLabel('Модель')).toHaveValue('local-model');
   await expect(page.getByText('Сводка подключения')).toHaveCount(0);
   await expect(page.getByText(/каноничес/i)).toHaveCount(0);
 });
@@ -50,14 +51,18 @@ test('persists external provider settings and restores them after reload', async
   await page.goto('/server');
 
   const urlInput = page.getByLabel('URL');
+  const modelInput = page.getByLabel('Модель');
   await expect(urlInput).toHaveValue('http://127.0.0.1:6006');
+  await expect(modelInput).toHaveValue('local-model');
 
   await urlInput.fill('http://127.0.0.1:6010');
+  await modelInput.fill('lm-studio-model');
   await page.getByRole('button', { name: 'Сохранить' }).click();
   await expect(page.getByText('Настройки внешнего API сохранены.')).toBeVisible();
 
   await page.reload();
   await expect(urlInput).toHaveValue('http://127.0.0.1:6010');
+  await expect(modelInput).toHaveValue('lm-studio-model');
 });
 
 test('switches to builtin mode and exposes model launch controls', async ({ page }) => {
