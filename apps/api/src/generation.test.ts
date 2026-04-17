@@ -42,9 +42,33 @@ interface ProviderRequestBodyRecord {
   top_p?: number;
 }
 
+const ACTIVE_SMOKE_SAMPLING = {
+  max_tokens: 640,
+  min_p: 0.03,
+  presence_penalty: 0.15,
+  rep_pen: 1.08,
+  rep_pen_range: 1024,
+  temperature: 0.72,
+  top_k: 42,
+  top_p: 0.91,
+};
+
+const MODEL_BOUND_SMOKE_SAMPLING = {
+  max_tokens: 777,
+  min_p: 0.04,
+  presence_penalty: 0.2,
+  rep_pen: 1.11,
+  rep_pen_range: 512,
+  temperature: 0.44,
+  top_k: 7,
+  top_p: 0.82,
+};
+
 interface SmokeUserSettingsFixture {
   activeProvider?: string;
   backendMode?: string;
+  activePresetId?: string;
+  modelPresetMap?: Record<string, string>;
   providerConfigs?: {
     custom?: {
       apiKey?: string;
@@ -56,6 +80,7 @@ interface SmokeUserSettingsFixture {
       url?: string;
     };
   };
+  samplerPresets?: Array<Record<string, unknown>>;
 }
 
 describe('generation routes', () => {
@@ -217,6 +242,23 @@ describe('generation routes', () => {
     );
   }
 
+  async function writeDetachedRuntimeState(modelPath: string, port = 6006) {
+    await fs.writeFile(
+      path.join(temporaryDataRoot, '.llm-server.json'),
+      JSON.stringify(
+        {
+          model: path.basename(modelPath),
+          modelPath,
+          pid: process.pid,
+          port,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+  }
+
   it('reports generation readiness for a configured external provider', async () => {
     const app = buildApiApp();
     const response = await app.inject({
@@ -346,22 +388,15 @@ describe('generation routes', () => {
       url: 'http://127.0.0.1:6006/v1/chat/completions',
     });
     expect(providerRequests[0]?.body).toMatchObject({
-      max_tokens: 640,
+      ...MODEL_BOUND_SMOKE_SAMPLING,
       messages: expect.arrayContaining([
         {
           role: 'user',
           content: 'Hello model.',
         },
       ]),
-      min_p: 0.03,
       model: 'smoke-model',
-      presence_penalty: 0.15,
-      rep_pen: 1.08,
-      rep_pen_range: 1024,
       stream: false,
-      temperature: 0.72,
-      top_k: 42,
-      top_p: 0.91,
     });
     const requestBody = getProviderRequestBody(providerRequests[0]);
     const submittedMessages =
@@ -376,6 +411,121 @@ describe('generation routes', () => {
     const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
 
     expect(getMessagesByRole(sessionPayload.messages)).toEqual(getMessagesByRole(payload.session.messages));
+
+    await app.close();
+  });
+
+  it('falls back to the active sampler preset when the provider model has no binding', async () => {
+    await writeExternalProviderSettings('http://127.0.0.1:6006', 'unbound-model');
+    const providerRequests = mockProviderSuccess('Assistant reply from unbound provider.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Use active preset.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(providerRequests).toHaveLength(1);
+    expect(providerRequests[0]?.body).toMatchObject({
+      ...ACTIVE_SMOKE_SAMPLING,
+      model: 'unbound-model',
+      stream: false,
+    });
+
+    await app.close();
+  });
+
+  it('ignores stale sampler bindings and uses the active preset', async () => {
+    await writeProviderSettings({
+      modelPresetMap: {
+        'smoke-model': 'missing-preset',
+      },
+    });
+    const providerRequests = mockProviderSuccess('Assistant reply with active preset.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Ignore stale binding.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(providerRequests).toHaveLength(1);
+    expect(providerRequests[0]?.body).toMatchObject({
+      ...ACTIVE_SMOKE_SAMPLING,
+      model: 'smoke-model',
+      stream: false,
+    });
+
+    await app.close();
+  });
+
+  it('falls back to the active sampler preset when provider model is blank', async () => {
+    await writeExternalProviderSettings('http://127.0.0.1:6006', '   ');
+    const providerRequests = mockProviderSuccess('Assistant reply with default transport model.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Use fallback model and active preset.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(providerRequests).toHaveLength(1);
+    expect(providerRequests[0]?.body).toMatchObject({
+      ...ACTIVE_SMOKE_SAMPLING,
+      model: 'local-model',
+      stream: false,
+    });
+
+    await app.close();
+  });
+
+  it('binds builtin runtime sampler presets by the canonical scanned model name', async () => {
+    const nestedModelPath = path.join(temporaryDataRoot, 'models', 'nested', 'secondary.gguf');
+    await writeProviderSettings({
+      backendMode: 'builtin',
+      modelPresetMap: {
+        'nested/secondary.gguf': 'smoke-model-preset',
+      },
+    });
+    await writeDetachedRuntimeState(nestedModelPath);
+    const providerRequests = mockProviderSuccess('Assistant reply from builtin runtime.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Use builtin canonical model.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(providerRequests).toHaveLength(1);
+    expect(providerRequests[0]).toMatchObject({
+      authorization: null,
+      url: 'http://127.0.0.1:6006/v1/chat/completions',
+    });
+    expect(providerRequests[0]?.body).toMatchObject({
+      ...MODEL_BOUND_SMOKE_SAMPLING,
+      model: 'nested/secondary.gguf',
+      stream: false,
+    });
 
     await app.close();
   });

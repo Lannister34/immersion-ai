@@ -1,7 +1,10 @@
 import type { ChatSessionDto } from '@immersion/contracts/chats';
 import type { SettingsOverviewResponse } from '@immersion/contracts/settings';
 
-import { resolveActiveSamplerPreset } from '../../settings/application/active-sampler-preset.js';
+import {
+  type ActiveSamplerPreset,
+  resolveActiveSamplerPreset,
+} from '../../settings/application/active-sampler-preset.js';
 import { assembleBasePrompt } from './assemble-base-prompt.js';
 import { buildPromptInputSnapshot, type PromptTranscriptRole } from './prompt-input-snapshot.js';
 
@@ -13,6 +16,7 @@ export interface ChatReplyPromptMessage {
 }
 
 export interface BuildChatReplyPromptInput {
+  samplerPreset?: ActiveSamplerPreset;
   session: ChatSessionDto;
   settings: SettingsOverviewResponse;
 }
@@ -37,7 +41,7 @@ function getLanguageInstruction(responseLanguage: SettingsOverviewResponse['prof
 }
 
 export function buildChatReplyPrompt(input: BuildChatReplyPromptInput): ChatReplyPromptMessage[] {
-  const activePreset = resolveActiveSamplerPreset(input.settings);
+  const activePreset = input.samplerPreset ?? resolveActiveSamplerPreset(input.settings);
   const snapshot = buildPromptInputSnapshot({
     chat: {
       id: input.session.chat.id,

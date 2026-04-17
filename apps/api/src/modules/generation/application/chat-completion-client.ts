@@ -1,5 +1,11 @@
 import type { ChatReplyPromptMessage } from '../../prompting/application/build-chat-reply-prompt.js';
 
+export interface ChatCompletionEndpoint {
+  apiKey: string | null;
+  baseUrl: string;
+  model: string;
+}
+
 export interface ChatCompletionSamplingOptions {
   minP: number;
   presencePenalty: number;
@@ -11,6 +17,7 @@ export interface ChatCompletionSamplingOptions {
 }
 
 export interface ChatCompletionRequest {
+  endpoint: ChatCompletionEndpoint;
   maxTokens: number;
   messages: ChatReplyPromptMessage[];
   sampling: ChatCompletionSamplingOptions;

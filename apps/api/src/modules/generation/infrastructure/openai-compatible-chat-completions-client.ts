@@ -1,9 +1,6 @@
 import { z } from 'zod';
 
-import {
-  resolveChatCompletionsUrl,
-  resolveGenerationProviderEndpoint,
-} from '../../providers/application/generation-provider.js';
+import { resolveChatCompletionsUrl } from '../../providers/application/generation-provider.js';
 import type {
   ChatCompletionClient,
   ChatCompletionRequest,
@@ -33,15 +30,14 @@ function buildHeaders(apiKey: string | null) {
 
 export class OpenAiCompatibleChatCompletionsClient implements ChatCompletionClient {
   async completeChat(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
-    const endpoint = await resolveGenerationProviderEndpoint();
     let response: Response;
 
     try {
-      response = await fetch(resolveChatCompletionsUrl(endpoint), {
+      response = await fetch(resolveChatCompletionsUrl(request.endpoint), {
         method: 'POST',
-        headers: buildHeaders(endpoint.apiKey),
+        headers: buildHeaders(request.endpoint.apiKey),
         body: JSON.stringify({
-          model: endpoint.model,
+          model: request.endpoint.model,
           messages: request.messages,
           max_tokens: request.maxTokens,
           min_p: request.sampling.minP,

@@ -17,3 +17,21 @@ export function resolveActiveSamplerPreset(settings: SettingsOverviewResponse): 
 
   return fallbackPreset;
 }
+
+export function resolveSamplerPresetForModel(
+  settings: SettingsOverviewResponse,
+  modelName: string | null,
+): ActiveSamplerPreset {
+  const normalizedModelName = modelName?.trim();
+
+  if (!normalizedModelName) {
+    return resolveActiveSamplerPreset(settings);
+  }
+
+  const modelBinding = settings.sampler.modelBindings.find((binding) => binding.modelName === normalizedModelName);
+  const boundPreset = modelBinding
+    ? settings.sampler.presets.find((preset) => preset.id === modelBinding.presetId)
+    : null;
+
+  return boundPreset ?? resolveActiveSamplerPreset(settings);
+}
