@@ -25,7 +25,8 @@
     },
     "custom": {
       "url": "http://127.0.0.1:6006",
-      "apiKey": "secret-token"
+      "apiKey": "secret-token",
+      "model": "local-model"
     }
   },
   "llmServerConfig": {

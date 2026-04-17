@@ -28,6 +28,7 @@ export const ProviderConfigSchema = z
   .object({
     url: z.string().min(1),
     apiKey: z.string().min(1).optional(),
+    model: z.string().min(1).optional(),
   })
   .catchall(z.string().min(1));
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;

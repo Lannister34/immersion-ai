@@ -7,6 +7,8 @@ function getFieldLabel(key: string) {
       return 'URL';
     case 'apiKey':
       return 'API-ключ';
+    case 'model':
+      return 'Модель';
     default:
       return key;
   }

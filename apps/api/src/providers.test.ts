@@ -84,6 +84,7 @@ describe('provider settings routes', () => {
         custom: {
           url: 'http://127.0.0.1:6001',
           apiKey: 'secret',
+          model: 'local-model',
         },
       },
     });
@@ -99,6 +100,7 @@ describe('provider settings routes', () => {
         custom: {
           url: 'http://127.0.0.1:6001',
           apiKey: 'secret',
+          model: 'existing-model',
         },
       },
     });
@@ -380,6 +382,7 @@ describe('provider settings routes', () => {
       providerConfigs: {
         custom: {
           url: 'http://127.0.0.1:6001',
+          model: 'settings-model',
         },
       },
     };
@@ -398,6 +401,7 @@ describe('provider settings routes', () => {
       providerConfigs: {
         custom: {
           url: 'http://127.0.0.1:6001',
+          model: 'settings-model',
         },
       },
     });
@@ -413,6 +417,7 @@ describe('provider settings routes', () => {
     expect(stored.providerConfigs).toMatchObject({
       custom: {
         url: 'http://127.0.0.1:6001',
+        model: 'settings-model',
       },
     });
 
