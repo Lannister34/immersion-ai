@@ -2,14 +2,21 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { ChatGenerationSettingsDtoSchema } from '@immersion/contracts/chats';
+
 import { resolveDataRoot } from '../../../lib/data-root.js';
 import type {
   AppendChatMessageInput,
+  ChatGenerationSettingsRecord,
   ChatMessageRecord,
   ChatMessageRoleRecord,
   ChatSessionRecord,
   ChatSummaryRecord,
   CreateGenericChatInput,
+} from '../application/chat-records.js';
+import {
+  createDefaultChatGenerationSettings,
+  createDefaultChatSamplingOverrides,
 } from '../application/chat-records.js';
 import type { ChatRepository } from '../application/chat-repository.js';
 
@@ -27,7 +34,27 @@ interface StoredChatMetadata {
 interface StoredChatHeader {
   chat_metadata?: StoredChatMetadata;
   character_name?: string;
+  generation_settings?: StoredChatGenerationSettings;
   user_name?: string;
+}
+
+interface StoredChatSamplingOverrides {
+  context_trim_strategy?: unknown;
+  max_context_length?: unknown;
+  max_length?: unknown;
+  min_p?: unknown;
+  presence_penalty?: unknown;
+  rep_pen?: unknown;
+  rep_pen_range?: unknown;
+  temperature?: unknown;
+  top_k?: unknown;
+  top_p?: unknown;
+}
+
+interface StoredChatGenerationSettings {
+  sampler_preset_id?: unknown;
+  sampling?: StoredChatSamplingOverrides;
+  system_prompt?: unknown;
 }
 
 interface StoredChatLine {
@@ -39,6 +66,22 @@ interface StoredChatLine {
 
 function getString(value: unknown, fallback = '') {
   return typeof value === 'string' ? value : fallback;
+}
+
+function getNullableString(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return typeof value === 'string' ? value : null;
+}
+
+function getNullableNumber(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function resolveChatsDirectory() {
@@ -96,6 +139,65 @@ function parseJsonRecord(line: string, filePath: string, lineNumber: number) {
   }
 }
 
+function parseStoredGenerationSettings(value: unknown, filePath: string): ChatGenerationSettingsRecord {
+  if (value === null || value === undefined) {
+    return createDefaultChatGenerationSettings();
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Malformed chat generation settings: ${filePath}:1`);
+  }
+
+  const source = value as StoredChatGenerationSettings;
+  const samplingSource =
+    source.sampling && typeof source.sampling === 'object' && !Array.isArray(source.sampling) ? source.sampling : {};
+  const parsed = ChatGenerationSettingsDtoSchema.safeParse({
+    samplerPresetId: getNullableString(source.sampler_preset_id),
+    sampling: {
+      ...createDefaultChatSamplingOverrides(),
+      contextTrimStrategy:
+        samplingSource.context_trim_strategy === 'trim_start' || samplingSource.context_trim_strategy === 'trim_middle'
+          ? samplingSource.context_trim_strategy
+          : null,
+      maxContextLength: getNullableNumber(samplingSource.max_context_length),
+      maxTokens: getNullableNumber(samplingSource.max_length),
+      minP: getNullableNumber(samplingSource.min_p),
+      presencePenalty: getNullableNumber(samplingSource.presence_penalty),
+      repeatPenalty: getNullableNumber(samplingSource.rep_pen),
+      repeatPenaltyRange: getNullableNumber(samplingSource.rep_pen_range),
+      temperature: getNullableNumber(samplingSource.temperature),
+      topK: getNullableNumber(samplingSource.top_k),
+      topP: getNullableNumber(samplingSource.top_p),
+    },
+    systemPrompt: getNullableString(source.system_prompt),
+  });
+
+  if (!parsed.success) {
+    throw new Error(`Malformed chat generation settings: ${filePath}:1`);
+  }
+
+  return parsed.data;
+}
+
+function serializeGenerationSettings(settings: ChatGenerationSettingsRecord): StoredChatGenerationSettings {
+  return {
+    sampler_preset_id: settings.samplerPresetId,
+    sampling: {
+      context_trim_strategy: settings.sampling.contextTrimStrategy,
+      max_context_length: settings.sampling.maxContextLength,
+      max_length: settings.sampling.maxTokens,
+      min_p: settings.sampling.minP,
+      presence_penalty: settings.sampling.presencePenalty,
+      rep_pen: settings.sampling.repeatPenalty,
+      rep_pen_range: settings.sampling.repeatPenaltyRange,
+      temperature: settings.sampling.temperature,
+      top_k: settings.sampling.topK,
+      top_p: settings.sampling.topP,
+    },
+    system_prompt: settings.systemPrompt,
+  };
+}
+
 function parseStoredHeader(line: string, filePath: string) {
   const parsed = parseJsonRecord(line, filePath, 1);
   if (!parsed) {
@@ -111,6 +213,8 @@ function parseStoredHeader(line: string, filePath: string) {
       ? (parsed.chat_metadata as Record<string, unknown>)
       : {};
 
+  const generationSettings = parseStoredGenerationSettings(parsed.generation_settings, filePath);
+
   return {
     chat_metadata: {
       createdAt: getString(metadataSource.createdAt),
@@ -118,6 +222,7 @@ function parseStoredHeader(line: string, filePath: string) {
       updatedAt: getString(metadataSource.updatedAt),
     },
     character_name: getString(parsed.character_name),
+    generation_settings: serializeGenerationSettings(generationSettings),
     user_name: getString(parsed.user_name),
   } satisfies StoredChatHeader;
 }
@@ -190,6 +295,7 @@ function updateHeaderRecord(
   existingHeader: Record<string, unknown> | null,
   session: ChatSessionRecord,
   updatedAt: string,
+  generationSettings = session.generationSettings,
 ) {
   const header = existingHeader ?? {};
   const metadata = getRecord(header.chat_metadata);
@@ -203,6 +309,7 @@ function updateHeaderRecord(
       updatedAt,
     },
     character_name: getString(header.character_name, session.characterName ?? ''),
+    generation_settings: serializeGenerationSettings(generationSettings),
     user_name: getString(header.user_name, session.userName ?? ''),
   } satisfies StoredChatHeader;
 }
@@ -215,6 +322,16 @@ function getFallbackTitle(chatId: string, messages: ChatMessageRecord[]) {
   }
 
   return `${DEFAULT_CHAT_TITLE_PREFIX} ${chatId.slice(0, 8)}`;
+}
+
+function getLatestIsoDate(...values: Array<string | null | undefined>) {
+  const candidates = values.map((value) => value?.trim()).filter((value): value is string => Boolean(value));
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates.sort((left, right) => right.localeCompare(left))[0] ?? null;
 }
 
 async function readChatFile(chatId: string): Promise<ChatSessionRecord | null> {
@@ -260,7 +377,7 @@ async function readChatFile(chatId: string): Promise<ChatSessionRecord | null> {
     ];
   });
   const updatedAt =
-    messages.at(-1)?.createdAt ?? (getString(header?.chat_metadata?.updatedAt).trim() || stats.mtime.toISOString());
+    getLatestIsoDate(messages.at(-1)?.createdAt, header?.chat_metadata?.updatedAt) ?? stats.mtime.toISOString();
   const createdAt = getString(header?.chat_metadata?.createdAt).trim() || fallbackCreatedAt;
   const title = getString(header?.chat_metadata?.title).trim() || getFallbackTitle(chatId, messages);
   const summary: ChatSummaryRecord = {
@@ -277,6 +394,9 @@ async function readChatFile(chatId: string): Promise<ChatSessionRecord | null> {
     chat: summary,
     userName: getString(header?.user_name) || null,
     characterName: summary.characterName,
+    generationSettings: header?.generation_settings
+      ? parseStoredGenerationSettings(header.generation_settings, filePath)
+      : createDefaultChatGenerationSettings(),
     messages,
   };
 }
@@ -322,6 +442,7 @@ export class FileChatRepository implements ChatRepository {
         title: input.title,
         updatedAt: input.createdAt,
       },
+      generation_settings: serializeGenerationSettings(createDefaultChatGenerationSettings()),
       user_name: input.userName,
       character_name: '',
     };
@@ -365,5 +486,32 @@ export class FileChatRepository implements ChatRepository {
     return sessions
       .flatMap((session) => (session ? [session.chat] : []))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  async updateGenericChatGenerationSettings(chatId: string, settings: ChatGenerationSettingsRecord, updatedAt: string) {
+    return withChatWriteQueue(chatId, async () => {
+      const currentSession = await readChatFile(chatId);
+
+      if (!currentSession) {
+        return null;
+      }
+
+      const filePath = resolveChatFilePath(chatId);
+      const rawContent = await fs.readFile(filePath, 'utf8');
+      const lines = rawContent
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      const existingHeader = lines[0] ? parseStoredHeaderRecord(lines[0], filePath) : null;
+      const existingMessageLines = existingHeader ? lines.slice(1) : lines;
+      const nextLines = [
+        JSON.stringify(updateHeaderRecord(existingHeader, currentSession, updatedAt, settings)),
+        ...existingMessageLines,
+      ];
+
+      await writeChatFileAtomically(filePath, `${nextLines.join('\n')}\n`);
+
+      return readChatFile(chatId);
+    });
   }
 }

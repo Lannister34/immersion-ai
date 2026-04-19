@@ -80,4 +80,70 @@ describe('FileChatRepository', () => {
     const directoryEntries = await fs.readdir(path.dirname(chatFilePath));
     expect(directoryEntries.filter((entry) => entry.endsWith('.tmp'))).toEqual([]);
   });
+
+  it('updates generation settings without dropping existing messages', async () => {
+    const chatId = 'settings-chat';
+    const repository = new FileChatRepository();
+
+    await repository.createGenericChat({
+      id: chatId,
+      title: 'Settings chat',
+      userName: 'Tester',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    await repository.appendGenericChatMessages(chatId, [
+      {
+        role: 'user',
+        content: 'Keep me.',
+        createdAt: '2026-01-01T00:00:01.000Z',
+      },
+    ]);
+
+    const updatedSession = await repository.updateGenericChatGenerationSettings(
+      chatId,
+      {
+        samplerPresetId: 'default',
+        systemPrompt: 'Chat prompt.',
+        sampling: {
+          contextTrimStrategy: 'trim_start',
+          maxContextLength: 2048,
+          maxTokens: 300,
+          minP: null,
+          presencePenalty: null,
+          repeatPenalty: null,
+          repeatPenaltyRange: null,
+          temperature: 0.4,
+          topK: null,
+          topP: null,
+        },
+      },
+      '2026-01-01T00:00:02.000Z',
+    );
+
+    expect(updatedSession?.messages.map((message) => message.content)).toEqual(['Keep me.']);
+    expect(updatedSession?.generationSettings).toMatchObject({
+      samplerPresetId: 'default',
+      systemPrompt: 'Chat prompt.',
+      sampling: {
+        contextTrimStrategy: 'trim_start',
+        maxContextLength: 2048,
+        maxTokens: 300,
+        temperature: 0.4,
+      },
+    });
+    expect(updatedSession?.chat.updatedAt).toBe('2026-01-01T00:00:02.000Z');
+
+    const chatFilePath = resolveChatFilePath(chatId);
+    const rawLines = (await fs.readFile(chatFilePath, 'utf8')).split(/\r?\n/u).filter((line) => line.trim().length > 0);
+    const parsedHeader = JSON.parse(rawLines[0] ?? '{}') as Record<string, unknown>;
+
+    expect(rawLines).toHaveLength(2);
+    expect(parsedHeader.generation_settings).toMatchObject({
+      sampler_preset_id: 'default',
+      system_prompt: 'Chat prompt.',
+    });
+
+    const directoryEntries = await fs.readdir(path.dirname(chatFilePath));
+    expect(directoryEntries.filter((entry) => entry.endsWith('.tmp'))).toEqual([]);
+  });
 });
