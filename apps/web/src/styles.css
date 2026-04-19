@@ -790,27 +790,6 @@ select:disabled {
   background: var(--danger);
 }
 
-.current-model {
-  align-items: center;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: var(--radius-sm);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 12px;
-}
-
-.current-model span {
-  color: var(--muted);
-}
-
-.current-model strong {
-  color: var(--chat-text);
-  font-family: Consolas, "Courier New", monospace;
-  word-break: break-word;
-}
-
 .install-panel {
   align-items: center;
   background: rgba(239, 68, 68, 0.1);

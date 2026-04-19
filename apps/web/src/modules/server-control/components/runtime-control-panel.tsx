@@ -120,15 +120,15 @@ function createCommand(draft: RuntimeConfigDraft): RuntimeConfigCommand {
 
 interface RuntimeModelRowProps {
   canStart: boolean;
-  isCurrent: boolean;
-  isStarting: boolean;
+  isLoaded: boolean;
+  isStartingThisModel: boolean;
   model: RuntimeModelSummary;
   onStart: (model: RuntimeModelSummary) => Promise<void>;
 }
 
-function RuntimeModelRow({ canStart, isCurrent, isStarting, model, onStart }: RuntimeModelRowProps) {
+function RuntimeModelRow({ canStart, isLoaded, isStartingThisModel, model, onStart }: RuntimeModelRowProps) {
   return (
-    <li className={`model-row ${isCurrent ? 'model-row--current' : ''}`}>
+    <li className={`model-row ${isLoaded ? 'model-row--current' : ''}`}>
       <div className="model-row__body">
         <strong>{model.name}</strong>
         <span>
@@ -136,16 +136,18 @@ function RuntimeModelRow({ canStart, isCurrent, isStarting, model, onStart }: Ru
         </span>
       </div>
 
-      {isCurrent ? <span className="model-row__badge">Загружена</span> : null}
+      {isLoaded ? <span className="model-row__badge">Загружена</span> : null}
 
-      <button
-        className="action-button action-button--compact"
-        disabled={!canStart || isStarting}
-        onClick={() => onStart(model)}
-        type="button"
-      >
-        {isStarting ? 'Запуск...' : 'Запустить'}
-      </button>
+      {!isLoaded ? (
+        <button
+          className="action-button action-button--compact"
+          disabled={!canStart}
+          onClick={() => onStart(model)}
+          type="button"
+        >
+          {isStartingThisModel ? 'Запуск...' : 'Запустить'}
+        </button>
+      ) : null}
     </li>
   );
 }
@@ -169,6 +171,7 @@ export function RuntimeControlPanel({
   const status = overview.serverStatus.status;
   const isTransitioning = status === 'starting' || status === 'stopping' || isStarting || isStopping;
   const currentModelPath = overview.serverStatus.modelPath;
+  const isRunning = status === 'running';
   const canStartModels = overview.engine.found && !isTransitioning;
 
   const updateDraft = (patch: Partial<RuntimeConfigDraft>) => {
@@ -206,7 +209,6 @@ export function RuntimeControlPanel({
         flashAttention: config.flashAttention,
         threads: config.threads,
       });
-      setStatusMessage(`Запускаем ${model.name}.`);
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : 'Не удалось запустить модель.');
     }
@@ -297,13 +299,6 @@ export function RuntimeControlPanel({
         </div>
       ) : null}
 
-      {overview.serverStatus.model && status === 'running' ? (
-        <div className="current-model">
-          <span>Текущая модель</span>
-          <strong>{overview.serverStatus.model}</strong>
-        </div>
-      ) : null}
-
       {overview.serverStatus.error ? <div className="note note--danger">{overview.serverStatus.error}</div> : null}
 
       {showSettings ? (
@@ -390,8 +385,8 @@ export function RuntimeControlPanel({
           {overview.models.map((model) => (
             <RuntimeModelRow
               canStart={canStartModels}
-              isCurrent={currentModelPath === model.path}
-              isStarting={isStarting || status === 'starting'}
+              isLoaded={isRunning && currentModelPath === model.path}
+              isStartingThisModel={status === 'starting' && currentModelPath === model.path}
               key={model.path}
               model={model}
               onStart={handleStart}
