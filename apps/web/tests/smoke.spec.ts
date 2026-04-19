@@ -121,6 +121,65 @@ test('switches to builtin mode and exposes model launch controls', async ({ page
   await expect(page.getByText('Сводка подключения')).toHaveCount(0);
 });
 
+test('shows a single loaded runtime model state without duplicate launch status', async ({ page }) => {
+  await page.route('**/api/runtime/overview', async (route) => {
+    await route.fulfill({
+      json: {
+        engine: {
+          found: true,
+          executablePath: 'bin/llama-server.exe',
+          defaultModelsDir: 'models',
+        },
+        serverStatus: {
+          status: 'running',
+          model: 'sandbox.gguf',
+          modelPath: 'models/sandbox.gguf',
+          error: null,
+          port: 5001,
+          pid: 2780,
+        },
+        serverConfig: {
+          modelsDirs: ['models'],
+          port: 5001,
+          gpuLayers: 99,
+          contextSize: 16384,
+          flashAttention: true,
+          threads: 8,
+        },
+        models: [
+          {
+            name: 'nested/secondary.gguf',
+            path: 'models/nested/secondary.gguf',
+            size: 128,
+            sourceDirectory: 'models',
+          },
+          {
+            name: 'sandbox.gguf',
+            path: 'models/sandbox.gguf',
+            size: 128,
+            sourceDirectory: 'models',
+          },
+        ],
+      },
+    });
+  });
+
+  await page.goto('/server');
+
+  await page.getByRole('button', { name: 'Встроенный сервер' }).click();
+  await expect(page.getByRole('button', { name: 'Встроенный сервер' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Текущая модель')).toHaveCount(0);
+  await expect(page.getByText(/Запускаем/)).toHaveCount(0);
+
+  const loadedModelRow = page.locator('.model-row--current').filter({ hasText: 'sandbox.gguf' });
+  await expect(loadedModelRow).toBeVisible();
+  await expect(loadedModelRow.getByText('Загружена')).toBeVisible();
+  await expect(loadedModelRow.getByRole('button', { name: 'Запустить' })).toHaveCount(0);
+
+  const secondaryModelRow = page.locator('.model-row').filter({ hasText: 'nested/secondary.gguf' });
+  await expect(secondaryModelRow.getByRole('button', { name: 'Запустить' })).toBeEnabled();
+});
+
 test('loads settings overview from backend route', async ({ page }) => {
   await page.goto('/settings');
 
