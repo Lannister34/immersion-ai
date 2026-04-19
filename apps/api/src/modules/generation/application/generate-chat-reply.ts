@@ -11,10 +11,10 @@ import {
   GenerationProviderUnavailableError,
   resolveGenerationProviderEndpoint,
 } from '../../providers/application/generation-provider.js';
-import { resolveSamplerPresetForModel } from '../../settings/application/active-sampler-preset.js';
 import { getSettingsOverview } from '../../settings/application/get-settings-overview.js';
 import { OpenAiCompatibleChatCompletionsClient } from '../infrastructure/openai-compatible-chat-completions-client.js';
 import type { ChatCompletionClient } from './chat-completion-client.js';
+import { resolveEffectiveSamplerPreset } from './effective-sampler.js';
 import { ChatReplyGenerationFailedError, ProviderGenerationError } from './generation-errors.js';
 
 export interface GenerateChatReplyDependencies {
@@ -48,7 +48,11 @@ export async function generateChatReply(
 
   try {
     const endpoint = await resolveGenerationProviderEndpoint();
-    const activePreset = resolveSamplerPresetForModel(settings, endpoint.model);
+    const activePreset = resolveEffectiveSamplerPreset(
+      settings,
+      endpoint.model,
+      sessionAfterUserMessage.generationSettings,
+    );
     const promptMessages = buildChatReplyPrompt({
       samplerPreset: activePreset,
       session: sessionAfterUserMessage,

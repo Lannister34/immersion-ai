@@ -25,10 +25,35 @@ export const ChatMessageDtoSchema = z.object({
 });
 export type ChatMessageDto = z.infer<typeof ChatMessageDtoSchema>;
 
+export const ChatContextTrimStrategySchema = z.enum(['trim_middle', 'trim_start']);
+export type ChatContextTrimStrategy = z.infer<typeof ChatContextTrimStrategySchema>;
+
+export const ChatSamplingOverridesDtoSchema = z.object({
+  contextTrimStrategy: ChatContextTrimStrategySchema.nullable(),
+  maxContextLength: z.number().int().positive().nullable(),
+  maxTokens: z.number().int().positive().nullable(),
+  minP: z.number().nonnegative().nullable(),
+  presencePenalty: z.number().nullable(),
+  repeatPenalty: z.number().nonnegative().nullable(),
+  repeatPenaltyRange: z.number().int().nonnegative().nullable(),
+  temperature: z.number().nonnegative().nullable(),
+  topK: z.number().int().nonnegative().nullable(),
+  topP: z.number().nonnegative().nullable(),
+});
+export type ChatSamplingOverridesDto = z.infer<typeof ChatSamplingOverridesDtoSchema>;
+
+export const ChatGenerationSettingsDtoSchema = z.object({
+  samplerPresetId: z.string().min(1).nullable(),
+  sampling: ChatSamplingOverridesDtoSchema,
+  systemPrompt: z.string().max(20_000).nullable(),
+});
+export type ChatGenerationSettingsDto = z.infer<typeof ChatGenerationSettingsDtoSchema>;
+
 export const ChatSessionDtoSchema = z.object({
   chat: ChatSummaryDtoSchema,
   userName: z.string(),
   characterName: z.string().nullable(),
+  generationSettings: ChatGenerationSettingsDtoSchema,
   messages: z.array(ChatMessageDtoSchema),
 });
 export type ChatSessionDto = z.infer<typeof ChatSessionDtoSchema>;
@@ -50,3 +75,9 @@ export type CreateChatResponse = z.infer<typeof CreateChatResponseSchema>;
 
 export const GetChatSessionResponseSchema = ChatSessionDtoSchema;
 export type GetChatSessionResponse = z.infer<typeof GetChatSessionResponseSchema>;
+
+export const UpdateChatGenerationSettingsCommandSchema = ChatGenerationSettingsDtoSchema;
+export type UpdateChatGenerationSettingsCommand = z.infer<typeof UpdateChatGenerationSettingsCommandSchema>;
+
+export const UpdateChatGenerationSettingsResponseSchema = ChatSessionDtoSchema;
+export type UpdateChatGenerationSettingsResponse = z.infer<typeof UpdateChatGenerationSettingsResponseSchema>;

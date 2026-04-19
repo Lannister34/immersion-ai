@@ -20,6 +20,7 @@ export interface ChatSummaryRecord {
 export interface ChatSessionRecord {
   characterName: string | null;
   chat: ChatSummaryRecord;
+  generationSettings: ChatGenerationSettingsRecord;
   messages: ChatMessageRecord[];
   userName: string | null;
 }
@@ -35,4 +36,48 @@ export interface AppendChatMessageInput {
   content: string;
   createdAt: string;
   role: ChatMessageRoleRecord;
+}
+
+export type ChatContextTrimStrategyRecord = 'trim_middle' | 'trim_start';
+
+export interface ChatSamplingOverridesRecord {
+  contextTrimStrategy: ChatContextTrimStrategyRecord | null;
+  maxContextLength: number | null;
+  maxTokens: number | null;
+  minP: number | null;
+  presencePenalty: number | null;
+  repeatPenalty: number | null;
+  repeatPenaltyRange: number | null;
+  temperature: number | null;
+  topK: number | null;
+  topP: number | null;
+}
+
+export interface ChatGenerationSettingsRecord {
+  samplerPresetId: string | null;
+  sampling: ChatSamplingOverridesRecord;
+  systemPrompt: string | null;
+}
+
+export function createDefaultChatSamplingOverrides(): ChatSamplingOverridesRecord {
+  return {
+    contextTrimStrategy: null,
+    maxContextLength: null,
+    maxTokens: null,
+    minP: null,
+    presencePenalty: null,
+    repeatPenalty: null,
+    repeatPenaltyRange: null,
+    temperature: null,
+    topK: null,
+    topP: null,
+  };
+}
+
+export function createDefaultChatGenerationSettings(): ChatGenerationSettingsRecord {
+  return {
+    samplerPresetId: null,
+    sampling: createDefaultChatSamplingOverrides(),
+    systemPrompt: null,
+  };
 }

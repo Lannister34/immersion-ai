@@ -1,18 +1,64 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, URL } from 'node:url';
 
 import {
   ChatListResponseSchema,
   CreateChatResponseSchema,
   GetChatSessionResponseSchema,
+  UpdateChatGenerationSettingsResponseSchema,
 } from '@immersion/contracts/chats';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApiApp } from './app.js';
 
-const fixtureDataRoot = fileURLToPath(new URL('../testdata/smoke-data', import.meta.url));
+const testSettings = {
+  textgenerationwebui: {
+    server_urls: {
+      koboldcpp: 'http://127.0.0.1:5001',
+    },
+  },
+};
+
+const testUserSettings = {
+  activePresetId: 'default',
+  modelPresetMap: {
+    'smoke-model': 'smoke-model-preset',
+  },
+  samplerPresets: [
+    {
+      context_trim_strategy: 'trim_middle',
+      id: 'default',
+      max_context_length: 8192,
+      max_length: 640,
+      min_p: 0.03,
+      name: 'Default',
+      presence_penalty: 0.15,
+      rep_pen: 1.08,
+      rep_pen_range: 1024,
+      temperature: 0.72,
+      top_k: 42,
+      top_p: 0.91,
+    },
+    {
+      context_trim_strategy: 'trim_start',
+      id: 'smoke-model-preset',
+      max_context_length: 12288,
+      max_length: 777,
+      min_p: 0.04,
+      name: 'Smoke Model',
+      presence_penalty: 0.2,
+      rep_pen: 1.11,
+      rep_pen_range: 512,
+      temperature: 0.44,
+      top_k: 7,
+      top_p: 0.82,
+    },
+  ],
+  systemPromptTemplate: 'Reply as {{char}} and do not speak for {{user}}.',
+  userName: '\u0422\u0435\u0441\u0442\u0435\u0440',
+  userPersona: 'Rewrite tester.',
+};
 
 describe('chat routes', () => {
   let previousDataRoot: string | undefined;
@@ -21,7 +67,8 @@ describe('chat routes', () => {
   beforeEach(async () => {
     previousDataRoot = process.env.IMMERSION_DATA_ROOT;
     temporaryDataRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'immersion-api-chats-'));
-    await fs.cp(fixtureDataRoot, temporaryDataRoot, { recursive: true });
+    await fs.writeFile(path.join(temporaryDataRoot, 'settings.json'), JSON.stringify(testSettings), 'utf8');
+    await fs.writeFile(path.join(temporaryDataRoot, 'user-settings.json'), JSON.stringify(testUserSettings), 'utf8');
     process.env.IMMERSION_DATA_ROOT = temporaryDataRoot;
   });
 
@@ -67,6 +114,7 @@ describe('chat routes', () => {
         updatedAt: string;
       };
       character_name: string;
+      generation_settings: unknown;
       user_name: string;
     };
 
@@ -77,6 +125,10 @@ describe('chat routes', () => {
         updatedAt: createPayload.chat.updatedAt,
       },
       character_name: '',
+      generation_settings: {
+        sampler_preset_id: null,
+        system_prompt: null,
+      },
       user_name: '\u0422\u0435\u0441\u0442\u0435\u0440',
     });
 
@@ -105,7 +157,171 @@ describe('chat routes', () => {
     expect(sessionResponse.statusCode).toBe(200);
     expect(sessionPayload.chat.id).toBe(createPayload.chat.id);
     expect(sessionPayload.userName).toBe('\u0422\u0435\u0441\u0442\u0435\u0440');
+    expect(sessionPayload.generationSettings).toMatchObject({
+      samplerPresetId: null,
+      systemPrompt: null,
+    });
     expect(sessionPayload.messages).toEqual([]);
+
+    await app.close();
+  });
+
+  it('updates and persists chat-owned generation settings', async () => {
+    const app = buildApiApp();
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/chats',
+      payload: {
+        title: 'Generation settings',
+      },
+    });
+    const createPayload = CreateChatResponseSchema.parse(createResponse.json());
+    const updateResponse = await app.inject({
+      method: 'PUT',
+      url: `/api/chats/${createPayload.chat.id}/generation-settings`,
+      payload: {
+        samplerPresetId: 'smoke-model-preset',
+        systemPrompt: 'You are concise. Reply to {{user}}.',
+        sampling: {
+          contextTrimStrategy: 'trim_start',
+          maxContextLength: 4096,
+          maxTokens: 321,
+          minP: 0.05,
+          presencePenalty: 0.25,
+          repeatPenalty: 1.12,
+          repeatPenaltyRange: 256,
+          temperature: 0.33,
+          topK: 12,
+          topP: 0.77,
+        },
+      },
+    });
+    const updatePayload = UpdateChatGenerationSettingsResponseSchema.parse(updateResponse.json());
+
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updatePayload.generationSettings).toEqual({
+      samplerPresetId: 'smoke-model-preset',
+      systemPrompt: 'You are concise. Reply to {{user}}.',
+      sampling: {
+        contextTrimStrategy: 'trim_start',
+        maxContextLength: 4096,
+        maxTokens: 321,
+        minP: 0.05,
+        presencePenalty: 0.25,
+        repeatPenalty: 1.12,
+        repeatPenaltyRange: 256,
+        temperature: 0.33,
+        topK: 12,
+        topP: 0.77,
+      },
+    });
+
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: `/api/chats/${createPayload.chat.id}`,
+    });
+    const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
+
+    expect(sessionPayload.generationSettings).toEqual(updatePayload.generationSettings);
+
+    const filePath = path.join(temporaryDataRoot, 'chats', '_no_character_', `${createPayload.chat.id}.jsonl`);
+    const headerLine = (await fs.readFile(filePath, 'utf8')).split(/\r?\n/u)[0] ?? '';
+    const headerPayload = JSON.parse(headerLine) as Record<string, unknown>;
+
+    expect(headerPayload.generation_settings).toMatchObject({
+      sampler_preset_id: 'smoke-model-preset',
+      system_prompt: 'You are concise. Reply to {{user}}.',
+      sampling: {
+        context_trim_strategy: 'trim_start',
+        max_context_length: 4096,
+        max_length: 321,
+        min_p: 0.05,
+        presence_penalty: 0.25,
+        rep_pen: 1.12,
+        rep_pen_range: 256,
+        temperature: 0.33,
+        top_k: 12,
+        top_p: 0.77,
+      },
+    });
+
+    await app.close();
+  });
+
+  it('returns 400 for invalid chat generation settings', async () => {
+    const app = buildApiApp();
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/chats',
+      payload: {
+        title: 'Invalid generation settings',
+      },
+    });
+    const createPayload = CreateChatResponseSchema.parse(createResponse.json());
+    const updateResponse = await app.inject({
+      method: 'PUT',
+      url: `/api/chats/${createPayload.chat.id}/generation-settings`,
+      payload: {
+        samplerPresetId: null,
+        systemPrompt: null,
+        sampling: {
+          contextTrimStrategy: null,
+          maxContextLength: 0,
+          maxTokens: null,
+          minP: null,
+          presencePenalty: null,
+          repeatPenalty: null,
+          repeatPenaltyRange: null,
+          temperature: null,
+          topK: null,
+          topP: null,
+        },
+      },
+    });
+
+    expect(updateResponse.statusCode).toBe(400);
+    expect(updateResponse.json()).toMatchObject({
+      code: 'validation_error',
+    });
+
+    await app.close();
+  });
+
+  it('returns 400 when chat generation settings reference an unknown sampler preset', async () => {
+    const app = buildApiApp();
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/chats',
+      payload: {
+        title: 'Unknown preset',
+      },
+    });
+    const createPayload = CreateChatResponseSchema.parse(createResponse.json());
+    const updateResponse = await app.inject({
+      method: 'PUT',
+      url: `/api/chats/${createPayload.chat.id}/generation-settings`,
+      payload: {
+        samplerPresetId: 'missing-preset',
+        systemPrompt: null,
+        sampling: {
+          contextTrimStrategy: null,
+          maxContextLength: null,
+          maxTokens: null,
+          minP: null,
+          presencePenalty: null,
+          repeatPenalty: null,
+          repeatPenaltyRange: null,
+          temperature: null,
+          topK: null,
+          topP: null,
+        },
+      },
+    });
+
+    expect(updateResponse.statusCode).toBe(400);
+    expect(updateResponse.json()).toMatchObject({
+      code: 'invalid_chat_generation_settings',
+    });
 
     await app.close();
   });
@@ -183,6 +399,10 @@ describe('chat routes', () => {
       'Ответ модели',
     ]);
     expect(sessionPayload.chat.title).toBe('Первое сообщение');
+    expect(sessionPayload.generationSettings).toMatchObject({
+      samplerPresetId: null,
+      systemPrompt: null,
+    });
 
     await app.close();
   });
@@ -256,6 +476,37 @@ describe('chat routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/api/chats/missing-chat',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({
+      code: 'chat_not_found',
+    });
+
+    await app.close();
+  });
+
+  it('returns 404 when updating generation settings for an unknown chat', async () => {
+    const app = buildApiApp();
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/api/chats/missing-chat/generation-settings',
+      payload: {
+        samplerPresetId: null,
+        systemPrompt: null,
+        sampling: {
+          contextTrimStrategy: null,
+          maxContextLength: null,
+          maxTokens: null,
+          minP: null,
+          presencePenalty: null,
+          repeatPenalty: null,
+          repeatPenaltyRange: null,
+          temperature: null,
+          topK: null,
+          topP: null,
+        },
+      },
     });
 
     expect(response.statusCode).toBe(404);

@@ -1,25 +1,33 @@
 import fs from 'node:fs/promises';
-import { fileURLToPath, URL } from 'node:url';
+import path from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
-const smokeUserSettingsPath = fileURLToPath(
-  new URL('../../api/testdata/smoke-data/user-settings.json', import.meta.url),
-);
-const smokeChatsPath = fileURLToPath(new URL('../../api/testdata/smoke-data/chats', import.meta.url));
+const smokeDataRoot = process.env.IMMERSION_SMOKE_DATA_ROOT;
+
+if (!smokeDataRoot) {
+  throw new Error('IMMERSION_SMOKE_DATA_ROOT must point to an isolated smoke-test data directory.');
+}
+
+const smokeUserSettingsPath = path.join(smokeDataRoot, 'user-settings.json');
+const smokeChatsPath = path.join(smokeDataRoot, 'chats');
 
 let baselineUserSettings = '';
 
 test.describe.configure({ mode: 'serial' });
 
+async function resetSmokeData() {
+  await fs.writeFile(smokeUserSettingsPath, baselineUserSettings, 'utf8');
+  await fs.rm(smokeChatsPath, { recursive: true, force: true });
+}
+
 test.beforeAll(async () => {
   baselineUserSettings = await fs.readFile(smokeUserSettingsPath, 'utf8');
 });
 
-test.afterEach(async () => {
-  await fs.writeFile(smokeUserSettingsPath, baselineUserSettings, 'utf8');
-  await fs.rm(smokeChatsPath, { recursive: true, force: true });
-});
+test.beforeEach(resetSmokeData);
+
+test.afterEach(resetSmokeData);
 
 test('redirects root to chats and hides unfinished sections from navigation', async ({ page }) => {
   await page.goto('/');
@@ -110,8 +118,13 @@ test('switches to builtin mode and exposes model launch controls', async ({ page
 
   await page.goto('/server');
 
+  const saveModeResponse = page.waitForResponse((response) => {
+    return response.url().includes('/api/providers/settings') && response.request().method() === 'PUT';
+  });
+
   await page.getByRole('button', { name: 'Встроенный сервер' }).click();
   await expect(page.getByRole('button', { name: 'Встроенный сервер' })).toHaveAttribute('aria-pressed', 'true');
+  await saveModeResponse;
   await expect(page.getByText('sandbox.gguf')).toBeVisible();
   await expect(page.getByText('nested/secondary.gguf')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Запустить' }).first()).toBeVisible();
@@ -137,6 +150,18 @@ test('shows a route-level not-found screen for unknown paths', async ({ page }) 
 });
 
 test('creates a chat, opens it, and restores it after reload', async ({ page }) => {
+  await page.route('**/api/generation/readiness', async (route) => {
+    await route.fulfill({
+      json: {
+        activeProvider: 'custom',
+        issue: null,
+        mode: 'external',
+        runtime: null,
+        status: 'ready',
+      },
+    });
+  });
+
   await page.route('**/api/generation/chat-reply', async (route) => {
     const body = route.request().postDataJSON() as {
       chatId: string;
@@ -158,6 +183,22 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
           },
           userName: 'Tester',
           characterName: null,
+          generationSettings: {
+            samplerPresetId: null,
+            systemPrompt: null,
+            sampling: {
+              contextTrimStrategy: null,
+              maxContextLength: null,
+              maxTokens: null,
+              minP: null,
+              presencePenalty: null,
+              repeatPenalty: null,
+              repeatPenaltyRange: null,
+              temperature: null,
+              topK: null,
+              topP: null,
+            },
+          },
           messages: [
             {
               id: `${body.chatId}:1`,

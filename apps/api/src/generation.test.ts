@@ -64,6 +64,19 @@ const MODEL_BOUND_SMOKE_SAMPLING = {
   top_p: 0.82,
 };
 
+const EMPTY_CHAT_SAMPLING_OVERRIDES = {
+  contextTrimStrategy: null,
+  maxContextLength: null,
+  maxTokens: null,
+  minP: null,
+  presencePenalty: null,
+  repeatPenalty: null,
+  repeatPenaltyRange: null,
+  temperature: null,
+  topK: null,
+  topP: null,
+};
+
 interface SmokeUserSettingsFixture {
   activeProvider?: string;
   backendMode?: string;
@@ -259,6 +272,16 @@ describe('generation routes', () => {
     );
   }
 
+  async function updateChatGenerationSettings(app: ReturnType<typeof buildApiApp>, chatId: string, payload: object) {
+    const response = await app.inject({
+      method: 'PUT',
+      url: `/api/chats/${chatId}/generation-settings`,
+      payload,
+    });
+
+    expect(response.statusCode).toBe(200);
+  }
+
   it('reports generation readiness for a configured external provider', async () => {
     const app = buildApiApp();
     const response = await app.inject({
@@ -440,6 +463,49 @@ describe('generation routes', () => {
     await app.close();
   });
 
+  it('applies chat-owned generation settings over model-bound sampler presets', async () => {
+    const providerRequests = mockProviderSuccess('Assistant reply with chat overrides.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+
+    await updateChatGenerationSettings(app, chat.id, {
+      samplerPresetId: 'default',
+      systemPrompt: 'Custom system prompt for this chat.',
+      sampling: {
+        ...EMPTY_CHAT_SAMPLING_OVERRIDES,
+        maxContextLength: 4096,
+        maxTokens: 222,
+        temperature: 0.55,
+      },
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Use chat settings.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(providerRequests).toHaveLength(1);
+    expect(providerRequests[0]?.body).toMatchObject({
+      ...ACTIVE_SMOKE_SAMPLING,
+      max_tokens: 222,
+      model: 'smoke-model',
+      stream: false,
+      temperature: 0.55,
+    });
+    const requestBody = getProviderRequestBody(providerRequests[0]);
+    const systemMessages = requestBody.messages?.filter((message) => message.role === 'system') ?? [];
+
+    expect(systemMessages).toHaveLength(1);
+    expect(systemMessages[0]?.content).toContain('Custom system prompt for this chat.');
+
+    await app.close();
+  });
+
   it('ignores stale sampler bindings and uses the active preset', async () => {
     await writeProviderSettings({
       modelPresetMap: {
@@ -534,6 +600,13 @@ describe('generation routes', () => {
     const providerRequests = mockProviderFailure();
     const app = buildApiApp();
     const chat = await createChat(app);
+
+    await updateChatGenerationSettings(app, chat.id, {
+      samplerPresetId: null,
+      systemPrompt: 'Preserve this setting on provider failure.',
+      sampling: EMPTY_CHAT_SAMPLING_OVERRIDES,
+    });
+
     const response = await app.inject({
       method: 'POST',
       url: '/api/generation/chat-reply',
@@ -554,6 +627,9 @@ describe('generation routes', () => {
             content: 'Persist this before provider failure.',
           },
         ],
+        generationSettings: {
+          systemPrompt: 'Preserve this setting on provider failure.',
+        },
       },
     });
     expect(providerRequests).toHaveLength(1);

@@ -1,9 +1,16 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 
 import { defineConfig } from '@playwright/test';
 
 const configDirectory = fileURLToPath(new URL('.', import.meta.url));
-const smokeDataDirectory = fileURLToPath(new URL('../api/testdata/smoke-data', import.meta.url));
+const smokeFixtureDirectory = fileURLToPath(new URL('../api/testdata/smoke-data', import.meta.url));
+const smokeDataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'immersion-web-smoke-'));
+
+fs.cpSync(smokeFixtureDirectory, smokeDataDirectory, { recursive: true });
+process.env.IMMERSION_SMOKE_DATA_ROOT = smokeDataDirectory;
 
 export default defineConfig({
   testDir: './tests',
