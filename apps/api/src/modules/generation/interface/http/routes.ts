@@ -1,13 +1,31 @@
+import { ChatIdSchema } from '@immersion/contracts/chats';
 import { ApiProblemSchema } from '@immersion/contracts/common';
-import { ChatReplyGenerationErrorResponseSchema } from '@immersion/contracts/generation';
+import {
+  ChatReplyGenerationErrorResponseSchema,
+  GenerationJobEventSchema,
+  GenerationJobIdSchema,
+  GenerationJobResponseSchema,
+  ListGenerationJobsResponseSchema,
+} from '@immersion/contracts/generation';
 import type { FastifyPluginAsync } from 'fastify';
-import { ZodError } from 'zod';
+import { ZodError, z } from 'zod';
 
 import { ChatNotFoundError } from '../../../chats/application/append-chat-messages.js';
 import { GenerationProviderUnavailableError } from '../../../providers/application/generation-provider.js';
 import { generateChatReply } from '../../application/generate-chat-reply.js';
 import { ChatReplyGenerationFailedError, ProviderGenerationError } from '../../application/generation-errors.js';
+import { ActiveGenerationJobExistsError } from '../../application/generation-job-registry.js';
 import { getGenerationReadiness } from '../../application/get-generation-readiness.js';
+import { startChatReplyGenerationJob } from '../../application/start-chat-reply-generation-job.js';
+import { InMemoryGenerationJobRegistry } from '../../infrastructure/in-memory-generation-job-registry.js';
+
+const GenerationJobRouteParamsSchema = z.object({
+  jobId: GenerationJobIdSchema,
+});
+
+const GenerationJobsQuerySchema = z.object({
+  chatId: ChatIdSchema.optional(),
+});
 
 function toProblem(error: unknown) {
   if (error instanceof ZodError) {
@@ -37,6 +55,19 @@ function toProblem(error: unknown) {
         code: 'generation_provider_unavailable',
         message: error.message,
       }),
+    };
+  }
+
+  if (error instanceof ActiveGenerationJobExistsError) {
+    return {
+      statusCode: 409,
+      body: {
+        ...ApiProblemSchema.parse({
+          code: 'active_generation_job_exists',
+          message: 'An active generation job already exists for this chat.',
+        }),
+        job: error.job,
+      },
     };
   }
 
@@ -70,7 +101,16 @@ function toProblem(error: unknown) {
   };
 }
 
+function writeSseEvent(raw: NodeJS.WritableStream, event: unknown) {
+  const parsedEvent = GenerationJobEventSchema.parse(event);
+
+  raw.write(`event: ${parsedEvent.type}\n`);
+  raw.write(`data: ${JSON.stringify(parsedEvent)}\n\n`);
+}
+
 export const generationRoutes: FastifyPluginAsync = async (app) => {
+  const generationJobRegistry = new InMemoryGenerationJobRegistry();
+
   app.get('/readiness', async () => getGenerationReadiness());
 
   app.post('/chat-reply', async (request, reply) => {
@@ -90,6 +130,132 @@ export const generationRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(problem.statusCode).send(problem.body);
     } finally {
       request.raw.off('aborted', abortGeneration);
+    }
+  });
+
+  app.post('/chat-reply-jobs', async (request, reply) => {
+    try {
+      const response = await startChatReplyGenerationJob(request.body, {
+        generationJobRegistry,
+      });
+
+      return reply.status(202).send(response);
+    } catch (error) {
+      request.log.error({ err: error }, 'Failed to start chat reply generation job');
+      const problem = toProblem(error);
+
+      return reply.status(problem.statusCode).send(problem.body);
+    }
+  });
+
+  app.get('/jobs', async (request, reply) => {
+    try {
+      const query = GenerationJobsQuerySchema.parse(request.query);
+
+      return ListGenerationJobsResponseSchema.parse({
+        items: generationJobRegistry.list(query.chatId ? { chatId: query.chatId } : {}),
+      });
+    } catch (error) {
+      request.log.error({ err: error }, 'Failed to list generation jobs');
+      const problem = toProblem(error);
+
+      return reply.status(problem.statusCode).send(problem.body);
+    }
+  });
+
+  app.get('/jobs/:jobId', async (request, reply) => {
+    try {
+      const { jobId } = GenerationJobRouteParamsSchema.parse(request.params);
+      const job = generationJobRegistry.get(jobId);
+
+      if (!job) {
+        return reply.status(404).send(
+          ApiProblemSchema.parse({
+            code: 'generation_job_not_found',
+            message: 'Generation job not found.',
+          }),
+        );
+      }
+
+      return GenerationJobResponseSchema.parse({
+        job,
+      });
+    } catch (error) {
+      request.log.error({ err: error }, 'Failed to load generation job');
+      const problem = toProblem(error);
+
+      return reply.status(problem.statusCode).send(problem.body);
+    }
+  });
+
+  app.post('/jobs/:jobId/cancel', async (request, reply) => {
+    try {
+      const { jobId } = GenerationJobRouteParamsSchema.parse(request.params);
+      const job = generationJobRegistry.cancel(jobId);
+
+      if (!job) {
+        return reply.status(404).send(
+          ApiProblemSchema.parse({
+            code: 'generation_job_not_found',
+            message: 'Generation job not found.',
+          }),
+        );
+      }
+
+      return GenerationJobResponseSchema.parse({
+        job,
+      });
+    } catch (error) {
+      request.log.error({ err: error }, 'Failed to cancel generation job');
+      const problem = toProblem(error);
+
+      return reply.status(problem.statusCode).send(problem.body);
+    }
+  });
+
+  app.get('/jobs/:jobId/events', async (request, reply) => {
+    try {
+      const { jobId } = GenerationJobRouteParamsSchema.parse(request.params);
+      const job = generationJobRegistry.get(jobId);
+
+      if (!job) {
+        return reply.status(404).send(
+          ApiProblemSchema.parse({
+            code: 'generation_job_not_found',
+            message: 'Generation job not found.',
+          }),
+        );
+      }
+
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'X-Accel-Buffering': 'no',
+      });
+      writeSseEvent(reply.raw, {
+        job,
+        type: 'generation.job.snapshot',
+      });
+
+      const unsubscribe = generationJobRegistry.subscribe(jobId, (event) => {
+        writeSseEvent(reply.raw, event);
+      });
+      const heartbeat = setInterval(() => {
+        reply.raw.write(': keepalive\n\n');
+      }, 15_000);
+      const cleanup = () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+      };
+
+      request.raw.once('close', cleanup);
+    } catch (error) {
+      request.log.error({ err: error }, 'Failed to open generation job event stream');
+      const problem = toProblem(error);
+
+      return reply.status(problem.statusCode).send(problem.body);
     }
   });
 };
