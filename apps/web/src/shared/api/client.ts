@@ -11,6 +11,10 @@ export class ApiError extends Error {
   }
 }
 
+export interface ApiRequestOptions {
+  signal?: AbortSignal;
+}
+
 async function readJson(response: Response) {
   const text = await response.text();
 
@@ -71,18 +75,25 @@ export async function apiPost<TRequest, TResponse>(
   body: TRequest,
   requestSchema: ZodType<TRequest>,
   responseSchema: ZodType<TResponse>,
+  options: ApiRequestOptions = {},
 ) {
   const payload = requestSchema.parse(body);
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
   const requestUrl = apiBaseUrl ? new URL(path, apiBaseUrl).toString() : path;
-  const response = await fetch(requestUrl, {
+  const requestInit: RequestInit = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
     body: JSON.stringify(payload),
-  });
+  };
+
+  if (options.signal) {
+    requestInit.signal = options.signal;
+  }
+
+  const response = await fetch(requestUrl, requestInit);
 
   return parseResponse(response, responseSchema);
 }

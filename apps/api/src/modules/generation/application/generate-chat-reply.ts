@@ -20,6 +20,7 @@ import { ChatReplyGenerationFailedError, ProviderGenerationError } from './gener
 export interface GenerateChatReplyDependencies {
   chatCompletionClient?: ChatCompletionClient;
   now?: () => Date;
+  signal?: AbortSignal;
 }
 
 export async function generateChatReply(
@@ -72,6 +73,7 @@ export async function generateChatReply(
         topK: activePreset.topK,
         topP: activePreset.topP,
       },
+      signal: dependencies.signal,
     });
   } catch (error) {
     if (error instanceof GenerationProviderUnavailableError) {

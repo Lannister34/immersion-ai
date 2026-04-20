@@ -28,6 +28,12 @@ function buildHeaders(apiKey: string | null) {
   };
 }
 
+function buildRequestSignal(signal: AbortSignal | undefined) {
+  const timeoutSignal = AbortSignal.timeout(10 * 60 * 1000);
+
+  return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+}
+
 export class OpenAiCompatibleChatCompletionsClient implements ChatCompletionClient {
   async completeChat(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
     let response: Response;
@@ -49,7 +55,7 @@ export class OpenAiCompatibleChatCompletionsClient implements ChatCompletionClie
           top_k: request.sampling.topK,
           top_p: request.sampling.topP,
         }),
-        signal: AbortSignal.timeout(10 * 60 * 1000),
+        signal: buildRequestSignal(request.signal),
       });
     } catch (error) {
       throw new ProviderGenerationError(error instanceof Error ? error.message : 'Provider request failed.');

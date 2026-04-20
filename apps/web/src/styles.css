@@ -668,29 +668,6 @@ select:disabled {
   white-space: pre-wrap;
 }
 
-.message-list__meta {
-  align-items: baseline;
-  color: var(--muted);
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  margin-bottom: 7px;
-}
-
-.message-list__item--user .message-list__meta {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.message-list__meta strong {
-  color: inherit;
-  font-size: 0.78rem;
-}
-
-.message-list__meta span {
-  color: inherit;
-  font-size: 0.68rem;
-}
-
 .composer-panel {
   bottom: 12px;
   padding: 10px;
