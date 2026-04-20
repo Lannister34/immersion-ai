@@ -74,13 +74,22 @@ export const generationRoutes: FastifyPluginAsync = async (app) => {
   app.get('/readiness', async () => getGenerationReadiness());
 
   app.post('/chat-reply', async (request, reply) => {
+    const abortController = new AbortController();
+    const abortGeneration = () => abortController.abort();
+
+    request.raw.once('aborted', abortGeneration);
+
     try {
-      return await generateChatReply(request.body);
+      return await generateChatReply(request.body, {
+        signal: abortController.signal,
+      });
     } catch (error) {
       request.log.error({ err: error }, 'Failed to generate chat reply');
       const problem = toProblem(error);
 
       return reply.status(problem.statusCode).send(problem.body);
+    } finally {
+      request.raw.off('aborted', abortGeneration);
     }
   });
 };

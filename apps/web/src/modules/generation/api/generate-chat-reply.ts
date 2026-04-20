@@ -4,13 +4,14 @@ import {
   StartChatReplyGenerationCommandSchema,
 } from '@immersion/contracts/generation';
 
-import { apiPost } from '../../../shared/api/client';
+import { type ApiRequestOptions, apiPost } from '../../../shared/api/client';
 
-export function generateChatReply(command: StartChatReplyGenerationCommand) {
+export function generateChatReply(command: StartChatReplyGenerationCommand, options: ApiRequestOptions = {}) {
   return apiPost(
     '/api/generation/chat-reply',
     command,
     StartChatReplyGenerationCommandSchema,
     ChatReplyGenerationResponseSchema,
+    options,
   );
 }

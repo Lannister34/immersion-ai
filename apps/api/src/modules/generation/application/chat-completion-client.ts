@@ -21,6 +21,7 @@ export interface ChatCompletionRequest {
   maxTokens: number;
   messages: ChatReplyPromptMessage[];
   sampling: ChatCompletionSamplingOptions;
+  signal?: AbortSignal | undefined;
 }
 
 export interface ChatCompletionResponse {

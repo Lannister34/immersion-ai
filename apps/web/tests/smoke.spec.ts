@@ -299,6 +299,162 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
   await expect(page.getByRole('link', { name: /Smoke MVP chat/i })).toBeVisible();
 });
 
+test('sends chat messages with Enter and shows the user message while generation is pending', async ({ page }) => {
+  await page.route('**/api/generation/readiness', async (route) => {
+    await route.fulfill({
+      json: {
+        activeProvider: 'custom',
+        issue: null,
+        mode: 'external',
+        runtime: null,
+        status: 'ready',
+      },
+    });
+  });
+
+  let releaseGeneration: () => void = () => undefined;
+  let resolveGenerationStarted: () => void = () => undefined;
+  const generationStarted = new Promise<void>((resolve) => {
+    resolveGenerationStarted = resolve;
+  });
+
+  await page.route('**/api/generation/chat-reply', async (route) => {
+    const body = route.request().postDataJSON() as {
+      chatId: string;
+      message: string;
+    };
+
+    resolveGenerationStarted();
+    await new Promise<void>((resolve) => {
+      releaseGeneration = resolve;
+    });
+
+    const createdAt = new Date().toISOString();
+
+    await route.fulfill({
+      json: {
+        session: {
+          chat: {
+            id: body.chatId,
+            title: 'Enter send chat',
+            createdAt,
+            updatedAt: createdAt,
+            messageCount: 2,
+            lastMessagePreview: 'Delayed assistant reply',
+            characterName: null,
+          },
+          userName: 'Tester',
+          characterName: null,
+          generationSettings: {
+            samplerPresetId: null,
+            systemPrompt: null,
+            sampling: {
+              contextTrimStrategy: null,
+              maxContextLength: null,
+              maxTokens: null,
+              minP: null,
+              presencePenalty: null,
+              repeatPenalty: null,
+              repeatPenaltyRange: null,
+              temperature: null,
+              topK: null,
+              topP: null,
+            },
+          },
+          messages: [
+            {
+              id: `${body.chatId}:1`,
+              role: 'user',
+              content: body.message,
+              createdAt,
+            },
+            {
+              id: `${body.chatId}:2`,
+              role: 'assistant',
+              content: 'Delayed assistant reply',
+              createdAt,
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  await page.goto('/chat');
+  await page.getByLabel('Название чата').fill('Enter send chat');
+  await page.getByRole('button', { name: 'Создать чат' }).click();
+  await expect(page).toHaveURL(/\/chat\/[A-Za-z0-9_-]+$/);
+
+  const messageInput = page.getByRole('textbox', { name: 'Сообщение' });
+  await messageInput.fill('Enter smoke message');
+  await messageInput.press('Enter');
+  await generationStarted;
+
+  await expect(page.getByText('Enter smoke message')).toBeVisible();
+  await expect(messageInput).toHaveValue('');
+  await expect(page.locator('.message-list__meta')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Отменить' })).toBeVisible();
+
+  releaseGeneration();
+  await expect(page.getByText('Delayed assistant reply')).toBeVisible();
+});
+
+test('cancels a pending chat generation request from the composer', async ({ page }) => {
+  await page.route('**/api/generation/readiness', async (route) => {
+    await route.fulfill({
+      json: {
+        activeProvider: 'custom',
+        issue: null,
+        mode: 'external',
+        runtime: null,
+        status: 'ready',
+      },
+    });
+  });
+
+  let releaseGeneration: () => void = () => undefined;
+  let resolveGenerationStarted: () => void = () => undefined;
+  const generationStarted = new Promise<void>((resolve) => {
+    resolveGenerationStarted = resolve;
+  });
+
+  await page.route('**/api/generation/chat-reply', async (route) => {
+    resolveGenerationStarted();
+    await new Promise<void>((resolve) => {
+      releaseGeneration = resolve;
+    });
+
+    try {
+      await route.fulfill({
+        json: {
+          code: 'unexpected_reply',
+          message: 'Canceled generation should not reach the chat.',
+        },
+        status: 500,
+      });
+    } catch {
+      // The browser may already have aborted the request, which is the expected path.
+    }
+  });
+
+  await page.goto('/chat');
+  await page.getByLabel('Название чата').fill('Cancel generation chat');
+  await page.getByRole('button', { name: 'Создать чат' }).click();
+  await expect(page).toHaveURL(/\/chat\/[A-Za-z0-9_-]+$/);
+
+  const messageInput = page.getByRole('textbox', { name: 'Сообщение' });
+  await messageInput.fill('Cancel smoke message');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+  await generationStarted;
+
+  await expect(page.getByText('Cancel smoke message')).toBeVisible();
+  await page.getByRole('button', { name: 'Отменить' }).click();
+  releaseGeneration();
+
+  await expect(page.getByRole('button', { name: 'Отправить' })).toBeVisible();
+  await expect(page.getByText('Canceled generation should not reach the chat.')).toHaveCount(0);
+});
+
 test('blocks chat sending when generation readiness is blocked', async ({ page }) => {
   let generationRequestCount = 0;
 
