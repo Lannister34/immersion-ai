@@ -221,7 +221,7 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
     });
   });
 
-  await page.route('**/api/generation/chat-reply', async (route) => {
+  await page.route('**/api/generation/chat-reply-jobs', async (route) => {
     const body = route.request().postDataJSON() as {
       chatId: string;
       message: string;
@@ -230,6 +230,17 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
 
     await route.fulfill({
       json: {
+        job: {
+          id: '00000000-0000-4000-8000-000000000211',
+          kind: 'chat_reply',
+          chatId: body.chatId,
+          status: 'completed',
+          error: null,
+          createdAt,
+          startedAt: createdAt,
+          completedAt: createdAt,
+          updatedAt: createdAt,
+        },
         session: {
           chat: {
             id: body.chatId,
@@ -317,30 +328,39 @@ test('sends chat messages with Enter and shows the user message while generation
   const generationStarted = new Promise<void>((resolve) => {
     resolveGenerationStarted = resolve;
   });
+  let enterSendChatId = '';
 
-  await page.route('**/api/generation/chat-reply', async (route) => {
+  await page.route('**/api/generation/chat-reply-jobs', async (route) => {
     const body = route.request().postDataJSON() as {
       chatId: string;
       message: string;
     };
+    enterSendChatId = body.chatId;
+    const createdAt = new Date().toISOString();
+    const job = {
+      id: '00000000-0000-4000-8000-000000000302',
+      kind: 'chat_reply',
+      chatId: body.chatId,
+      status: 'running',
+      error: null,
+      createdAt,
+      startedAt: createdAt,
+      completedAt: null,
+      updatedAt: createdAt,
+    };
 
     resolveGenerationStarted();
-    await new Promise<void>((resolve) => {
-      releaseGeneration = resolve;
-    });
-
-    const createdAt = new Date().toISOString();
-
     await route.fulfill({
       json: {
+        job,
         session: {
           chat: {
             id: body.chatId,
             title: 'Enter send chat',
             createdAt,
             updatedAt: createdAt,
-            messageCount: 2,
-            lastMessagePreview: 'Delayed assistant reply',
+            messageCount: 1,
+            lastMessagePreview: body.message,
             characterName: null,
           },
           userName: 'Tester',
@@ -368,15 +388,87 @@ test('sends chat messages with Enter and shows the user message while generation
               content: body.message,
               createdAt,
             },
-            {
-              id: `${body.chatId}:2`,
-              role: 'assistant',
-              content: 'Delayed assistant reply',
-              createdAt,
-            },
           ],
         },
       },
+    });
+  });
+
+  await page.route('**/api/generation/jobs/*/events', async (route) => {
+    await new Promise<void>((resolve) => {
+      releaseGeneration = resolve;
+    });
+
+    const createdAt = new Date().toISOString();
+    const chatId = enterSendChatId;
+    const completedJob = {
+      id: '00000000-0000-4000-8000-000000000302',
+      kind: 'chat_reply',
+      chatId,
+      status: 'completed',
+      error: null,
+      createdAt,
+      startedAt: createdAt,
+      completedAt: createdAt,
+      updatedAt: createdAt,
+    };
+    const session = {
+      chat: {
+        id: chatId,
+        title: 'Enter send chat',
+        createdAt,
+        updatedAt: createdAt,
+        messageCount: 2,
+        lastMessagePreview: 'Delayed assistant reply',
+        characterName: null,
+      },
+      userName: 'Tester',
+      characterName: null,
+      generationSettings: {
+        samplerPresetId: null,
+        systemPrompt: null,
+        sampling: {
+          contextTrimStrategy: null,
+          maxContextLength: null,
+          maxTokens: null,
+          minP: null,
+          presencePenalty: null,
+          repeatPenalty: null,
+          repeatPenaltyRange: null,
+          temperature: null,
+          topK: null,
+          topP: null,
+        },
+      },
+      messages: [
+        {
+          id: `${chatId}:1`,
+          role: 'user',
+          content: 'Enter smoke message',
+          createdAt,
+        },
+        {
+          id: `${chatId}:2`,
+          role: 'assistant',
+          content: 'Delayed assistant reply',
+          createdAt,
+        },
+      ],
+    };
+
+    await route.fulfill({
+      body: [
+        `event: chat.session.updated\ndata: ${JSON.stringify({
+          type: 'chat.session.updated',
+          job: completedJob,
+          session,
+        })}\n\n`,
+        `event: generation.job.updated\ndata: ${JSON.stringify({
+          type: 'generation.job.updated',
+          job: completedJob,
+        })}\n\n`,
+      ].join(''),
+      contentType: 'text/event-stream',
     });
   });
 
@@ -417,24 +509,118 @@ test('cancels a pending chat generation request from the composer', async ({ pag
   const generationStarted = new Promise<void>((resolve) => {
     resolveGenerationStarted = resolve;
   });
+  let cancelChatId = '';
 
-  await page.route('**/api/generation/chat-reply', async (route) => {
+  await page.route('**/api/generation/chat-reply-jobs', async (route) => {
+    const body = route.request().postDataJSON() as {
+      chatId: string;
+      message: string;
+    };
+    const createdAt = new Date().toISOString();
+    cancelChatId = body.chatId;
+
     resolveGenerationStarted();
+
+    await route.fulfill({
+      json: {
+        job: {
+          id: '00000000-0000-4000-8000-000000000403',
+          kind: 'chat_reply',
+          chatId: body.chatId,
+          status: 'running',
+          error: null,
+          createdAt,
+          startedAt: createdAt,
+          completedAt: null,
+          updatedAt: createdAt,
+        },
+        session: {
+          chat: {
+            id: body.chatId,
+            title: 'Cancel generation chat',
+            createdAt,
+            updatedAt: createdAt,
+            messageCount: 1,
+            lastMessagePreview: body.message,
+            characterName: null,
+          },
+          userName: 'Tester',
+          characterName: null,
+          generationSettings: {
+            samplerPresetId: null,
+            systemPrompt: null,
+            sampling: {
+              contextTrimStrategy: null,
+              maxContextLength: null,
+              maxTokens: null,
+              minP: null,
+              presencePenalty: null,
+              repeatPenalty: null,
+              repeatPenaltyRange: null,
+              temperature: null,
+              topK: null,
+              topP: null,
+            },
+          },
+          messages: [
+            {
+              id: `${body.chatId}:1`,
+              role: 'user',
+              content: body.message,
+              createdAt,
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  await page.route('**/api/generation/jobs/*/events', async (route) => {
     await new Promise<void>((resolve) => {
       releaseGeneration = resolve;
     });
 
-    try {
-      await route.fulfill({
-        json: {
-          code: 'unexpected_reply',
-          message: 'Canceled generation should not reach the chat.',
+    const createdAt = new Date().toISOString();
+    const canceledJob = {
+      id: '00000000-0000-4000-8000-000000000403',
+      kind: 'chat_reply',
+      chatId: cancelChatId,
+      status: 'canceled',
+      error: null,
+      createdAt,
+      startedAt: createdAt,
+      completedAt: createdAt,
+      updatedAt: createdAt,
+    };
+
+    await route.fulfill({
+      body: `event: generation.job.updated\ndata: ${JSON.stringify({
+        type: 'generation.job.updated',
+        job: canceledJob,
+      })}\n\n`,
+      contentType: 'text/event-stream',
+    });
+  });
+
+  await page.route('**/api/generation/jobs/*/cancel', async (route) => {
+    const createdAt = new Date().toISOString();
+
+    releaseGeneration();
+    await route.fulfill({
+      json: {
+        job: {
+          id: '00000000-0000-4000-8000-000000000403',
+          kind: 'chat_reply',
+          chatId: cancelChatId,
+          status: 'canceled',
+          error: null,
+          createdAt,
+          startedAt: createdAt,
+          completedAt: createdAt,
+          updatedAt: createdAt,
         },
-        status: 500,
-      });
-    } catch {
-      // The browser may already have aborted the request, which is the expected path.
-    }
+      },
+    });
   });
 
   await page.goto('/chat');
@@ -477,7 +663,7 @@ test('blocks chat sending when generation readiness is blocked', async ({ page }
     });
   });
 
-  await page.route('**/api/generation/chat-reply', async (route) => {
+  await page.route('**/api/generation/chat-reply-jobs', async (route) => {
     generationRequestCount += 1;
     await route.fulfill({
       json: {

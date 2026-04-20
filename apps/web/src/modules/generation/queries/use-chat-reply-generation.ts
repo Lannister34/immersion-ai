@@ -1,0 +1,120 @@
+import type { ChatSessionDto } from '@immersion/contracts/chats';
+import type { ListGenerationJobsResponse } from '@immersion/contracts/generation';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { chatListQueryKey } from '../../chats/queries/chat-list-query';
+import { chatSessionQueryKey } from '../../chats/queries/chat-session-query';
+import { appendOptimisticUserMessage } from '../../chats/view-models/optimistic-chat-session';
+import { cancelGenerationJob } from '../api/cancel-generation-job';
+import { startChatReplyGenerationJob } from '../api/start-chat-reply-generation-job';
+import {
+  getLatestGenerationJob,
+  isActiveGenerationJob,
+  upsertGenerationJob,
+} from '../view-models/generation-job-state';
+import { chatGenerationJobsQueryKey, chatGenerationJobsQueryOptions } from './generation-jobs-query';
+import { generationReadinessQueryKey } from './generation-readiness-query';
+import { useGenerationJobEvents } from './use-generation-job-events';
+
+interface StartChatReplyGenerationMutationVariables {
+  message: string;
+}
+
+function createOptimisticMessageId() {
+  return `optimistic:${
+    typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}:${Math.random()}`
+  }`;
+}
+
+export function useChatReplyGeneration(chatId: string) {
+  const queryClient = useQueryClient();
+  const generationJobsQuery = useQuery(chatGenerationJobsQueryOptions(chatId));
+  const latestGenerationJob = getLatestGenerationJob(generationJobsQuery.data?.items);
+  const activeGenerationJob = generationJobsQuery.data?.items.find(isActiveGenerationJob);
+
+  useGenerationJobEvents(chatId, activeGenerationJob?.id);
+
+  const startGenerationMutation = useMutation({
+    mutationFn: ({ message }: StartChatReplyGenerationMutationVariables) =>
+      startChatReplyGenerationJob({
+        chatId,
+        message,
+      }),
+    onMutate: async ({ message }) => {
+      await queryClient.cancelQueries({
+        queryKey: chatSessionQueryKey(chatId),
+      });
+
+      const currentSession = queryClient.getQueryData<ChatSessionDto>(chatSessionQueryKey(chatId));
+
+      if (!currentSession) {
+        return;
+      }
+
+      queryClient.setQueryData(
+        chatSessionQueryKey(chatId),
+        appendOptimisticUserMessage(currentSession, {
+          content: message,
+          createdAt: new Date().toISOString(),
+          id: createOptimisticMessageId(),
+        }),
+      );
+    },
+    onError: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: chatListQueryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: chatSessionQueryKey(chatId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: generationReadinessQueryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: chatGenerationJobsQueryKey(chatId),
+        }),
+      ]);
+    },
+    onSuccess: async (response) => {
+      queryClient.setQueryData(chatSessionQueryKey(chatId), response.session);
+      queryClient.setQueryData<ListGenerationJobsResponse>(chatGenerationJobsQueryKey(chatId), (current) => ({
+        items: upsertGenerationJob(current?.items ?? [], response.job),
+      }));
+      await queryClient.invalidateQueries({
+        queryKey: chatListQueryKey,
+      });
+    },
+  });
+  const cancelGenerationMutation = useMutation({
+    mutationFn: cancelGenerationJob,
+    onSuccess: async (response) => {
+      queryClient.setQueryData<ListGenerationJobsResponse>(chatGenerationJobsQueryKey(chatId), (current) => ({
+        items: upsertGenerationJob(current?.items ?? [], response.job),
+      }));
+      await queryClient.invalidateQueries({
+        queryKey: chatSessionQueryKey(chatId),
+      });
+    },
+  });
+
+  return {
+    activeJob: activeGenerationJob,
+    cancel: () => {
+      if (activeGenerationJob) {
+        cancelGenerationMutation.mutate({
+          jobId: activeGenerationJob.id,
+        });
+      }
+    },
+    error: startGenerationMutation.error ?? cancelGenerationMutation.error,
+    isPending:
+      startGenerationMutation.isPending ||
+      cancelGenerationMutation.isPending ||
+      Boolean(activeGenerationJob && isActiveGenerationJob(activeGenerationJob)),
+    latestJob: latestGenerationJob,
+    start: (message: string) =>
+      startGenerationMutation.mutateAsync({
+        message,
+      }),
+  };
+}

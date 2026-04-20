@@ -34,6 +34,10 @@ function buildRequestSignal(signal: AbortSignal | undefined) {
   return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 }
 
+function isAbortError(error: unknown) {
+  return typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError';
+}
+
 export class OpenAiCompatibleChatCompletionsClient implements ChatCompletionClient {
   async completeChat(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
     let response: Response;
@@ -58,6 +62,10 @@ export class OpenAiCompatibleChatCompletionsClient implements ChatCompletionClie
         signal: buildRequestSignal(request.signal),
       });
     } catch (error) {
+      if (request.signal?.aborted || isAbortError(error)) {
+        throw error;
+      }
+
       throw new ProviderGenerationError(error instanceof Error ? error.message : 'Provider request failed.');
     }
 

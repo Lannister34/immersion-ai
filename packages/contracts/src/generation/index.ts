@@ -57,3 +57,58 @@ export const ChatReplyGenerationErrorResponseSchema = ApiProblemSchema.extend({
   session: ChatSessionDtoSchema,
 });
 export type ChatReplyGenerationErrorResponse = z.infer<typeof ChatReplyGenerationErrorResponseSchema>;
+
+export const GenerationJobIdSchema = z.string().uuid();
+export type GenerationJobId = z.infer<typeof GenerationJobIdSchema>;
+
+export const GenerationJobKindSchema = z.literal('chat_reply');
+export type GenerationJobKind = z.infer<typeof GenerationJobKindSchema>;
+
+export const GenerationJobStatusSchema = z.enum(['queued', 'running', 'completed', 'failed', 'canceled']);
+export type GenerationJobStatus = z.infer<typeof GenerationJobStatusSchema>;
+
+export const GenerationJobDtoSchema = z.object({
+  chatId: ChatIdSchema,
+  completedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  error: ApiProblemSchema.nullable(),
+  id: GenerationJobIdSchema,
+  kind: GenerationJobKindSchema,
+  startedAt: z.string().datetime().nullable(),
+  status: GenerationJobStatusSchema,
+  updatedAt: z.string().datetime(),
+});
+export type GenerationJobDto = z.infer<typeof GenerationJobDtoSchema>;
+
+export const StartChatReplyGenerationJobResponseSchema = z.object({
+  job: GenerationJobDtoSchema,
+  session: ChatSessionDtoSchema,
+});
+export type StartChatReplyGenerationJobResponse = z.infer<typeof StartChatReplyGenerationJobResponseSchema>;
+
+export const ListGenerationJobsResponseSchema = z.object({
+  items: z.array(GenerationJobDtoSchema),
+});
+export type ListGenerationJobsResponse = z.infer<typeof ListGenerationJobsResponseSchema>;
+
+export const GenerationJobResponseSchema = z.object({
+  job: GenerationJobDtoSchema,
+});
+export type GenerationJobResponse = z.infer<typeof GenerationJobResponseSchema>;
+
+export const GenerationJobEventSchema = z.discriminatedUnion('type', [
+  z.object({
+    job: GenerationJobDtoSchema,
+    type: z.literal('generation.job.snapshot'),
+  }),
+  z.object({
+    job: GenerationJobDtoSchema,
+    type: z.literal('generation.job.updated'),
+  }),
+  z.object({
+    job: GenerationJobDtoSchema,
+    session: ChatSessionDtoSchema,
+    type: z.literal('chat.session.updated'),
+  }),
+]);
+export type GenerationJobEvent = z.infer<typeof GenerationJobEventSchema>;

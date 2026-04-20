@@ -37,10 +37,14 @@ async function parseResponse<T>(response: Response, schema: ZodType<T>) {
   return schema.parse(payload);
 }
 
-export async function apiGet<T>(path: string, schema: ZodType<T>) {
+export function createApiUrl(path: string) {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-  const requestUrl = apiBaseUrl ? new URL(path, apiBaseUrl).toString() : path;
-  const response = await fetch(requestUrl, {
+
+  return apiBaseUrl ? new URL(path, apiBaseUrl).toString() : path;
+}
+
+export async function apiGet<T>(path: string, schema: ZodType<T>) {
+  const response = await fetch(createApiUrl(path), {
     headers: {
       Accept: 'application/json',
     },
@@ -56,9 +60,7 @@ export async function apiPut<TRequest, TResponse>(
   responseSchema: ZodType<TResponse>,
 ) {
   const payload = requestSchema.parse(body);
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-  const requestUrl = apiBaseUrl ? new URL(path, apiBaseUrl).toString() : path;
-  const response = await fetch(requestUrl, {
+  const response = await fetch(createApiUrl(path), {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -78,8 +80,6 @@ export async function apiPost<TRequest, TResponse>(
   options: ApiRequestOptions = {},
 ) {
   const payload = requestSchema.parse(body);
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-  const requestUrl = apiBaseUrl ? new URL(path, apiBaseUrl).toString() : path;
   const requestInit: RequestInit = {
     method: 'POST',
     headers: {
@@ -93,7 +93,7 @@ export async function apiPost<TRequest, TResponse>(
     requestInit.signal = options.signal;
   }
 
-  const response = await fetch(requestUrl, requestInit);
+  const response = await fetch(createApiUrl(path), requestInit);
 
   return parseResponse(response, responseSchema);
 }

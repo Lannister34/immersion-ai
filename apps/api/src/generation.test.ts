@@ -11,7 +11,10 @@ import {
 import {
   ChatReplyGenerationErrorResponseSchema,
   ChatReplyGenerationResponseSchema,
+  GenerationJobResponseSchema,
   GenerationReadinessResponseSchema,
+  ListGenerationJobsResponseSchema,
+  StartChatReplyGenerationJobResponseSchema,
 } from '@immersion/contracts/generation';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -156,6 +159,67 @@ describe('generation routes', () => {
     return requests;
   }
 
+  function mockProviderDelayedSuccess(content: string) {
+    const requests: ProviderRequestRecord[] = [];
+    let releaseProvider: () => void = () => undefined;
+    let resolveProviderStarted: () => void = () => undefined;
+    const providerStarted = new Promise<void>((resolve) => {
+      resolveProviderStarted = resolve;
+    });
+
+    globalThis.fetch = vi.fn(async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      const body = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
+      const signal = init?.signal;
+      requests.push({
+        authorization: headers.get('authorization'),
+        body,
+        url: input instanceof Request ? input.url : input.toString(),
+      });
+      resolveProviderStarted();
+
+      await new Promise<void>((resolve, reject) => {
+        if (signal?.aborted) {
+          reject(new DOMException('Provider request was aborted.', 'AbortError'));
+          return;
+        }
+
+        const abort = () => reject(new DOMException('Provider request was aborted.', 'AbortError'));
+        signal?.addEventListener('abort', abort, {
+          once: true,
+        });
+        releaseProvider = () => {
+          signal?.removeEventListener('abort', abort);
+          resolve();
+        };
+      });
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content,
+              },
+            },
+          ],
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          status: 200,
+        },
+      );
+    }) as typeof fetch;
+
+    return {
+      providerStarted,
+      releaseProvider: () => releaseProvider(),
+      requests,
+    };
+  }
+
   function mockProviderFailure() {
     const requests: ProviderRequestRecord[] = [];
 
@@ -280,6 +344,28 @@ describe('generation routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
+  }
+
+  async function waitForGenerationJobStatus(
+    app: ReturnType<typeof buildApiApp>,
+    jobId: string,
+    expectedStatus: string,
+  ) {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/generation/jobs/${jobId}`,
+      });
+      const payload = GenerationJobResponseSchema.parse(response.json());
+
+      if (payload.job.status === expectedStatus) {
+        return payload.job;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    throw new Error(`Generation job ${jobId} did not reach status ${expectedStatus}.`);
   }
 
   it('reports generation readiness for a configured external provider', async () => {
@@ -435,6 +521,166 @@ describe('generation routes', () => {
 
     expect(getMessagesByRole(sessionPayload.messages)).toEqual(getMessagesByRole(payload.session.messages));
 
+    await app.close();
+  });
+
+  it('starts a chat reply job without blocking provider completion', async () => {
+    const provider = mockProviderDelayedSuccess('Async assistant reply.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-jobs',
+      payload: {
+        chatId: chat.id,
+        message: 'Start async reply.',
+      },
+    });
+    const payload = StartChatReplyGenerationJobResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(202);
+    expect(payload.job).toMatchObject({
+      chatId: chat.id,
+      kind: 'chat_reply',
+      status: 'queued',
+    });
+    expect(getMessagesByRole(payload.session.messages)).toEqual([
+      {
+        role: 'user',
+        content: 'Start async reply.',
+      },
+    ]);
+
+    await provider.providerStarted;
+
+    const jobsResponse = await app.inject({
+      method: 'GET',
+      url: `/api/generation/jobs?chatId=${chat.id}`,
+    });
+    const jobsPayload = ListGenerationJobsResponseSchema.parse(jobsResponse.json());
+
+    expect(jobsPayload.items[0]).toMatchObject({
+      id: payload.job.id,
+      status: 'running',
+    });
+
+    provider.releaseProvider();
+
+    await waitForGenerationJobStatus(app, payload.job.id, 'completed');
+
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: `/api/chats/${chat.id}`,
+    });
+    const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
+
+    expect(getMessagesByRole(sessionPayload.messages)).toEqual([
+      {
+        role: 'user',
+        content: 'Start async reply.',
+      },
+      {
+        role: 'assistant',
+        content: 'Async assistant reply.',
+      },
+    ]);
+
+    await app.close();
+  });
+
+  it('cancels a chat reply job without appending an assistant reply', async () => {
+    const provider = mockProviderDelayedSuccess('Canceled assistant reply.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const startResponse = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-jobs',
+      payload: {
+        chatId: chat.id,
+        message: 'Cancel async reply.',
+      },
+    });
+    const startPayload = StartChatReplyGenerationJobResponseSchema.parse(startResponse.json());
+
+    await provider.providerStarted;
+
+    const cancelResponse = await app.inject({
+      method: 'POST',
+      url: `/api/generation/jobs/${startPayload.job.id}/cancel`,
+    });
+    const cancelPayload = GenerationJobResponseSchema.parse(cancelResponse.json());
+
+    expect(cancelResponse.statusCode).toBe(200);
+    expect(cancelPayload.job.status).toBe('canceled');
+
+    await waitForGenerationJobStatus(app, startPayload.job.id, 'canceled');
+
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: `/api/chats/${chat.id}`,
+    });
+    const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
+
+    expect(getMessagesByRole(sessionPayload.messages)).toEqual([
+      {
+        role: 'user',
+        content: 'Cancel async reply.',
+      },
+    ]);
+
+    await app.close();
+  });
+
+  it('rejects a second active chat reply job without duplicating user messages', async () => {
+    const provider = mockProviderDelayedSuccess('First async assistant reply.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const firstResponse = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-jobs',
+      payload: {
+        chatId: chat.id,
+        message: 'First active job.',
+      },
+    });
+    const firstPayload = StartChatReplyGenerationJobResponseSchema.parse(firstResponse.json());
+
+    await provider.providerStarted;
+
+    const secondResponse = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-jobs',
+      payload: {
+        chatId: chat.id,
+        message: 'Second active job.',
+      },
+    });
+
+    expect(secondResponse.statusCode).toBe(409);
+    expect(secondResponse.json()).toMatchObject({
+      code: 'active_generation_job_exists',
+      job: {
+        id: firstPayload.job.id,
+      },
+    });
+
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: `/api/chats/${chat.id}`,
+    });
+    const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
+
+    expect(getMessagesByRole(sessionPayload.messages)).toEqual([
+      {
+        role: 'user',
+        content: 'First active job.',
+      },
+    ]);
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/generation/jobs/${firstPayload.job.id}/cancel`,
+    });
     await app.close();
   });
 
