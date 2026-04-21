@@ -2,7 +2,7 @@ import type { ChatSessionDto } from '@immersion/contracts/chats';
 import type { SettingsOverviewResponse } from '@immersion/contracts/settings';
 import { describe, expect, it } from 'vitest';
 import type { ActiveSamplerPreset } from '../settings/application/active-sampler-preset.js';
-import { buildChatReplyPrompt } from './application/build-chat-reply-prompt.js';
+import { buildChatReplyPrompt, buildChatReplyPromptBundle } from './application/build-chat-reply-prompt.js';
 
 const settings: SettingsOverviewResponse = {
   profile: {
@@ -101,6 +101,7 @@ describe('buildChatReplyPrompt', () => {
         ...defaultSamplerPreset,
         contextTrimStrategy: 'trim_start',
         maxContextLength: 10,
+        maxTokens: 1,
       },
       session: buildSession([
         {
@@ -129,6 +130,7 @@ describe('buildChatReplyPrompt', () => {
         ...defaultSamplerPreset,
         contextTrimStrategy: 'trim_middle',
         maxContextLength: 32,
+        maxTokens: 1,
       },
       session: buildSession([
         {
@@ -157,5 +159,40 @@ describe('buildChatReplyPrompt', () => {
     expect(content).toContain('FIRST edge');
     expect(content).not.toContain('MIDDLE');
     expect(content).toContain('LATEST edge');
+  });
+
+  it('reserves reply tokens before applying the prompt context budget', () => {
+    const bundle = buildChatReplyPromptBundle({
+      samplerPreset: {
+        ...defaultSamplerPreset,
+        contextTrimStrategy: 'trim_start',
+        maxContextLength: 48,
+        maxTokens: 24,
+      },
+      session: buildSession([
+        {
+          content: 'old '.repeat(80),
+          createdAt: '2026-01-01T00:00:00.000Z',
+          id: 'm1',
+          role: 'user',
+        },
+        {
+          content: 'latest message stays',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          id: 'm2',
+          role: 'user',
+        },
+      ]),
+      settings,
+    });
+    const content = bundle.messages.map((message) => message.content).join('\n');
+
+    expect(bundle.diagnostics.tokenEstimate).toMatchObject({
+      promptBudget: 24,
+      replyReservation: 24,
+    });
+    expect(bundle.diagnostics.trimmedMessageCount).toBeGreaterThan(0);
+    expect(content).not.toContain('old old');
+    expect(content).toContain('latest message stays');
   });
 });
