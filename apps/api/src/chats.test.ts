@@ -326,6 +326,66 @@ describe('chat routes', () => {
     await app.close();
   });
 
+  it('does not mutate persisted chat generation settings when update references an unknown preset', async () => {
+    const app = buildApiApp();
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/chats',
+      payload: {
+        title: 'Preserve valid generation settings',
+      },
+    });
+    const createPayload = CreateChatResponseSchema.parse(createResponse.json());
+    const validPayload = {
+      samplerPresetId: 'smoke-model-preset',
+      systemPrompt: 'Keep this prompt.',
+      sampling: {
+        contextTrimStrategy: 'trim_start',
+        maxContextLength: 4096,
+        maxTokens: 321,
+        minP: 0.05,
+        presencePenalty: 0.25,
+        repeatPenalty: 1.12,
+        repeatPenaltyRange: 256,
+        temperature: 0.33,
+        topK: 12,
+        topP: 0.77,
+      },
+    };
+    const validUpdateResponse = await app.inject({
+      method: 'PUT',
+      url: `/api/chats/${createPayload.chat.id}/generation-settings`,
+      payload: validPayload,
+    });
+
+    expect(validUpdateResponse.statusCode).toBe(200);
+
+    const invalidUpdateResponse = await app.inject({
+      method: 'PUT',
+      url: `/api/chats/${createPayload.chat.id}/generation-settings`,
+      payload: {
+        ...validPayload,
+        samplerPresetId: 'missing-preset',
+        systemPrompt: 'Do not persist this prompt.',
+      },
+    });
+
+    expect(invalidUpdateResponse.statusCode).toBe(400);
+    expect(invalidUpdateResponse.json()).toMatchObject({
+      code: 'invalid_chat_generation_settings',
+    });
+
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: `/api/chats/${createPayload.chat.id}`,
+    });
+    const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
+
+    expect(sessionPayload.generationSettings).toEqual(validPayload);
+
+    await app.close();
+  });
+
   it('parses existing legacy generic chat files and sorts summaries by latest activity', async () => {
     await writeGenericChatFile('older-chat', [
       JSON.stringify({

@@ -19,6 +19,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildApiApp } from './app.js';
+import { appendChatMessages } from './modules/chats/application/append-chat-messages.js';
 
 const fixtureDataRoot = fileURLToPath(new URL('../testdata/smoke-data', import.meta.url));
 
@@ -85,6 +86,10 @@ interface SmokeUserSettingsFixture {
   backendMode?: string;
   activePresetId?: string;
   modelPresetMap?: Record<string, string>;
+  responseLanguage?: string;
+  systemPromptTemplate?: string;
+  userName?: string;
+  userPersona?: string;
   providerConfigs?: {
     custom?: {
       apiKey?: string;
@@ -524,6 +529,36 @@ describe('generation routes', () => {
     await app.close();
   });
 
+  it('renders the global settings prompt template through prompting v1 for chat replies', async () => {
+    await writeProviderSettings({
+      responseLanguage: 'none',
+      systemPromptTemplate: 'Global prompt for {{user}}. {{#if userPersona}}Persona: {{userPersona}}{{/if}}',
+      userName: 'Alex',
+      userPersona: 'Careful tester.',
+    });
+    const providerRequests = mockProviderSuccess('Assistant reply from rendered prompt.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Render global prompt.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const requestBody = getProviderRequestBody(providerRequests[0]);
+    const systemMessage = requestBody.messages?.find((message) => message.role === 'system');
+
+    expect(systemMessage?.content).toContain('Global prompt for Alex.');
+    expect(systemMessage?.content).toContain('Persona: Careful tester.');
+    expect(systemMessage?.content).not.toContain('{{user}}');
+
+    await app.close();
+  });
+
   it('starts a chat reply job without blocking provider completion', async () => {
     const provider = mockProviderDelayedSuccess('Async assistant reply.');
     const app = buildApiApp();
@@ -710,6 +745,11 @@ describe('generation routes', () => {
   });
 
   it('applies chat-owned generation settings over model-bound sampler presets', async () => {
+    await writeProviderSettings({
+      responseLanguage: 'none',
+      systemPromptTemplate: 'Global template that must not win for {{user}}.',
+      userName: 'Prompt Tester',
+    });
     const providerRequests = mockProviderSuccess('Assistant reply with chat overrides.');
     const app = buildApiApp();
     const chat = await createChat(app);
@@ -748,6 +788,58 @@ describe('generation routes', () => {
 
     expect(systemMessages).toHaveLength(1);
     expect(systemMessages[0]?.content).toContain('Custom system prompt for this chat.');
+    expect(systemMessages[0]?.content).not.toContain('Global template that must not win');
+
+    await app.close();
+  });
+
+  it('applies effective generation settings before prompt context budgeting', async () => {
+    await writeProviderSettings({
+      responseLanguage: 'none',
+      systemPromptTemplate: 'Short prompt.',
+    });
+    const providerRequests = mockProviderSuccess('Assistant reply after prompt budgeting.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+
+    await appendChatMessages(chat.id, [
+      {
+        content: 'OLD_CONTEXT '.repeat(80),
+        createdAt: '2026-01-01T00:00:00.000Z',
+        role: 'user',
+      },
+      {
+        content: 'OLD_ASSISTANT '.repeat(80),
+        createdAt: '2026-01-01T00:00:01.000Z',
+        role: 'assistant',
+      },
+    ]);
+    await updateChatGenerationSettings(app, chat.id, {
+      samplerPresetId: null,
+      systemPrompt: null,
+      sampling: {
+        ...EMPTY_CHAT_SAMPLING_OVERRIDES,
+        contextTrimStrategy: 'trim_start',
+        maxContextLength: 48,
+        maxTokens: 24,
+      },
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'LATEST_USER_MESSAGE stays.',
+      },
+    });
+    const requestBody = getProviderRequestBody(providerRequests[0]);
+    const submittedContent = requestBody.messages?.map((message) => message.content).join('\n') ?? '';
+
+    expect(response.statusCode).toBe(200);
+    expect(submittedContent).not.toContain('OLD_CONTEXT');
+    expect(submittedContent).not.toContain('OLD_ASSISTANT');
+    expect(submittedContent).toContain('LATEST_USER_MESSAGE stays.');
 
     await app.close();
   });
@@ -802,6 +894,64 @@ describe('generation routes', () => {
       model: 'local-model',
       stream: false,
     });
+
+    await app.close();
+  });
+
+  it('does not call the provider when chat generation settings reference a stale sampler preset', async () => {
+    const providerRequests = mockProviderSuccess('Should not be generated.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+
+    await updateChatGenerationSettings(app, chat.id, {
+      samplerPresetId: 'smoke-model-preset',
+      systemPrompt: null,
+      sampling: EMPTY_CHAT_SAMPLING_OVERRIDES,
+    });
+    await writeProviderSettings({
+      activePresetId: 'default',
+      modelPresetMap: {},
+      samplerPresets: [
+        {
+          context_trim_strategy: 'trim_middle',
+          id: 'default',
+          max_context_length: 8192,
+          max_length: 640,
+          min_p: 0.03,
+          name: 'Default',
+          presence_penalty: 0.15,
+          rep_pen: 1.08,
+          rep_pen_range: 1024,
+          temperature: 0.72,
+          top_k: 42,
+          top_p: 0.91,
+        },
+      ],
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Do not call provider with stale settings.',
+      },
+    });
+    const payload = ChatReplyGenerationErrorResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(409);
+    expect(payload).toMatchObject({
+      code: 'invalid_chat_generation_settings',
+      session: {
+        messages: [
+          {
+            role: 'user',
+            content: 'Do not call provider with stale settings.',
+          },
+        ],
+      },
+    });
+    expect(providerRequests).toHaveLength(0);
 
     await app.close();
   });
