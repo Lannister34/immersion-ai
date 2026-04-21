@@ -529,14 +529,14 @@ describe('generation routes', () => {
     await app.close();
   });
 
-  it('renders the global settings prompt template through prompting v1 for chat replies', async () => {
+  it('does not render the global settings prompt template for generic chat replies', async () => {
     await writeProviderSettings({
-      responseLanguage: 'none',
-      systemPromptTemplate: 'Global prompt for {{user}}. {{#if userPersona}}Persona: {{userPersona}}{{/if}}',
+      responseLanguage: 'ru',
+      systemPromptTemplate: 'Roleplay prompt for {{user}}. {{#if userPersona}}Persona: {{userPersona}}{{/if}}',
       userName: 'Alex',
       userPersona: 'Careful tester.',
     });
-    const providerRequests = mockProviderSuccess('Assistant reply from rendered prompt.');
+    const providerRequests = mockProviderSuccess('Assistant reply without global prompt.');
     const app = buildApiApp();
     const chat = await createChat(app);
     const response = await app.inject({
@@ -544,17 +544,19 @@ describe('generation routes', () => {
       url: '/api/generation/chat-reply',
       payload: {
         chatId: chat.id,
-        message: 'Render global prompt.',
+        message: 'Plain chat message.',
       },
     });
 
     expect(response.statusCode).toBe(200);
     const requestBody = getProviderRequestBody(providerRequests[0]);
-    const systemMessage = requestBody.messages?.find((message) => message.role === 'system');
+    const submittedContent = requestBody.messages?.map((message) => message.content).join('\n') ?? '';
 
-    expect(systemMessage?.content).toContain('Global prompt for Alex.');
-    expect(systemMessage?.content).toContain('Persona: Careful tester.');
-    expect(systemMessage?.content).not.toContain('{{user}}');
+    expect(requestBody.messages?.filter((message) => message.role === 'system')).toEqual([]);
+    expect(submittedContent).toContain('Plain chat message.');
+    expect(submittedContent).not.toContain('Roleplay prompt');
+    expect(submittedContent).not.toContain('Careful tester.');
+    expect(submittedContent).not.toContain('Answer in Russian');
 
     await app.close();
   });

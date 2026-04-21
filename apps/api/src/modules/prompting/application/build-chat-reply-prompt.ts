@@ -41,6 +41,11 @@ export interface BuildChatReplyPromptInput {
 
 const DEFAULT_SYSTEM_PROMPT_TEMPLATE =
   'You are a helpful local assistant. Answer the user directly and keep the conversation coherent.';
+const EMPTY_SYSTEM_PROMPT_TEMPLATE = '';
+
+function isContextualChat(session: ChatSessionDto) {
+  return session.characterName !== null || session.chat.characterName !== null;
+}
 
 function toPromptTranscriptRole(role: ChatSessionDto['messages'][number]['role']): PromptTranscriptRole {
   return role;
@@ -199,6 +204,7 @@ function trimTranscriptToContextBudget(
 
 export function buildChatReplyPromptBundle(input: BuildChatReplyPromptInput): ChatReplyPromptBundle {
   const activePreset = input.samplerPreset;
+  const shouldUseContextualPromptSettings = isContextualChat(input.session);
   const snapshot = buildPromptInputSnapshot({
     chat: {
       customSystemPrompt: input.session.generationSettings.systemPrompt,
@@ -216,18 +222,25 @@ export function buildChatReplyPromptBundle(input: BuildChatReplyPromptInput): Ch
       trimStrategy: activePreset.contextTrimStrategy,
     },
     settings: {
-      defaultSystemPromptTemplate: DEFAULT_SYSTEM_PROMPT_TEMPLATE,
-      responseLanguage: input.settings.profile.responseLanguage,
-      systemPromptTemplate: input.settings.profile.systemPromptTemplate.trim() || null,
+      defaultSystemPromptTemplate: shouldUseContextualPromptSettings
+        ? DEFAULT_SYSTEM_PROMPT_TEMPLATE
+        : EMPTY_SYSTEM_PROMPT_TEMPLATE,
+      responseLanguage: shouldUseContextualPromptSettings ? input.settings.profile.responseLanguage : 'none',
+      systemPromptTemplate: shouldUseContextualPromptSettings
+        ? input.settings.profile.systemPromptTemplate.trim() || null
+        : null,
       thinkingEnabled: input.settings.profile.thinkingEnabled,
     },
     user: {
       name: input.session.userName,
-      persona: input.settings.profile.userPersona,
+      persona: shouldUseContextualPromptSettings ? input.settings.profile.userPersona : null,
     },
   });
   const basePrompt = assembleBasePrompt(snapshot);
-  const systemSections = [basePrompt.prompt, getLanguageInstruction(input.settings.profile.responseLanguage)].filter(
+  const languageInstruction = shouldUseContextualPromptSettings
+    ? getLanguageInstruction(input.settings.profile.responseLanguage)
+    : null;
+  const systemSections = [basePrompt.prompt, languageInstruction].filter(
     (section): section is string => section !== null && section.trim().length > 0,
   );
   const messages: ChatReplyPromptMessage[] = [];
