@@ -95,6 +95,36 @@ describe('buildChatReplyPrompt', () => {
     expect(prompt[0]?.content).not.toContain('Global system prompt.');
   });
 
+  it('does not add global prompt context to generic chats without an explicit chat prompt', () => {
+    const prompt = buildChatReplyPrompt({
+      samplerPreset: defaultSamplerPreset,
+      session: buildSession([
+        {
+          content: 'Привет.',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          id: 'm1',
+          role: 'user',
+        },
+      ]),
+      settings: {
+        ...settings,
+        profile: {
+          ...settings.profile,
+          responseLanguage: 'ru',
+          systemPromptTemplate: 'Roleplay prompt for {{user}}. Persona: {{userPersona}}.',
+          userPersona: 'RP persona that must not leak into plain chats.',
+        },
+      },
+    });
+
+    expect(prompt).toEqual([
+      {
+        role: 'user',
+        content: 'Привет.',
+      },
+    ]);
+  });
+
   it('trims old transcript messages with trim_start when context budget is exceeded', () => {
     const prompt = buildChatReplyPrompt({
       samplerPreset: {
