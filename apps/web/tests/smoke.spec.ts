@@ -303,8 +303,9 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
   await page.getByRole('textbox', { name: 'Сообщение' }).fill('Smoke user message');
   await page.getByRole('button', { name: 'Отправить' }).click();
 
-  await expect(page.getByText('Smoke user message')).toBeVisible();
-  await expect(page.getByText('Smoke assistant reply')).toBeVisible();
+  const transcript = page.locator('.chat-transcript');
+  await expect(transcript.getByText('Smoke user message')).toBeVisible();
+  await expect(transcript.getByText('Smoke assistant reply')).toBeVisible();
 
   await page.goto('/chat');
   await expect(page.getByRole('link', { name: /Smoke MVP chat/i })).toBeVisible();
