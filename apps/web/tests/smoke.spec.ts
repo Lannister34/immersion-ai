@@ -310,6 +310,26 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
   await expect(page.getByRole('link', { name: /Smoke MVP chat/i })).toBeVisible();
 });
 
+test('shows prompt preview for a generic chat without global RP context', async ({ page }) => {
+  await page.goto('/chat');
+  await page.getByLabel('Название чата').fill('Prompt preview chat');
+  await page.getByRole('button', { name: 'Создать чат' }).click();
+
+  await expect(page).toHaveURL(/\/chat\/[A-Za-z0-9_-]+$/);
+  await expect(page.getByRole('heading', { name: 'Prompt preview chat' })).toBeVisible();
+
+  await page.getByText('Контекст модели').click();
+  await expect(page.getByText('Фактический payload перед генерацией')).toBeVisible();
+  await expect(page.getByText('system: 0')).toBeVisible();
+  await expect(page.getByText('Payload пока пуст. Напишите сообщение в чат.')).toBeVisible();
+  await expect(page.getByText(/Пиши как/)).toHaveCount(0);
+  await expect(page.getByText(/Инженер/)).toHaveCount(0);
+
+  await page.locator('textarea').fill('Проверка черновика');
+  await expect(page.getByText('Проверка черновика')).toBeVisible();
+  await expect(page.getByText('Payload пока пуст. Напишите сообщение в чат.')).toHaveCount(0);
+});
+
 test('sends chat messages with Enter and shows the user message while generation is pending', async ({ page }) => {
   await page.route('**/api/generation/readiness', async (route) => {
     await route.fulfill({

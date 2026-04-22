@@ -11,6 +11,7 @@ import {
 import {
   ChatReplyGenerationErrorResponseSchema,
   ChatReplyGenerationResponseSchema,
+  ChatReplyPromptPreviewResponseSchema,
   GenerationJobResponseSchema,
   GenerationReadinessResponseSchema,
   ListGenerationJobsResponseSchema,
@@ -471,6 +472,44 @@ describe('generation routes', () => {
     await app.close();
   });
 
+  it('keeps prompt preview available when builtin generation is blocked', async () => {
+    await writeProviderSettings({
+      backendMode: 'builtin',
+      responseLanguage: 'ru',
+      systemPromptTemplate: 'Blocked runtime global prompt that must not leak.',
+    });
+    const providerRequests = mockProviderSuccess('Blocked preview must not call provider.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-preview',
+      payload: {
+        chatId: chat.id,
+        draftUserMessage: 'Preview while runtime is blocked.',
+      },
+    });
+    const payload = ChatReplyPromptPreviewResponseSchema.parse(response.json());
+
+    expect(response.statusCode).toBe(200);
+    expect(payload.provider).toMatchObject({
+      model: null,
+      readiness: {
+        mode: 'builtin',
+        status: 'blocked',
+      },
+    });
+    expect(payload.request.messages).toEqual([
+      {
+        role: 'user',
+        content: 'Preview while runtime is blocked.',
+      },
+    ]);
+    expect(providerRequests).toHaveLength(0);
+
+    await app.close();
+  });
+
   it('calls the active provider and persists the user message with the assistant reply', async () => {
     const providerRequests = mockProviderSuccess('Assistant reply from provider.');
     const app = buildApiApp();
@@ -525,6 +564,103 @@ describe('generation routes', () => {
     const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
 
     expect(getMessagesByRole(sessionPayload.messages)).toEqual(getMessagesByRole(payload.session.messages));
+
+    await app.close();
+  });
+
+  it('previews a generic chat reply without leaking global RP prompt context or persisting the draft', async () => {
+    await writeProviderSettings({
+      responseLanguage: 'ru',
+      systemPromptTemplate: 'Roleplay prompt for {{user}}. {{#if userPersona}}Persona: {{userPersona}}{{/if}}',
+      userName: 'Alex',
+      userPersona: 'Careful tester.',
+    });
+    const providerRequests = mockProviderSuccess('Preview must not call provider.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-preview',
+      payload: {
+        chatId: chat.id,
+        draftUserMessage: 'Plain preview message.',
+      },
+    });
+    const payload = ChatReplyPromptPreviewResponseSchema.parse(response.json());
+    const previewContent = payload.request.messages.map((message) => message.content).join('\n');
+
+    expect(response.statusCode).toBe(200);
+    expect(payload).toMatchObject({
+      chatId: chat.id,
+      diagnostics: {
+        systemPromptIncluded: false,
+        systemMessageCount: 0,
+        transcriptMessageCount: 1,
+      },
+      provider: {
+        model: 'smoke-model',
+      },
+    });
+    expect(payload.request.messages).toEqual([
+      {
+        role: 'user',
+        content: 'Plain preview message.',
+      },
+    ]);
+    expect(previewContent).not.toContain('Roleplay prompt');
+    expect(previewContent).not.toContain('Careful tester.');
+    expect(previewContent).not.toContain('Answer in Russian');
+    expect(JSON.stringify(payload)).not.toContain('secret-token');
+    expect(JSON.stringify(payload)).not.toContain('http://127.0.0.1:6006');
+    expect(providerRequests).toHaveLength(0);
+
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: `/api/chats/${chat.id}`,
+    });
+    const sessionPayload = GetChatSessionResponseSchema.parse(sessionResponse.json());
+
+    expect(sessionPayload.messages).toEqual([]);
+
+    await app.close();
+  });
+
+  it('matches previewed provider payload to the real generation payload for the same draft', async () => {
+    const providerRequests = mockProviderSuccess('Assistant reply after preview.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+    const previewResponse = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-preview',
+      payload: {
+        chatId: chat.id,
+        draftUserMessage: 'Compare preview to generation.',
+      },
+    });
+    const preview = ChatReplyPromptPreviewResponseSchema.parse(previewResponse.json());
+    const generationResponse = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply',
+      payload: {
+        chatId: chat.id,
+        message: 'Compare preview to generation.',
+      },
+    });
+    const generationRequest = getProviderRequestBody(providerRequests[0]);
+
+    expect(previewResponse.statusCode).toBe(200);
+    expect(generationResponse.statusCode).toBe(200);
+    expect(generationRequest.messages).toEqual(preview.request.messages);
+    expect(generationRequest.max_tokens).toBe(preview.request.maxTokens);
+    expect(generationRequest).toMatchObject({
+      min_p: preview.request.sampling.minP,
+      presence_penalty: preview.request.sampling.presencePenalty,
+      rep_pen: preview.request.sampling.repeatPenalty,
+      rep_pen_range: preview.request.sampling.repeatPenaltyRange,
+      temperature: preview.request.sampling.temperature,
+      top_k: preview.request.sampling.topK,
+      top_p: preview.request.sampling.topP,
+    });
 
     await app.close();
   });
@@ -795,6 +931,51 @@ describe('generation routes', () => {
     await app.close();
   });
 
+  it('previews explicit chat system prompts without mixing in the global template', async () => {
+    await writeProviderSettings({
+      responseLanguage: 'none',
+      systemPromptTemplate: 'Global template that must not win for {{user}}.',
+      userName: 'Prompt Tester',
+    });
+    const app = buildApiApp();
+    const chat = await createChat(app);
+
+    await updateChatGenerationSettings(app, chat.id, {
+      samplerPresetId: null,
+      systemPrompt: 'Custom system prompt for {{user}}.',
+      sampling: EMPTY_CHAT_SAMPLING_OVERRIDES,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-preview',
+      payload: {
+        chatId: chat.id,
+        draftUserMessage: 'Preview with explicit system prompt.',
+      },
+    });
+    const payload = ChatReplyPromptPreviewResponseSchema.parse(response.json());
+    const systemMessages = payload.request.messages.filter((message) => message.role === 'system');
+
+    expect(response.statusCode).toBe(200);
+    expect(payload.diagnostics).toMatchObject({
+      promptSource: {
+        kind: 'chat-override',
+      },
+      systemPromptIncluded: true,
+      systemMessageCount: 1,
+    });
+    expect(systemMessages).toEqual([
+      {
+        role: 'system',
+        content: 'Custom system prompt for Prompt Tester.',
+      },
+    ]);
+    expect(systemMessages[0]?.content).not.toContain('Global template that must not win');
+
+    await app.close();
+  });
+
   it('applies effective generation settings before prompt context budgeting', async () => {
     await writeProviderSettings({
       responseLanguage: 'none',
@@ -952,6 +1133,56 @@ describe('generation routes', () => {
           },
         ],
       },
+    });
+    expect(providerRequests).toHaveLength(0);
+
+    await app.close();
+  });
+
+  it('rejects prompt preview when chat generation settings reference a stale sampler preset', async () => {
+    const providerRequests = mockProviderSuccess('Should not be generated.');
+    const app = buildApiApp();
+    const chat = await createChat(app);
+
+    await updateChatGenerationSettings(app, chat.id, {
+      samplerPresetId: 'smoke-model-preset',
+      systemPrompt: null,
+      sampling: EMPTY_CHAT_SAMPLING_OVERRIDES,
+    });
+    await writeProviderSettings({
+      activePresetId: 'default',
+      modelPresetMap: {},
+      samplerPresets: [
+        {
+          context_trim_strategy: 'trim_middle',
+          id: 'default',
+          max_context_length: 8192,
+          max_length: 640,
+          min_p: 0.03,
+          name: 'Default',
+          presence_penalty: 0.15,
+          rep_pen: 1.08,
+          rep_pen_range: 1024,
+          temperature: 0.72,
+          top_k: 42,
+          top_p: 0.91,
+        },
+      ],
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/generation/chat-reply-preview',
+      payload: {
+        chatId: chat.id,
+        draftUserMessage: 'Do not preview stale settings.',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({
+      code: 'invalid_chat_generation_settings',
+      message: 'Chat sampler preset not found: smoke-model-preset',
     });
     expect(providerRequests).toHaveLength(0);
 

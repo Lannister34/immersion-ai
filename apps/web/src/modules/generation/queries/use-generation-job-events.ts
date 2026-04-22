@@ -7,6 +7,7 @@ import { chatListQueryKey } from '../../chats/queries/chat-list-query';
 import { chatSessionQueryKey } from '../../chats/queries/chat-session-query';
 import { openGenerationJobEventSource, parseGenerationJobEvent } from '../api/watch-generation-job';
 import { isActiveGenerationJob, upsertGenerationJob } from '../view-models/generation-job-state';
+import { chatReplyPromptPreviewQueryBaseKey } from './chat-reply-prompt-preview-query';
 import { chatGenerationJobsQueryKey } from './generation-jobs-query';
 
 export function useGenerationJobEvents(chatId: string, jobId: string | undefined) {
@@ -40,6 +41,9 @@ export function useGenerationJobEvents(chatId: string, jobId: string | undefined
       updateJobCache(event.job);
       if (event.type === 'chat.session.updated') {
         queryClient.setQueryData<ChatSessionDto>(chatSessionQueryKey(chatId), event.session);
+        void queryClient.invalidateQueries({
+          queryKey: chatReplyPromptPreviewQueryBaseKey(chatId),
+        });
       }
     };
 
