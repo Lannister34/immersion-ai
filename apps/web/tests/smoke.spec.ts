@@ -325,9 +325,44 @@ test('shows prompt preview for a generic chat without global RP context', async 
   await expect(page.getByText(/Пиши как/)).toHaveCount(0);
   await expect(page.getByText(/Инженер/)).toHaveCount(0);
 
-  await page.locator('textarea').fill('Проверка черновика');
+  await page.getByRole('textbox', { name: 'Сообщение' }).fill('Проверка черновика');
   await expect(page.getByText('Проверка черновика')).toBeVisible();
   await expect(page.getByText('Payload пока пуст. Напишите сообщение в чат.')).toHaveCount(0);
+});
+
+test('saves per-chat generation settings and refreshes prompt preview', async ({ page }) => {
+  await page.goto('/chat');
+  await page.getByLabel('Название чата').fill('Per-chat settings chat');
+  await page.getByRole('button', { name: 'Создать чат' }).click();
+
+  await expect(page).toHaveURL(/\/chat\/[A-Za-z0-9_-]+$/);
+  await page.getByText('Настройки генерации').click();
+  await page.getByLabel('Системный prompt чата').fill('Отвечай коротко только в этом чате.');
+  await page.getByLabel('Sampler preset').selectOption('smoke-model-preset');
+  await page.getByLabel('Размер контекста').fill('4096');
+  await page.getByLabel('Max tokens').fill('123');
+
+  const saveResponse = page.waitForResponse((response) => {
+    return response.url().includes('/api/chats/') && response.url().includes('/generation-settings');
+  });
+
+  await page.getByRole('button', { name: 'Сохранить настройки' }).click();
+  await expect(page.getByText('Настройки чата сохранены.')).toBeVisible();
+  await saveResponse;
+
+  await page.getByText('Контекст модели').click();
+  await expect(page.getByLabel('Сообщения payload').getByText('Отвечай коротко только в этом чате.')).toBeVisible();
+  await expect(page.getByText('system: 1')).toBeVisible();
+  await expect(page.locator('.prompt-preview-stats')).toContainText('Smoke Model');
+  await expect(page.locator('.prompt-preview-stats')).toContainText('123');
+  await expect(page.getByText(/Пиши как/)).toHaveCount(0);
+
+  await page.reload();
+  await page.getByText('Настройки генерации').click();
+  await expect(page.getByLabel('Системный prompt чата')).toHaveValue('Отвечай коротко только в этом чате.');
+  await expect(page.getByLabel('Sampler preset')).toHaveValue('smoke-model-preset');
+  await expect(page.getByLabel('Размер контекста')).toHaveValue('4096');
+  await expect(page.getByLabel('Max tokens')).toHaveValue('123');
 });
 
 test('sends chat messages with Enter and shows the user message while generation is pending', async ({ page }) => {

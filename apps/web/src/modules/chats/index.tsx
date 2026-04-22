@@ -7,15 +7,19 @@ import { RouteStatusScreen } from '../../shared/ui/route-status-screen';
 import { ChatComposerPanel } from '../chat-composer';
 import {
   ChatReplyPromptPreviewPanel,
+  chatReplyPromptPreviewQueryBaseKey,
   chatReplyPromptPreviewQueryOptions,
   generationReadinessQueryOptions,
   toGenerationAvailabilityViewModel,
   useChatReplyGeneration,
 } from '../generation';
+import { settingsOverviewQueryOptions } from '../settings';
 import { createChat } from './api/create-chat';
 import { ChatCreatePanel } from './components/chat-create-panel';
+import { ChatGenerationSettingsPanel } from './components/chat-generation-settings-panel';
 import { ChatListPanel } from './components/chat-list-panel';
 import { ChatSessionPanel } from './components/chat-session-panel';
+import { useUpdateChatGenerationSettings } from './mutations/use-update-chat-generation-settings';
 import { chatListQueryKey, chatListQueryOptions } from './queries/chat-list-query';
 import { chatSessionQueryOptions } from './queries/chat-session-query';
 
@@ -87,9 +91,18 @@ export function ChatListScreen() {
 export function ChatSessionScreen({ chatId }: ChatSessionScreenProps) {
   const [draftMessage, setDraftMessage] = useState('');
   const deferredDraftMessage = useDeferredValue(draftMessage);
+  const queryClient = useQueryClient();
   const chatSessionQuery = useQuery(chatSessionQueryOptions(chatId));
   const generationReadinessQuery = useQuery(generationReadinessQueryOptions());
   const promptPreviewQuery = useQuery(chatReplyPromptPreviewQueryOptions(chatId, deferredDraftMessage));
+  const settingsOverviewQuery = useQuery(settingsOverviewQueryOptions());
+  const updateGenerationSettingsMutation = useUpdateChatGenerationSettings(chatId, {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: chatReplyPromptPreviewQueryBaseKey(chatId),
+      });
+    },
+  });
   const chatReplyGeneration = useChatReplyGeneration(chatId);
 
   if (chatSessionQuery.isLoading) {
@@ -122,6 +135,22 @@ export function ChatSessionScreen({ chatId }: ChatSessionScreenProps) {
   return (
     <div className="stack">
       <ChatSessionPanel session={chatSessionQuery.data} />
+      <ChatGenerationSettingsPanel
+        errorMessage={
+          updateGenerationSettingsMutation.error
+            ? getGenerationErrorMessage(updateGenerationSettingsMutation.error)
+            : undefined
+        }
+        isSaving={updateGenerationSettingsMutation.isPending}
+        isSettingsError={settingsOverviewQuery.isError}
+        isSettingsLoading={settingsOverviewQuery.isLoading}
+        key={chatSessionQuery.data.chat.id}
+        onSave={async (command) => {
+          await updateGenerationSettingsMutation.mutateAsync(command);
+        }}
+        session={chatSessionQuery.data}
+        settings={settingsOverviewQuery.data}
+      />
       <ChatReplyPromptPreviewPanel
         isError={promptPreviewQuery.isError}
         isLoading={promptPreviewQuery.isLoading}
