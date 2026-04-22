@@ -3,7 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { PlaceholderScreen } from '../../shared/ui/placeholder-screen';
 import { RouteStatusScreen } from '../../shared/ui/route-status-screen';
 import { SummaryCard } from '../../shared/ui/summary-card';
-import { getSettingsOverview } from './api/get-settings-overview';
+import { settingsOverviewQueryOptions } from './queries/settings-overview-query';
+
+export { getSettingsOverview } from './api/get-settings-overview';
+export { settingsOverviewQueryKey, settingsOverviewQueryOptions } from './queries/settings-overview-query';
 
 function renderBoolean(value: boolean) {
   return value ? 'Включено' : 'Выключено';
@@ -14,10 +17,7 @@ function renderOptionalText(value: string) {
 }
 
 export function SettingsScreen() {
-  const settingsQuery = useQuery({
-    queryKey: ['settings-overview'],
-    queryFn: getSettingsOverview,
-  });
+  const settingsQuery = useQuery(settingsOverviewQueryOptions());
 
   if (settingsQuery.isLoading) {
     return (

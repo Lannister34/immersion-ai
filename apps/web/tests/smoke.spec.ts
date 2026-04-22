@@ -303,8 +303,9 @@ test('creates a chat, opens it, and restores it after reload', async ({ page }) 
   await page.getByRole('textbox', { name: 'Сообщение' }).fill('Smoke user message');
   await page.getByRole('button', { name: 'Отправить' }).click();
 
-  await expect(page.getByText('Smoke user message')).toBeVisible();
-  await expect(page.getByText('Smoke assistant reply')).toBeVisible();
+  const transcript = page.locator('.chat-transcript');
+  await expect(transcript.getByText('Smoke user message')).toBeVisible();
+  await expect(transcript.getByText('Smoke assistant reply')).toBeVisible();
 
   await page.goto('/chat');
   await expect(page.getByRole('link', { name: /Smoke MVP chat/i })).toBeVisible();
@@ -325,9 +326,44 @@ test('shows prompt preview for a generic chat without global RP context', async 
   await expect(page.getByText(/Пиши как/)).toHaveCount(0);
   await expect(page.getByText(/Инженер/)).toHaveCount(0);
 
-  await page.locator('textarea').fill('Проверка черновика');
+  await page.getByRole('textbox', { name: 'Сообщение' }).fill('Проверка черновика');
   await expect(page.getByText('Проверка черновика')).toBeVisible();
   await expect(page.getByText('Payload пока пуст. Напишите сообщение в чат.')).toHaveCount(0);
+});
+
+test('saves per-chat generation settings and refreshes prompt preview', async ({ page }) => {
+  await page.goto('/chat');
+  await page.getByLabel('Название чата').fill('Per-chat settings chat');
+  await page.getByRole('button', { name: 'Создать чат' }).click();
+
+  await expect(page).toHaveURL(/\/chat\/[A-Za-z0-9_-]+$/);
+  await page.getByText('Настройки генерации').click();
+  await page.getByLabel('Системный prompt чата').fill('Отвечай коротко только в этом чате.');
+  await page.getByLabel('Sampler preset').selectOption('smoke-model-preset');
+  await page.getByLabel('Размер контекста').fill('4096');
+  await page.getByLabel('Max tokens').fill('123');
+
+  const saveResponse = page.waitForResponse((response) => {
+    return response.url().includes('/api/chats/') && response.url().includes('/generation-settings');
+  });
+
+  await page.getByRole('button', { name: 'Сохранить настройки' }).click();
+  await expect(page.getByText('Настройки чата сохранены.')).toBeVisible();
+  await saveResponse;
+
+  await page.getByText('Контекст модели').click();
+  await expect(page.getByLabel('Сообщения payload').getByText('Отвечай коротко только в этом чате.')).toBeVisible();
+  await expect(page.getByText('system: 1')).toBeVisible();
+  await expect(page.locator('.prompt-preview-stats')).toContainText('Smoke Model');
+  await expect(page.locator('.prompt-preview-stats')).toContainText('123');
+  await expect(page.getByText(/Пиши как/)).toHaveCount(0);
+
+  await page.reload();
+  await page.getByText('Настройки генерации').click();
+  await expect(page.getByLabel('Системный prompt чата')).toHaveValue('Отвечай коротко только в этом чате.');
+  await expect(page.getByLabel('Sampler preset')).toHaveValue('smoke-model-preset');
+  await expect(page.getByLabel('Размер контекста')).toHaveValue('4096');
+  await expect(page.getByLabel('Max tokens')).toHaveValue('123');
 });
 
 test('sends chat messages with Enter and shows the user message while generation is pending', async ({ page }) => {
@@ -502,13 +538,14 @@ test('sends chat messages with Enter and shows the user message while generation
   await messageInput.press('Enter');
   await generationStarted;
 
-  await expect(page.getByText('Enter smoke message')).toBeVisible();
+  const transcript = page.locator('.chat-transcript');
+  await expect(transcript.getByText('Enter smoke message')).toBeVisible();
   await expect(messageInput).toHaveValue('');
   await expect(page.locator('.message-list__meta')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Отменить' })).toBeVisible();
 
   releaseGeneration();
-  await expect(page.getByText('Delayed assistant reply')).toBeVisible();
+  await expect(transcript.getByText('Delayed assistant reply')).toBeVisible();
 });
 
 test('cancels a pending chat generation request from the composer', async ({ page }) => {
@@ -653,7 +690,8 @@ test('cancels a pending chat generation request from the composer', async ({ pag
   await page.getByRole('button', { name: 'Отправить' }).click();
   await generationStarted;
 
-  await expect(page.getByText('Cancel smoke message')).toBeVisible();
+  const transcript = page.locator('.chat-transcript');
+  await expect(transcript.getByText('Cancel smoke message')).toBeVisible();
   await page.getByRole('button', { name: 'Отменить' }).click();
   releaseGeneration();
 

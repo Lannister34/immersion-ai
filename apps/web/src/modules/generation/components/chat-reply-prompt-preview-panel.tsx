@@ -106,6 +106,10 @@ export function ChatReplyPromptPreviewPanel({
               </dd>
             </div>
             <div>
+              <dt>Max tokens</dt>
+              <dd>{preview.request.maxTokens}</dd>
+            </div>
+            <div>
               <dt>Обрезано</dt>
               <dd>{preview.diagnostics.trimmedMessageCount}</dd>
             </div>
