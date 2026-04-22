@@ -538,13 +538,14 @@ test('sends chat messages with Enter and shows the user message while generation
   await messageInput.press('Enter');
   await generationStarted;
 
-  await expect(page.getByText('Enter smoke message')).toBeVisible();
+  const transcript = page.locator('.chat-transcript');
+  await expect(transcript.getByText('Enter smoke message')).toBeVisible();
   await expect(messageInput).toHaveValue('');
   await expect(page.locator('.message-list__meta')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Отменить' })).toBeVisible();
 
   releaseGeneration();
-  await expect(page.getByText('Delayed assistant reply')).toBeVisible();
+  await expect(transcript.getByText('Delayed assistant reply')).toBeVisible();
 });
 
 test('cancels a pending chat generation request from the composer', async ({ page }) => {
@@ -689,7 +690,8 @@ test('cancels a pending chat generation request from the composer', async ({ pag
   await page.getByRole('button', { name: 'Отправить' }).click();
   await generationStarted;
 
-  await expect(page.getByText('Cancel smoke message')).toBeVisible();
+  const transcript = page.locator('.chat-transcript');
+  await expect(transcript.getByText('Cancel smoke message')).toBeVisible();
   await page.getByRole('button', { name: 'Отменить' }).click();
   releaseGeneration();
 
