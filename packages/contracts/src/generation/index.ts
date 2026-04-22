@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { ChatIdSchema, ChatSessionDtoSchema } from '../chats/index.js';
+import { ChatIdSchema, ChatMessageRoleSchema, ChatSessionDtoSchema } from '../chats/index.js';
 import { ApiProblemSchema } from '../common/index.js';
 import { ProviderModeSchema, ProviderTypeSchema } from '../providers/settings.js';
 import { RuntimeServerStatusSchema } from '../runtime/overview.js';
@@ -57,6 +57,110 @@ export const ChatReplyGenerationErrorResponseSchema = ApiProblemSchema.extend({
   session: ChatSessionDtoSchema,
 });
 export type ChatReplyGenerationErrorResponse = z.infer<typeof ChatReplyGenerationErrorResponseSchema>;
+
+export const ChatReplyPromptPreviewCommandSchema = z.object({
+  chatId: ChatIdSchema,
+  draftUserMessage: z.string().trim().min(1).max(20_000).optional(),
+});
+export type ChatReplyPromptPreviewCommand = z.infer<typeof ChatReplyPromptPreviewCommandSchema>;
+
+export const ChatReplyPromptPreviewMessageSchema = z.object({
+  content: z.string(),
+  role: ChatMessageRoleSchema,
+});
+export type ChatReplyPromptPreviewMessage = z.infer<typeof ChatReplyPromptPreviewMessageSchema>;
+
+export const ChatReplyPromptPreviewSamplingSchema = z.object({
+  contextTrimStrategy: z.enum(['trim_middle', 'trim_start']),
+  maxContextLength: z.number().int().nonnegative(),
+  maxTokens: z.number().int().positive(),
+  minP: z.number().nonnegative(),
+  presencePenalty: z.number(),
+  repeatPenalty: z.number().nonnegative(),
+  repeatPenaltyRange: z.number().int().nonnegative(),
+  temperature: z.number().nonnegative(),
+  topK: z.number().int().nonnegative(),
+  topP: z.number().nonnegative(),
+});
+export type ChatReplyPromptPreviewSampling = z.infer<typeof ChatReplyPromptPreviewSamplingSchema>;
+
+export const ChatReplyPromptPreviewProviderSamplingSchema = ChatReplyPromptPreviewSamplingSchema.omit({
+  contextTrimStrategy: true,
+  maxContextLength: true,
+  maxTokens: true,
+});
+export type ChatReplyPromptPreviewProviderSampling = z.infer<typeof ChatReplyPromptPreviewProviderSamplingSchema>;
+
+export const ChatReplyPromptPreviewOverrideFlagsSchema = z.object({
+  contextTrimStrategy: z.boolean(),
+  maxContextLength: z.boolean(),
+  maxTokens: z.boolean(),
+  minP: z.boolean(),
+  presencePenalty: z.boolean(),
+  repeatPenalty: z.boolean(),
+  repeatPenaltyRange: z.boolean(),
+  temperature: z.boolean(),
+  topK: z.boolean(),
+  topP: z.boolean(),
+});
+export type ChatReplyPromptPreviewOverrideFlags = z.infer<typeof ChatReplyPromptPreviewOverrideFlagsSchema>;
+
+export const ChatReplyPromptPreviewSourceSchema = z.object({
+  kind: z.enum(['chat-override', 'character-override', 'settings-template', 'default-template']),
+});
+export type ChatReplyPromptPreviewSource = z.infer<typeof ChatReplyPromptPreviewSourceSchema>;
+
+export const ChatReplyPromptPreviewRendererDiagnosticsSchema = z.object({
+  cyclicVariables: z.array(z.string()),
+  invalidVariableTemplates: z.array(z.string()),
+  unknownConditions: z.array(z.string()),
+  unresolvedVariables: z.array(z.string()),
+});
+export type ChatReplyPromptPreviewRendererDiagnostics = z.infer<typeof ChatReplyPromptPreviewRendererDiagnosticsSchema>;
+
+export const ChatReplyPromptPreviewTokenEstimateSchema = z.object({
+  finalTotal: z.number().int().nonnegative(),
+  promptBudget: z.number().int().nonnegative(),
+  replyReservation: z.number().int().nonnegative(),
+  system: z.number().int().nonnegative(),
+  transcriptAfterTrim: z.number().int().nonnegative(),
+  transcriptBeforeTrim: z.number().int().nonnegative(),
+});
+export type ChatReplyPromptPreviewTokenEstimate = z.infer<typeof ChatReplyPromptPreviewTokenEstimateSchema>;
+
+export const ChatReplyPromptPreviewResponseSchema = z.object({
+  chatId: ChatIdSchema,
+  diagnostics: z.object({
+    messageCount: z.number().int().nonnegative(),
+    promptSource: ChatReplyPromptPreviewSourceSchema,
+    renderer: ChatReplyPromptPreviewRendererDiagnosticsSchema,
+    systemPromptIncluded: z.boolean(),
+    systemMessageCount: z.number().int().nonnegative(),
+    tokenEstimate: ChatReplyPromptPreviewTokenEstimateSchema,
+    transcriptMessageCount: z.number().int().nonnegative(),
+    trimmedMessageCount: z.number().int().nonnegative(),
+  }),
+  effectiveSettings: z.object({
+    appliedChatOverrides: ChatReplyPromptPreviewOverrideFlagsSchema,
+    ignoredChatSamplerPresetId: z.string().nullable(),
+    modelBindingPresetId: z.string().nullable(),
+    modelName: z.string().nullable(),
+    samplerPresetId: z.string().min(1),
+    samplerPresetName: z.string().min(1),
+    samplerPresetSource: z.enum(['active_preset', 'chat_preset', 'model_binding']),
+    sampling: ChatReplyPromptPreviewSamplingSchema,
+  }),
+  provider: z.object({
+    model: z.string().nullable(),
+    readiness: GenerationReadinessResponseSchema,
+  }),
+  request: z.object({
+    maxTokens: z.number().int().positive(),
+    messages: z.array(ChatReplyPromptPreviewMessageSchema),
+    sampling: ChatReplyPromptPreviewProviderSamplingSchema,
+  }),
+});
+export type ChatReplyPromptPreviewResponse = z.infer<typeof ChatReplyPromptPreviewResponseSchema>;
 
 export const GenerationJobIdSchema = z.string().uuid();
 export type GenerationJobId = z.infer<typeof GenerationJobIdSchema>;

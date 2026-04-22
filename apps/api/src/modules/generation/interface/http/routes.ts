@@ -2,6 +2,8 @@ import { ChatIdSchema } from '@immersion/contracts/chats';
 import { ApiProblemSchema } from '@immersion/contracts/common';
 import {
   ChatReplyGenerationErrorResponseSchema,
+  ChatReplyPromptPreviewCommandSchema,
+  ChatReplyPromptPreviewResponseSchema,
   GenerationJobEventSchema,
   GenerationJobIdSchema,
   GenerationJobResponseSchema,
@@ -11,11 +13,13 @@ import type { FastifyPluginAsync } from 'fastify';
 import { ZodError, z } from 'zod';
 
 import { ChatNotFoundError } from '../../../chats/application/append-chat-messages.js';
+import { InvalidChatGenerationSettingsResolutionError } from '../../../prompting/application/resolve-chat-generation-settings.js';
 import { GenerationProviderUnavailableError } from '../../../providers/application/generation-provider.js';
 import { generateChatReply } from '../../application/generate-chat-reply.js';
 import { ChatReplyGenerationFailedError, ProviderGenerationError } from '../../application/generation-errors.js';
 import { ActiveGenerationJobExistsError } from '../../application/generation-job-registry.js';
 import { getGenerationReadiness } from '../../application/get-generation-readiness.js';
+import { previewChatReplyPrompt } from '../../application/preview-chat-reply-prompt.js';
 import { startChatReplyGenerationJob } from '../../application/start-chat-reply-generation-job.js';
 import { InMemoryGenerationJobRegistry } from '../../infrastructure/in-memory-generation-job-registry.js';
 
@@ -53,6 +57,16 @@ function toProblem(error: unknown) {
       statusCode: 409,
       body: ApiProblemSchema.parse({
         code: 'generation_provider_unavailable',
+        message: error.message,
+      }),
+    };
+  }
+
+  if (error instanceof InvalidChatGenerationSettingsResolutionError) {
+    return {
+      statusCode: 409,
+      body: ApiProblemSchema.parse({
+        code: 'invalid_chat_generation_settings',
         message: error.message,
       }),
     };
@@ -112,6 +126,19 @@ export const generationRoutes: FastifyPluginAsync = async (app) => {
   const generationJobRegistry = new InMemoryGenerationJobRegistry();
 
   app.get('/readiness', async () => getGenerationReadiness());
+
+  app.post('/chat-reply-preview', async (request, reply) => {
+    try {
+      const command = ChatReplyPromptPreviewCommandSchema.parse(request.body);
+
+      return ChatReplyPromptPreviewResponseSchema.parse(await previewChatReplyPrompt(command));
+    } catch (error) {
+      request.log.error({ err: error }, 'Failed to preview chat reply prompt');
+      const problem = toProblem(error);
+
+      return reply.status(problem.statusCode).send(problem.body);
+    }
+  });
 
   app.post('/chat-reply', async (request, reply) => {
     const abortController = new AbortController();

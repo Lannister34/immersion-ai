@@ -1,17 +1,26 @@
-import { type KeyboardEvent, useId, useState } from 'react';
+import { type KeyboardEvent, useId } from 'react';
 
 interface ChatComposerPanelProps {
   canCancel: boolean;
+  draftMessage: string;
   isSending: boolean;
   onCancel: () => void;
+  onDraftMessageChange: (message: string) => void;
   onSend: (message: string) => Promise<void>;
   sendBlockReason: string | undefined;
 }
 
-export function ChatComposerPanel({ canCancel, isSending, onCancel, onSend, sendBlockReason }: ChatComposerPanelProps) {
+export function ChatComposerPanel({
+  canCancel,
+  draftMessage,
+  isSending,
+  onCancel,
+  onDraftMessageChange,
+  onSend,
+  sendBlockReason,
+}: ChatComposerPanelProps) {
   const blockReasonId = useId();
-  const [message, setMessage] = useState('');
-  const trimmedMessage = message.trim();
+  const trimmedMessage = draftMessage.trim();
   const isSendBlocked = sendBlockReason !== undefined;
   const isSubmitDisabled = isSending || isSendBlocked || trimmedMessage.length === 0;
   const sendButtonTitle = !isSending && isSendBlocked ? sendBlockReason : undefined;
@@ -37,7 +46,7 @@ export function ChatComposerPanel({ canCancel, isSending, onCancel, onSend, send
           }
 
           const messageToSend = trimmedMessage;
-          setMessage('');
+          onDraftMessageChange('');
           await onSend(messageToSend);
         }}
       >
@@ -47,10 +56,10 @@ export function ChatComposerPanel({ canCancel, isSending, onCancel, onSend, send
             className="field__input field__input--textarea composer-form__input"
             disabled={isSending}
             maxLength={20_000}
-            onChange={(event) => setMessage(event.target.value)}
+            onChange={(event) => onDraftMessageChange(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Напишите сообщение для модели..."
-            value={message}
+            value={draftMessage}
           />
         </label>
         <div className="actions composer-form__actions">

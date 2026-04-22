@@ -11,6 +11,7 @@ import {
   isActiveGenerationJob,
   upsertGenerationJob,
 } from '../view-models/generation-job-state';
+import { chatReplyPromptPreviewQueryBaseKey } from './chat-reply-prompt-preview-query';
 import { chatGenerationJobsQueryKey, chatGenerationJobsQueryOptions } from './generation-jobs-query';
 import { generationReadinessQueryKey } from './generation-readiness-query';
 import { useGenerationJobEvents } from './use-generation-job-events';
@@ -73,6 +74,9 @@ export function useChatReplyGeneration(chatId: string) {
         queryClient.invalidateQueries({
           queryKey: chatGenerationJobsQueryKey(chatId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: chatReplyPromptPreviewQueryBaseKey(chatId),
+        }),
       ]);
     },
     onSuccess: async (response) => {
@@ -82,6 +86,9 @@ export function useChatReplyGeneration(chatId: string) {
       }));
       await queryClient.invalidateQueries({
         queryKey: chatListQueryKey,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: chatReplyPromptPreviewQueryBaseKey(chatId),
       });
     },
   });
@@ -93,6 +100,9 @@ export function useChatReplyGeneration(chatId: string) {
       }));
       await queryClient.invalidateQueries({
         queryKey: chatSessionQueryKey(chatId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: chatReplyPromptPreviewQueryBaseKey(chatId),
       });
     },
   });

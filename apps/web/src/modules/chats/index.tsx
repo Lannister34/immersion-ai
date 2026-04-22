@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { useDeferredValue, useState } from 'react';
 import { ApiError } from '../../shared/api/client';
 import { PlaceholderScreen } from '../../shared/ui/placeholder-screen';
 import { RouteStatusScreen } from '../../shared/ui/route-status-screen';
 import { ChatComposerPanel } from '../chat-composer';
 import {
+  ChatReplyPromptPreviewPanel,
+  chatReplyPromptPreviewQueryOptions,
   generationReadinessQueryOptions,
   toGenerationAvailabilityViewModel,
   useChatReplyGeneration,
@@ -82,8 +85,11 @@ export function ChatListScreen() {
 }
 
 export function ChatSessionScreen({ chatId }: ChatSessionScreenProps) {
+  const [draftMessage, setDraftMessage] = useState('');
+  const deferredDraftMessage = useDeferredValue(draftMessage);
   const chatSessionQuery = useQuery(chatSessionQueryOptions(chatId));
   const generationReadinessQuery = useQuery(generationReadinessQueryOptions());
+  const promptPreviewQuery = useQuery(chatReplyPromptPreviewQueryOptions(chatId, deferredDraftMessage));
   const chatReplyGeneration = useChatReplyGeneration(chatId);
 
   if (chatSessionQuery.isLoading) {
@@ -116,11 +122,22 @@ export function ChatSessionScreen({ chatId }: ChatSessionScreenProps) {
   return (
     <div className="stack">
       <ChatSessionPanel session={chatSessionQuery.data} />
+      <ChatReplyPromptPreviewPanel
+        isError={promptPreviewQuery.isError}
+        isLoading={promptPreviewQuery.isLoading}
+        isRefreshing={promptPreviewQuery.isRefetching}
+        onRefresh={() => {
+          void promptPreviewQuery.refetch();
+        }}
+        preview={promptPreviewQuery.data}
+      />
       {generationErrorMessage ? <div className="note note--danger">{generationErrorMessage}</div> : null}
       <ChatComposerPanel
         canCancel={Boolean(chatReplyGeneration.activeJob)}
+        draftMessage={draftMessage}
         isSending={chatReplyGeneration.isPending}
         onCancel={chatReplyGeneration.cancel}
+        onDraftMessageChange={setDraftMessage}
         onSend={async (message) => {
           await chatReplyGeneration.start(message);
         }}
